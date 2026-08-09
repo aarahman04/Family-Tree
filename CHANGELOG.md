@@ -1,0 +1,72 @@
+# Changelog
+
+All notable changes to this project are documented here. Format loosely follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [1.0.0] — Version 1.0 (first public release)
+
+The full pipeline, end to end: upload → parse → validate → explore → edit → export → download,
+verified against both synthetic fixtures and a real 473-person/136-family export, including a
+real Gramps import test.
+
+### Added
+- **FTZ parser** (`parser/`) — extracts and parses `node.ftt` from a `.ftz` archive into a
+  UUID-keyed internal `FamilyTree` model, preserving every original field even when unmapped.
+- **Validation engine** (`validation/`) — detects duplicate people, broken references, self-
+  marriage, self-parent, circular ancestry, gender/role mismatches, and families missing a
+  parent. Runs at import time and after every edit.
+- **GEDCOM 5.5.1 exporter** (`gedcom/`) — with an independent round-trip verifier and a real
+  Gramps import test against the generated file.
+- **Web application** (`web/`) — drag-and-drop upload, validation summary, and download, all
+  running client-side via a Web Worker so large trees never block the UI thread.
+- **Family tree explorer** — interactive visualization (React Flow + dagre), search by name/
+  ID, a bounded-neighborhood rendering strategy that keeps performance independent of total
+  tree size (verified at 10,000 people / 5,000 families).
+- **In-browser editing** (`editor/`) — correct name/date fields, assign or remove parents/
+  spouses/children, with automatic revalidation on every edit and full undo/redo. Edits exist
+  only for the current session; the original uploaded file is never modified.
+- **Accessibility** — keyboard navigation, screen-reader labeling, focus management, WCAG
+  1.4.1-compliant color-independent gender indicators, verified with `jest-axe`.
+- **Privacy pages and documentation** — explicit, verified claims about what data ever leaves
+  the browser (nothing).
+
+### Fixed
+*(all found through testing during development, before this first release — see
+`docs/audit-findings.md` for the two found specifically during the dedicated v1.0
+release-readiness audit)*
+- A family record could have its `FAMILY_MISSING_PARENT` validation check go stale after an
+  edit cleared a parent, since it compared against the original import-time snapshot instead
+  of the live tree.
+- `removeSpouse` incorrectly cleared both people from a family record instead of only the one
+  being removed, silently un-parenting the wrong person.
+- The person inspector's edit form could show stale (already-undone) data after an undo/redo
+  while the same person stayed selected, risking a silent "re-do" if the user saved again
+  without noticing.
+- **(v1.0 audit)** Exporting GEDCOM captured the tree by value at click time with nothing
+  preventing a concurrent edit; the downloaded file could silently not match what was on
+  screen. Editing is now paused for the moment an export is in flight.
+- The visualization always re-centered at a fixed zoom of 1, which routinely left grandparents,
+  spouses, or children just outside the viewport on real family clusters; it now fits the
+  whole current neighborhood into view.
+- **(v1.0 audit)** The explorer's canvas silently rendered nothing at all on mobile-width
+  viewports — a CSS flexbox percentage-height resolution edge case collapsed its container to
+  zero height. Only caught by real-browser, real-viewport testing; invisible to the jsdom test
+  suite.
+
+## Milestones 1–6 (pre-1.0 development)
+
+Built and verified incrementally, each with its own design/implementation documentation in
+`docs/`:
+
+1. **FTZ format analysis** — reverse-engineered the `.ftz`/`node.ftt` format from a real
+   sample export (`docs/ftz-format-spec.md`).
+2. **Validation design** — canonical internal data model, integrity checks, GEDCOM mapping
+   plan (`docs/data-model.md`, `docs/validation-report.md`, `docs/gedcom-mapping.md`).
+3. **Parser implementation** (`docs/parser-spec.md`, `docs/parser-implementation.md`).
+4. **GEDCOM exporter**, verified with a real Gramps import (`docs/gedcom-exporter.md`).
+5. **Public web application (MVP)** — upload, validate, convert, download.
+6. **Family tree explorer, editor & visualization** — everything described under "Added"
+   above (`docs/explorer-architecture.md`).
+7. **Version 1.0 release readiness** — engineering audit, real-dataset graph verification,
+   UX review, branding, GitHub release preparation, documentation audit, privacy/security
+   review, performance benchmarking (this release).

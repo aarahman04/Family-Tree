@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Five independent, individually-named jobs — each is meant to be added as a required
+# status check under GitHub branch protection (Settings → Branches → main → Require status
+# checks to pass), so a PR can't merge while any one of them is red. See DEPLOYMENT.md.
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: ESLint
+        working-directory: web
+        run: npm run lint
+      - name: Prettier
+        working-directory: web
+        run: npm run format:check
+
+  typecheck:
+    name: Type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Root package (parser/validation/editor/gedcom)
+        run: npm run typecheck
+      - name: Web app
+        working-directory: web
+        run: npm run typecheck
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Root package (104 tests)
+        run: npm test
+      # 66 tests, includes the accessibility tests too — see the dedicated Accessibility
+      # job below for an isolated, individually-reportable run of just those.
+      - name: Web app (66 tests)
+        working-directory: web
+        run: npm test
+
+  accessibility:
+    name: Accessibility checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: jest-axe automated checks
+        working-directory: web
+        run: npx vitest run tests/a11y
+
+  build:
+    name: Production build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build web app
+        working-directory: web
+        run: npm run build
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+          retention-days: 7
