@@ -11,10 +11,12 @@ its own preview URL, and no one needs to touch this document again for routine w
    configured — see `git remote -v`).
 2. **Connect the repository to Vercel**:
    - [vercel.com/new](https://vercel.com/new) → Import Git Repository → select this repo.
-   - Vercel will detect `vercel.json` at the repo root and use it directly. **Leave every
-     other setting at its default** — do not set a custom Root Directory, Build Command,
-     Output Directory, or Install Command in the dashboard; `vercel.json` already specifies
-     all of them and dashboard overrides would only risk drifting out of sync with it.
+   - Vercel will detect `vercel.json` at the repo root and use it directly. Leave Install
+     Command and Build Command on their `vercel.json` defaults. **Framework Preset and Root
+     Directory don't matter** — `vercel.json`'s `buildCommand` detects which one it got at
+     build time and adapts (see below), specifically because picking "Vite" in the import
+     wizard leads Vercel to set Root Directory to `web` for you, and fighting that with a
+     dashboard override is more fragile than just handling both cases.
    - Click **Deploy**.
 3. **Wait for the deployment to finish** (typically well under a minute — see
    `docs/performance-report.md` for build timing).
@@ -26,13 +28,25 @@ can apply) and background on why the automatic parts work the way they do.
 
 ## Why zero configuration is enough
 
-- **`vercel.json`** (repo root) gives Vercel explicit `installCommand` (`npm ci`),
-  `buildCommand` (`cd web && npm run build`), and `outputDirectory` (`web/dist`) — the same
-  commands CI runs, so there's no separate "how Vercel builds it" to drift out of sync with
-  "how CI validates it." `"framework": null` disables Vercel's zero-config framework
-  detection so it doesn't try to guess at settings for what looks like an unusual repo layout
-  (an npm-workspaces monorepo with the deployable app in `web/`) — everything it needs is
-  already explicit.
+- **`vercel.json`** (repo root) gives Vercel an explicit `installCommand` (`npm ci`) and a
+  self-adapting `buildCommand`:
+  ```
+  if [ -d web ]; then cd web && npm run build && rm -rf ../dist && mv dist ../dist; else npm run build; fi
+  ```
+  This exists because of a real, observed failure: Vercel's "Root Directory" project setting
+  can end up set to `web` (the import wizard suggests it when you pick Vite as the framework,
+  since that's genuinely where the Vite app's `package.json` lives) or left at the repo root,
+  and *which one* isn't something `vercel.json` can detect in advance — it depends on a
+  dashboard setting, not the repo. The command checks whether a `web` directory exists
+  relative to wherever the build actually starts: if so, it's at the repo root and needs to
+  `cd` in; if not, it's already inside `web/` (Root Directory was set to `web`) and runs the
+  build directly. Either way, the build output is normalized to `outputDirectory: "dist"`
+  interpreted relative to wherever the build started (moving `web/dist` up one level in the
+  repo-root case) — one static `outputDirectory` value that's correct in both cases. This is
+  the same command CI effectively validates too (`.github/workflows/ci.yml`'s `build` job runs
+  `npm run build` from inside `web/` directly), so there's no separate "how Vercel builds it"
+  to drift out of sync with "how CI validates it." `"framework": null` disables Vercel's
+  zero-config framework detection so it doesn't try to guess at settings on top of this.
 - **No SPA rewrite rules are needed.** The app uses hash-based routing (`#/about`, `#/privacy`
   — see `web/src/router.ts`), not the History API, so every route is really just `/` with a
   different URL fragment. There's no server-side routing concern to configure.
@@ -85,8 +99,14 @@ regardless of who's reviewing it.
 ## Verifying it worked
 
 After connecting the repo, Vercel's first deployment log should show, in order: `npm ci`
-installing both the root and `web` workspace, then `cd web && npm run build` running
-`tsc -b && vite build`, then a summary of the built `web/dist` output (matching what
-`docs/performance-report.md` documents locally: ~160KB gzipped JS+CSS). If any of that looks
-different, the dashboard's Root Directory or Build/Output settings have likely been manually
-overridden — clear them back to "inherit from vercel.json" rather than editing them directly.
+installing both the root and `web` workspace, then `tsc -b && vite build` running (either
+directly or after a `cd web`, depending on the Root Directory case above — both are correct),
+then a summary of the built output (matching what `docs/performance-report.md` documents
+locally: ~160KB gzipped JS+CSS). If the build fails with something like
+`cd: web: No such file or directory`, that means an *older* version of `vercel.json` (one
+that assumed a fixed Root Directory rather than detecting it) is deployed — pull the latest
+`main` and redeploy; the current `buildCommand` is written specifically not to make that
+assumption. If a build still fails after that, check the dashboard's Build/Output/Install
+Command fields under Settings → General — if any of them have been manually overridden away
+from "inherit from `vercel.json`" (via `... Override` toggles), clear the override rather than
+editing the value, so `vercel.json` is back in full control.
