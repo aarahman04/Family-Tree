@@ -283,3 +283,93 @@ describe("exportGedcom — validation and rejection", () => {
     expect(result.issues.some((i) => i.code === "UNMAPPED_FIELD_POPULATED")).toBe(true);
   });
 });
+
+describe("exportGedcom — literal '@' escaping (GEDCOM 5.5.1 compliance)", () => {
+  // Per the spec: "If an @ is desired as part of the line_value, it must be written in
+  // GEDCOM as a double @" -- e.g. "3 doz. @ $20.00" -> "3 doz. @@ $20.00". An unescaped "@"
+  // can be misread by a strict parser as the start of an @XREF@ pointer.
+
+  it("escapes an @ inside a note (e.g. an email address)", () => {
+    const tree = treeFrom([
+      personRow({ id: 1, name: "A Person", note: "Reachable at pat@example.com for questions" }),
+    ]);
+    const ged = exportGedcom(tree).gedcom!;
+    expect(ged).toContain("1 NOTE Reachable at pat@@example.com for questions");
+    expect(ged).not.toMatch(/1 NOTE Reachable at pat@example\.com/); // not the raw, unescaped form
+  });
+
+  it("escapes an @ inside a name", () => {
+    const tree = treeFrom([personRow({ id: 1, name: "Pat @Home" })]);
+    const ged = exportGedcom(tree).gedcom!;
+    expect(ged).toContain("1 NAME Pat /@@Home/");
+  });
+
+  it("escapes an @ inside a nickname", () => {
+    const tree = treeFrom([personRow({ id: 1, name: "Pat Smith", nickname: "@PatSmith" })]);
+    const ged = exportGedcom(tree).gedcom!;
+    expect(ged).toContain("2 NICK @@PatSmith");
+  });
+
+  it("escapes multiple @ symbols in a single value", () => {
+    const tree = treeFrom([
+      personRow({ id: 1, name: "A Person", note: "emails: a@b.com and c@d.com, handle @user" }),
+    ]);
+    const ged = exportGedcom(tree).gedcom!;
+    expect(ged).toContain("1 NOTE emails: a@@b.com and c@@d.com, handle @@user");
+  });
+
+  it("escapes a leading @ in a value", () => {
+    const tree = treeFrom([personRow({ id: 1, name: "A Person", note: "@handle joined the family" })]);
+    const ged = exportGedcom(tree).gedcom!;
+    expect(ged).toContain("1 NOTE @@handle joined the family");
+  });
+
+  it("escapes a trailing @ in a value", () => {
+    const tree = treeFrom([personRow({ id: 1, name: "A Person", note: "reach them at " })]);
+    // Build a note that ends in "@" directly, since personRow's note is a plain string.
+    const personId = Object.keys(tree.persons)[0]!;
+    tree.persons[personId]!.notes[0]!.text = "reach them at @";
+    const ged = exportGedcom(tree).gedcom!;
+    expect(ged).toContain("1 NOTE reach them at @@");
+  });
+
+  it("does not escape xref pointer values (FAMC/FAMS/HUSB/WIFE/CHIL/SUBM stay real pointers)", () => {
+    const tree = treeFrom(
+      [
+        personRow({ id: 1, name: "Dad @Home", famc: 0, gender: 1 }),
+        personRow({ id: 2, name: "Mom", gender: 2 }),
+        personRow({ id: 3, name: "Kid", famc: 10 }),
+      ],
+      [familyRow({ id: 10, husband: 1, wife: 2 })]
+    );
+    const ged = exportGedcom(tree).gedcom!;
+    // The name itself is escaped...
+    expect(ged).toContain("1 NAME Dad /@@Home/");
+    // ...but every actual xref pointer (FAMS/FAMC/HUSB/WIFE/CHIL/SUBM) is untouched, still a
+    // single "@", not doubled.
+    expect(ged).toMatch(/1 FAMS @F\d+@\n/);
+    expect(ged).toMatch(/1 FAMC @F\d+@\n/);
+    expect(ged).toMatch(/1 HUSB @I\d+@\n/);
+    expect(ged).toMatch(/1 WIFE @I\d+@\n/);
+    expect(ged).toMatch(/1 CHIL @I\d+@\n/);
+    expect(ged).toContain("1 SUBM @SUBM1@");
+    expect(ged).not.toMatch(/@@[FI]\d+@@/); // no doubled xref anywhere
+    expect(ged).not.toContain("@@SUBM1@@");
+  });
+
+  it("escapes the source file name if it contains an @", () => {
+    const tree = treeFrom([personRow({ id: 1, name: "A Person" })]);
+    const ged = exportGedcom(tree, { sourceFileName: "family@2024.ftz" }).gedcom!;
+    expect(ged).toContain("1 FILE family@@2024.ftz");
+  });
+
+  it("round-trip verification still passes with @ characters present in names and notes", () => {
+    const tree = treeFrom([
+      personRow({ id: 1, name: "Pat @Home", nickname: "@Pat", note: "email: pat@example.com" }),
+    ]);
+    const result = exportGedcom(tree);
+    expect(result.rejected).toBe(false);
+    const report = verifyRoundTrip(tree, result.gedcom!);
+    expect(report.passed).toBe(true);
+  });
+});

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FamilyTree, UUID } from "../../../../models/types.js";
 import { buildSearchIndex } from "../../lib/search.js";
 import { useExport } from "../../hooks/useExport.js";
@@ -11,6 +11,9 @@ import { SearchBox } from "./SearchBox.js";
 interface TreeExplorerProps {
   initialTree: FamilyTree;
   sourceFileName: string;
+  /** Notified on every edit-count change, so a parent that owns file-replace/clear actions
+   * can guard them against discarding unsaved work -- see web/src/lib/unsavedEdits.ts. */
+  onEditCountChange?: (count: number) => void;
 }
 
 /** Prefers the FTZ header's anchor person (see docs/ftz-format-spec.md) as the default view, falling back to any person deterministically. */
@@ -28,8 +31,15 @@ function resolveDefaultFocus(tree: FamilyTree): UUID | undefined {
  * inspector, search, and export into one screen. Mount a fresh instance per uploaded file
  * (see HomePage's `key` usage) so undo history never leaks across files.
  */
-export function TreeExplorer({ initialTree, sourceFileName }: TreeExplorerProps) {
+export function TreeExplorer({
+  initialTree,
+  sourceFileName,
+  onEditCountChange,
+}: TreeExplorerProps) {
   const { tree, canUndo, canRedo, editCount, edit, undo, redo } = useTreeEditor(initialTree);
+  useEffect(() => {
+    onEditCountChange?.(editCount);
+  }, [editCount, onEditCountChange]);
   const [focusPersonId, setFocusPersonId] = useState<UUID | undefined>(() =>
     resolveDefaultFocus(initialTree)
   );

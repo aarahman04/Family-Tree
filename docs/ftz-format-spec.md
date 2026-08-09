@@ -26,6 +26,48 @@ The top-level folder name inside the zip is arbitrary (`FamilyTree(2)` in the sa
 
 Field-count grouping was independently verified against the header counts and found 100% contiguous and exact — the header is trustworthy in this sample, but a parser should still validate rather than blindly trust it (see `parser-spec.md`).
 
+### Known limitation: no escaping mechanism for tab characters in free-text fields
+
+This format has no quoting or escaping convention for its own `\t` delimiter — investigated
+specifically (not assumed) as part of the v1.0 release audit, with three independent pieces of
+evidence:
+
+1. **No escape convention is described or implied anywhere in this reverse-engineered spec.**
+   There's no quote character, no `\\t`-style escape sequence, and no length-prefixing anywhere
+   in the format — every field is just "whatever's between two tabs."
+2. **The real sample shows zero anomalies across all 609 records.** A tab embedded in a free-
+   text field (name or note) would manifest as a row with more tab-separated fields than
+   expected (30 instead of 29 for a Person, 13 instead of 12 for a Family) — checking every
+   single record in `Family Tree FTZ/FamilyTree.ftz` found **473/473 Person rows with exactly
+   29 fields and 136/136 Family rows with exactly 12**, no exceptions. This is exactly the
+   signature a stray tab (or an embedded literal newline, which would show up as a split
+   physical line) would leave, and it's absent.
+3. **No unescaping logic exists anywhere in `parser/rows.ts`.** Every prior implementer who
+   worked on this parser looked at the same real data and independently reached the same
+   conclusion — there was never a reason to write one.
+
+**What actually happens today if this assumption is ever wrong** (verified with a synthetic
+fixture, not speculated): a tab injected into a Person's name field produces a 30-field row.
+The existing field-count-tolerance logic in `parser/build.ts` does catch the shape mismatch
+and raises an `EXTRA_FIELDS_PRESERVED` (info-level) issue — so it's not silent in the sense of
+"no signal at all" — but the actual column values for that one row genuinely shift and
+corrupt: in the test case, a name of `"Tab\tInjected Name"` parsed as name `"Tab"`, gender
+`unknown` (shifted from the real value), and birth year `2` (a nonsense value pulled from an
+unrelated column). The row is very obviously broken to a human looking at the parsed output,
+but the current `EXTRA_FIELDS_PRESERVED` message doesn't specifically say "this row's fields
+are shifted," only "extra field found" — someone would need to inspect the affected record to
+notice the corruption, not just read the validation message.
+
+**Decision: treat this as a documented, accepted limitation for v1.0, not a defect to fix
+speculatively.** The evidence above indicates it doesn't occur in real Quick Family Tree
+exports (consistent with the source app almost certainly being a normal mobile/desktop text
+input — tab is conventionally a field-navigation key, not literal typeable content, on both
+iOS/Android virtual keyboards and most desktop form widgets). Implementing defensive handling
+for a scenario with no evidence of ever occurring would be exactly the kind of speculative,
+unrequested change this project's own contribution standards argue against. If a second real
+sample or a user report ever surfaces a case where this assumption doesn't hold, revisit this
+section first — the failure mode above is exactly what to look for.
+
 ## Person record (29 fields)
 
 | # | Field | Type | Confidence | Notes / rationale |

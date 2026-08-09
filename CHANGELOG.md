@@ -29,11 +29,24 @@ real Gramps import test.
   1.4.1-compliant color-independent gender indicators, verified with `jest-axe`.
 - **Privacy pages and documentation** — explicit, verified claims about what data ever leaves
   the browser (nothing).
+- **Unsaved-edit protection** — a `beforeunload` warning (registered only while there are
+  actual unsaved edits) plus confirmation dialogs before Clear/Replace/navigating away from an
+  in-progress editing session; replacing the loaded file now parses and validates the new one
+  *before* touching the current session, so a failed or cancelled replacement leaves the
+  original tree completely untouched. See `docs/explorer-architecture.md`'s "Unsaved-edit
+  protection" section.
+- **Top-level error boundary** — an uncaught rendering error now shows a recovery screen
+  (with a "Return to upload screen" action and focus management matching the rest of the
+  app) instead of silently blanking the page. See `docs/explorer-architecture.md`'s "Error
+  recovery" section.
+- **ZIP archive size guards** — an uploaded `.ftz` is rejected, with a clear message, if its
+  compressed size or its `node.ftt` entry's declared uncompressed size is unreasonably large,
+  before extraction is attempted. See `docs/security-privacy-review.md`.
 
 ### Fixed
 *(all found through testing during development, before this first release — see
-`docs/audit-findings.md` for the two found specifically during the dedicated v1.0
-release-readiness audit)*
+`docs/audit-findings.md` for the ones found specifically during the dedicated v1.0
+release-readiness audits)*
 - A family record could have its `FAMILY_MISSING_PARENT` validation check go stale after an
   edit cleared a parent, since it compared against the original import-time snapshot instead
   of the live tree.
@@ -52,6 +65,17 @@ release-readiness audit)*
   viewports — a CSS flexbox percentage-height resolution edge case collapsed its container to
   zero height. Only caught by real-browser, real-viewport testing; invisible to the jsdom test
   suite.
+- **(v1.0 audit)** GEDCOM output never escaped a literal `@` character in names, nicknames,
+  notes, or the source file name, which the 5.5.1 spec requires (an unescaped `@` can be
+  misread as the start of an `@XREF@` pointer by a strict parser). Fixed and independently
+  confirmed via a real Gramps import/re-export round-trip.
+- **(v1.0 audit)** GEDCOM `CONC` line-wrapping could split a UTF-16 surrogate pair in half —
+  reproduced directly with an emoji placed near the ~200-character chunk boundary, corrupting
+  the character on both sides of the break. This predates the v1.0 audits entirely (original
+  Milestone 4 exporter code); the real sample's notes never happened to contain a
+  supplementary-plane character, so it went unnoticed until specifically tested for. Fixed
+  with a surrogate-aware chunk boundary and 35 regression tests sweeping multiple characters
+  across every offset around the boundary.
 
 ## Milestones 1–6 (pre-1.0 development)
 
@@ -69,4 +93,10 @@ Built and verified incrementally, each with its own design/implementation docume
    above (`docs/explorer-architecture.md`).
 7. **Version 1.0 release readiness** — engineering audit, real-dataset graph verification,
    UX review, branding, GitHub release preparation, documentation audit, privacy/security
-   review, performance benchmarking (this release).
+   review, performance benchmarking.
+8. **Stabilization passes** — two further rounds of adversarial review (each explicitly
+   trying to find reasons to reject the release rather than confirm it was ready) found and
+   fixed the data-loss, error-recovery, ZIP-safety, and GEDCOM-compliance issues described
+   under "Added"/"Fixed" above, and investigated (rather than speculatively "fixed") the
+   FTZ tab-delimiter question — see `docs/ftz-format-spec.md`'s "Known limitation" section
+   for the evidence behind that decision.

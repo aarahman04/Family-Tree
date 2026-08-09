@@ -48,6 +48,26 @@ plumbing to quietly extend — there's nothing to accidentally wire up.
   rather than a discipline the code has to maintain.
 - Refreshing or closing the tab discards everything — there is no browser storage to survive
   it (see above).
+- Accidental loss of in-progress *edits* (as opposed to the original file, which this section
+  covers) is a separate, since-closed concern — see `docs/explorer-architecture.md`'s
+  "Unsaved-edit protection" section for the `beforeunload`/confirmation-dialog system added
+  after a release-readiness audit flagged the previous version as a data-loss risk.
+
+### ZIP archive size guards
+
+`parser/zip.ts` rejects an uploaded archive before extraction if either its whole compressed
+size, or its `node.ftt` entry's *declared* uncompressed size (read from the ZIP's own central
+directory, before that entry is ever decompressed), exceeds a generous ceiling — 200MB and
+50MB respectively, chosen to comfortably exceed any realistic family tree (the real sample
+this project was built against is 10.8KB) while still catching a corrupted or maliciously
+crafted archive before the browser tab spends time and memory extracting it. A decompression
+bomb — a tiny compressed file engineered to expand to gigabytes — is the specific scenario
+this defends against; it was verified against a real (if mild) bomb-style fixture in
+`tests/zip.test.ts`, not just reasoned about. This is a hardening measure, not a response to
+any known attack against this specific app (it's entirely client-side, so the only person an
+oversized file could affect is whoever chose to open it), but the app explicitly invites
+arbitrary user-selected files, so guarding against a hung or crashed tab was judged worth the
+small, self-contained check.
 
 ## Downloads
 

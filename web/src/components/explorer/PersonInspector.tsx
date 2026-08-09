@@ -44,8 +44,32 @@ interface Draft {
   notes: string;
 }
 
+const EMPTY_DRAFT: Draft = {
+  name: "",
+  nickname: "",
+  gender: "unknown",
+  birthYear: "",
+  birthMonth: "",
+  birthDay: "",
+  deathYear: "",
+  deathMonth: "",
+  deathDay: "",
+  notes: "",
+};
+
+/**
+ * Returns a safe empty draft if `personId` isn't (or is no longer) in the tree, rather than
+ * throwing on a raw lookup -- the render body below already has its own `if (!person) return
+ * null` guard that's the real handling for this case; this just has to not crash in the
+ * narrow window before that guard takes effect (e.g. the initial useState/useEffect calls
+ * below run before any render-body check can short-circuit). No edit operation can currently
+ * remove a person from the tree, so this path isn't reachable today, but it's cheap
+ * insurance against becoming a real crash the moment one is added (see docs/roadmap.md's
+ * planned duplicate-merge feature).
+ */
 function draftFromPerson(tree: FamilyTree, personId: UUID): Draft {
-  const p = tree.persons[personId]!;
+  const p = tree.persons[personId];
+  if (!p) return EMPTY_DRAFT;
   return {
     name: p.name,
     nickname: p.nickname ?? "",

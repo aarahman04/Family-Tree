@@ -56,3 +56,34 @@ describe("parseFtzFile (archive layer)", () => {
     await expect(parseFtzFile(bytes)).rejects.toThrow(FtzParseError);
   });
 });
+
+describe("parseFtzFile — archive size guards", () => {
+  it("rejects a whole archive over the compressed-size limit before ever attempting to open it as a zip", async () => {
+    const { MAX_ARCHIVE_BYTES } = await import("../parser/zip.js");
+    // Content doesn't matter -- the whole-archive check happens before JSZip.loadAsync is
+    // ever called, purely on byteLength, so this doesn't need to be a real/valid zip at all.
+    const oversized = new ArrayBuffer(MAX_ARCHIVE_BYTES + 1);
+    await expect(parseFtzFile(oversized)).rejects.toThrow(/file too large/i);
+  });
+
+  it("rejects a node.ftt entry whose declared uncompressed size exceeds the per-entry limit, without decompressing it", async () => {
+    const { MAX_ENTRY_UNCOMPRESSED_BYTES } = await import("../parser/zip.js");
+    // A real (if mild) decompression-bomb-style fixture: highly repetitive content compresses
+    // to almost nothing, so this zip is small and fast to build/hold in memory, while its
+    // DECLARED uncompressed size genuinely exceeds the limit -- proving the guard reads the
+    // zip's own declared size rather than needing to fully decompress first to notice.
+    const zip = new JSZip();
+    const bomb = "0".repeat(MAX_ENTRY_UNCOMPRESSED_BYTES + 1024);
+    zip.file("FamilyTree(1)/node.ftt", bomb, { compression: "DEFLATE" });
+    const bytes = await zip.generateAsync({ type: "uint8array" });
+
+    await expect(parseFtzFile(bytes)).rejects.toThrow(/archive entry too large/i);
+  }, 20000);
+
+  it("does not reject a normal, real-scale archive", async () => {
+    const text = buildNodeFtt([personRow({ id: 1, name: "A" })], []);
+    const bytes = await buildFtz(text);
+    const { tree } = await parseFtzFile(bytes, "normal.ftz");
+    expect(Object.keys(tree.persons)).toHaveLength(1);
+  });
+});

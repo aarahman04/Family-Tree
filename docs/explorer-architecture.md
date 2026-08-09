@@ -112,6 +112,68 @@ This design makes rendering cost independent of total tree size: a 10,000-person
 
 **Per-person form state** lives inside `PersonInspector` as a local `draft`, separate from the live tree, so in-progress typing survives re-renders without being committed until "Save changes." This introduced a real bug during development: the original code only resynced `draft` from the tree when `personId` itself changed, so an undo/redo (or any other edit) that changed the *currently-selected* person's data left the form showing stale values — clicking "Save changes" again with no further typing would have silently redone the just-undone edit. Fixed with a `dirtyRef` that tracks whether the user has unsaved typing: a second `useEffect` keyed on the `person` object reference (which changes on any edit touching that person, via `editor/helpers.ts`'s immutable `withPerson`) resyncs the draft whenever the underlying data changes **and** there's no unsaved typing in progress. Covered by `web/tests/integration/explorer.test.tsx`'s "undo resyncs the edit form itself, not just the heading" test, and reproduced/confirmed fixed against the real sample file in a live browser (see Testing below).
 
+### Unsaved-edit protection (`web/src/lib/unsavedEdits.ts`)
+
+Since edits live only in memory (by design — see "Session Handling" above), an accidental tab
+close, refresh, in-app "Clear"/"Replace file" click, or navigation away from Home could
+silently discard everything a user has done in a session. This is guarded on three fronts,
+added in a dedicated stabilization pass after a release-readiness audit flagged it as a
+release blocker — data loss is exactly the risk the whole undo/redo and immutable-tree design
+elsewhere in this document exists to prevent, so it needed a real fix, not just a caveat.
+
+- **`beforeunload`** (`HomePage.tsx`) is added via a `useEffect` keyed on
+  `editCount > 0`, and removed the instant that flips back to zero — registered only while
+  there's something to lose, exactly as specified, not permanently-with-an-internal-no-op.
+- **A shared module-level flag** (`unsavedEdits.ts`'s `setHasUnsavedEdits`/
+  `confirmDiscardIfUnsaved`) lets `Header.tsx`'s navigation links guard themselves too, since
+  navigating from Home to About/Privacy unmounts `HomePage` (destroying its state) without
+  ever triggering `beforeunload` — a hash change isn't a page unload. A plain shared module
+  was used instead of React Context deliberately: the only two consumers (`HomePage`, the
+  writer; `Header`, the reader) are siblings with no other shared state, and a Context
+  provider just for this one boolean would be more structural surface than the problem
+  warrants. `confirmDiscardIfUnsaved` is a no-op (no dialog) whenever there's nothing to lose.
+- **"Replace file" parses and validates the new file before touching any state.**
+  `useFtzConversion.ts`'s `selectFile` checks whether it's replacing an already-loaded tree
+  (`isReplace`); if so, `state` is never written to except on a successful parse — a failed or
+  wrong-extension replacement surfaces `window.alert(...)` and leaves the original tree,
+  filename, and edit history completely untouched. This closed a real bug: the previous
+  version transitioned to a new/error state *before* attempting to parse the replacement, so
+  even a failed replace destroyed the working session for nothing.
+
+Covered by `web/tests/integration/unsavedEdits.test.tsx` (12 tests: beforeunload registration,
+Clear/Replace/navigation confirmation and cancellation, the parse-before-replace guarantee)
+and `web/tests/lib/unsavedEdits.test.ts` (the guard module in isolation). Also verified in a
+real headless-Chromium browser — jsdom's `window.confirm`/`alert` are mocked, not real, in the
+test suite, so the actual native-dialog behavior (message text, cancel preserving the session,
+accept applying it) was checked independently in a genuine browser as well.
+
+## Error recovery
+
+`web/src/components/ErrorBoundary.tsx` wraps the whole app (`main.tsx`) and catches any
+uncaught rendering error, showing a "Something went wrong" recovery screen with a "Return to
+upload screen" action instead of React's default — unmounting the entire tree to a blank white
+page. This matters specifically *because* there's no autosave: without it, a single rendering
+bug anywhere would silently destroy a user's in-session edits with no explanation and no way
+back. "Return to upload screen" does a full page reload (not just clearing local component
+state) deliberately — an error this boundary catches means some part of the React tree's state
+can no longer be trusted, so the only honest recovery is a genuinely fresh start.
+
+Necessarily a class component — `componentDidCatch`/`getDerivedStateFromError` have no hook
+equivalent in React as of version 18 — which also means it can't reuse the `useAutoFocus` hook
+every other transient panel in this app uses to move keyboard focus to itself on appearance.
+It replicates the same behavior manually instead of skipping it: `componentDidMount` covers an
+error thrown during the boundary's very first render (no prior commit exists for
+`componentDidUpdate` to compare against in that case), and `componentDidUpdate` covers an
+error appearing later, after some number of successful renders. Both paths are exercised
+directly in `web/tests/components/ErrorBoundary.test.tsx`.
+
+The two raw `tree.persons[id]!` assertions this component's own error surface made worth
+double-checking (`PersonInspector.tsx`'s `draftFromPerson`, `FamilyTreeCanvas.tsx`'s node
+mapping) were replaced with safe fallbacks — an empty draft and a skipped node, respectively —
+rather than left to throw. Neither is reachable today (no `editor/` operation deletes a
+person), but `docs/roadmap.md`'s planned duplicate-merge feature would change that, and the
+fix was cheap insurance against it becoming a real crash later.
+
 ## Performance considerations
 
 - **Bounded neighborhood, not virtualization of the whole tree** (see Visualization architecture above) is the primary performance strategy — it avoids the problem (rendering thousands of nodes) rather than optimizing the rendering of it.
@@ -132,6 +194,8 @@ This design makes rendering cost independent of total tree size: a 10,000-person
 - **`web/tests/performance/largeTree.test.ts`**: synthetic 10,000-person/5,000-family tree, asserting neighborhood computation and layout stay fast regardless of total tree size.
 - **Real-sample and real-browser verification**: the existing real-FTZ-sample tests (`tests/real-sample.test.ts`, `web/tests/integration/conversion-flow.test.tsx`) continue to pass unmodified. Additionally, the full explore → search → select → canvas-node-click → edit → undo → redo → export → About/Privacy-page flow was driven end-to-end in a real headless Chromium browser (Playwright) against the actual 473-person/136-family sample file, with zero console or page errors — this is also how the draft-resync bug above was originally caught (the jsdom test suite alone did not check the *form field's* value after an undo, only the heading), and how a real mobile-viewport bug was caught (see Known limitations).
 - **jsdom cannot catch CSS layout bugs**: jsdom implements no real layout engine — `getBoundingClientRect` is stubbed to a constant fake size regardless of the actual CSS (see `web/tests/setup.ts`), so a whole class of bug (wrong flexbox sizing, a collapsed-height container, a broken responsive breakpoint) is structurally invisible to the jsdom test suite no matter how much coverage it has. This is why real-browser, real-viewport verification (Playwright, across desktop/tablet/mobile widths) is a required part of testing this component, not an optional extra.
+- **jsdom also doesn't implement `window.confirm`/`window.alert`** — every test exercising the unsaved-edits guards (above) stubs them explicitly with `vi.spyOn`. The real native dialogs (message text, blocking behavior, cancel vs. accept) were separately verified in a real headless-Chromium browser rather than trusted to the mock alone.
+- **`web/tests/lib/unsavedEdits.test.ts`**, **`web/tests/integration/unsavedEdits.test.tsx`**, **`web/tests/components/ErrorBoundary.test.tsx`**: cover the data-loss protection and error-recovery systems described above.
 
 ## Accessibility
 
@@ -139,6 +203,7 @@ This design makes rendering cost independent of total tree size: a 10,000-person
 - Gender is distinguished by glyph (♂/♀) in addition to border/background color, per WCAG 1.4.1 (color is never the only differentiator).
 - The person-count/validation summary line uses `role="status"` so screen readers announce it as it changes after an edit.
 - `PersonInspector` moves focus to the newly-selected person's heading on every navigation (not just on mount, since the panel stays mounted across selections), so keyboard/screen-reader users land somewhere meaningful after a jump.
+- `ErrorBoundary`'s recovery screen does the same (see "Error recovery" above) — added after a review specifically caught it as the one transient panel in the app that *didn't* follow this pattern, leaving a keyboard user's focus stranded exactly when the app's own last-resort safety net triggers.
 - Verified with `jest-axe` in `web/tests/a11y/axe.test.tsx` against the explorer screen loaded with the real sample data.
 
 ## Known limitations

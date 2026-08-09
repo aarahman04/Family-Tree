@@ -1,15 +1,22 @@
 # Engineering Audit — Version 1.0 Release Findings
 
-Performed as part of Milestone 7 (release readiness). Scope: parser, validation, editor,
-visualization, GEDCOM exporter, UI, worker communication, state management, tests,
-accessibility, and performance — looking specifically for hidden assumptions, edge cases,
-race conditions, stale state, duplicate logic, memory leaks, unnecessary renders, scalability
-issues, and browser compatibility issues. This document reports what was found; two issues
-were real and are now fixed, everything else reviewed and confirmed sound.
+Three successive rounds of review, each deliberately adversarial — instructed to try to
+*reject* the release rather than confirm it, reviewing as an outside maintainer seeing the
+code for the first time rather than re-confirming prior conclusions. Each round found real,
+previously-unnoticed issues; this document is the running record of all of them, in the order
+found. See `CHANGELOG.md` for the shorter, user-facing summary.
 
-## Findings that were real bugs, and are fixed
+## Round 1 (Milestone 7 release-readiness audit)
 
-### 1. Export-during-edit race could produce a download that doesn't match the screen
+Scope: parser, validation, editor, visualization, GEDCOM exporter, UI, worker communication,
+state management, tests, accessibility, and performance — looking specifically for hidden
+assumptions, edge cases, race conditions, stale state, duplicate logic, memory leaks,
+unnecessary renders, scalability issues, and browser compatibility issues. Two issues were
+real and were fixed; everything else reviewed and confirmed sound.
+
+### Findings that were real bugs, and are fixed
+
+#### 1. Export-during-edit race could produce a download that doesn't match the screen
 
 **Where:** `web/src/hooks/useExport.ts`, `web/src/components/explorer/TreeExplorer.tsx`,
 `web/src/components/explorer/PersonInspector.tsx`.
@@ -35,7 +42,7 @@ paused while an export is in flight") makes a real edit, starts a real (artifici
 in-the-test-mock) export, and asserts both the Save button and the Undo button are disabled
 mid-flight, then re-enable once the export resolves.
 
-### 2. The explorer canvas rendered completely blank on mobile-width viewports
+#### 2. The explorer canvas rendered completely blank on mobile-width viewports
 
 **Where:** `web/src/components/explorer/TreeExplorer.tsx`,
 `web/src/components/explorer/FamilyTreeCanvas.tsx`.
@@ -68,7 +75,7 @@ out explicitly in `CONTRIBUTING.md` and `docs/explorer-architecture.md` as a rea
 browser verification at multiple widths is a required step for layout-touching changes, not
 an optional extra.
 
-## Also found and fixed: a UX gap in "center on selection"
+### Also found and fixed: a UX gap in "center on selection"
 
 Not a defect exactly, but the same investigation that surfaced the mobile bug above also
 found that the canvas's "center on the selected person" behavior used a fixed zoom of 1
@@ -80,7 +87,7 @@ with React Flow's `fitView`, scoped to the whole current neighborhood rather tha
 focus point, so nothing relevant is hidden right after a search or navigation. See
 `docs/explorer-architecture.md` for the full writeup.
 
-## Reviewed and confirmed sound
+### Reviewed and confirmed sound
 
 - **Worker lifecycle** (`web/src/worker/workerClient.ts`) — a fresh Worker per request,
   always terminated on both the success and error paths. No accumulation of live worker
@@ -118,7 +125,7 @@ focus point, so nothing relevant is hidden right after a search or navigation. S
   browser-compatibility gap (`DOMMatrixReadOnly` missing) turned out to be a jsdom-only gap,
   not a real one — see `web/tests/setup.ts`'s polyfill comments.
 
-## Family graph verification (real dataset)
+### Family graph verification (real dataset)
 
 Verified directly against the real 473-person/136-family sample (see
 `docs/performance-report.md` for the same dataset's timing numbers):
@@ -143,3 +150,76 @@ Verified directly against the real 473-person/136-family sample (see
   simply not including unreachable people in that focus's neighborhood, which is correct
   behavior, but it's confirmed by the synthetic tests in `web/tests/lib/neighborhood.test.ts`
   rather than by this real-data check.)
+
+## Round 2 (adversarial "stranger's PR" review)
+
+Explicitly instructed to critically inspect the project as an experienced maintainer
+reviewing a pull request from someone unknown, challenging every subsystem rather than
+confirming it — looking for hidden bugs, edge cases, accessibility issues, UX problems,
+performance bottlenecks, security concerns, maintainability issues, and anything that could
+cause users to lose data. Found four issues serious enough to block release; all four fixed.
+
+### Findings that were real bugs, and are fixed
+
+1. **No protection against accidental loss of in-session edits.** Three converging gaps: no
+   `beforeunload` handler at all; "Clear" and "Replace file" destroyed the current session
+   with one click and zero confirmation, remaining clickable even mid-edit; "Replace file"
+   transitioned state (destroying the old tree) *before* validating the new file, so even a
+   failed replacement destroyed the working session for nothing. Fixed with the
+   `beforeunload`/confirmation-dialog system and parse-before-replace logic described in
+   `docs/explorer-architecture.md`'s "Unsaved-edit protection" section.
+2. **GEDCOM output never escaped a literal `@` character.** A 5.5.1 spec-compliance bug —
+   reproduced directly with a name/note containing an `@`. Fixed; see
+   `docs/gedcom-exporter.md`'s "GEDCOM 5.5.1 spec-compliance details" section.
+3. **No error boundary anywhere in the app.** An uncaught rendering error blanked the entire
+   page with no recovery path, which — combined with finding 1's original absence of any
+   data-loss protection — meant any rendering bug was a guaranteed total data-loss event, not
+   just a visual glitch. Fixed; see `docs/explorer-architecture.md`'s "Error recovery" section.
+4. **No size limit on uploaded ZIP archives.** A decompression-bomb-style file (small
+   compressed size, huge declared uncompressed size) could hang or crash the tab. Fixed with
+   the guards described in `docs/security-privacy-review.md`'s "ZIP archive size guards"
+   section.
+
+### Reviewed and confirmed sound (this round)
+
+- **Licensing** — every production dependency is MIT, or (jszip) dual-licensed MIT/GPL-3.0
+  and consumed here under the MIT option; no conflict with this project's own MIT license.
+- **XSS surface** — no `dangerouslySetInnerHTML` anywhere in the app; all user-controlled
+  text (names, notes) is rendered as ordinary React text content, which auto-escapes.
+
+## Round 3 (adversarial review, second pass — "reject if you can")
+
+Same brief as Round 2, explicitly re-run with instructions to ignore prior conclusions and
+specifically avoid re-confirming Round 2's own fixes. Found three more issues.
+
+### Findings that were real bugs, and are fixed
+
+1. **GEDCOM `CONC` chunking could split a UTF-16 surrogate pair.** A pre-existing bug
+   (original Milestone 4 code, untouched by Round 2), reproduced directly with an emoji
+   placed near the ~200-character chunk boundary — both halves of the split pair became
+   invalid, corrupted text. It survived the original Gramps test and both prior audit rounds
+   because the real sample's notes don't happen to contain a supplementary-plane character.
+   Fixed with a surrogate-aware chunk boundary; see `docs/gedcom-exporter.md`.
+2. **`ErrorBoundary` (added in Round 2) didn't move keyboard focus to itself**, unlike every
+   other transient panel in the app (`ErrorPanel`, `DownloadPanel`, via the existing
+   `useAutoFocus` hook) — a genuine accessibility regression in code that was, at the time,
+   only two rounds old. Fixed with a manual focus-management implementation (a class
+   component can't use the hook directly); see `docs/explorer-architecture.md`.
+3. **The entire Round 2 stabilization pass was undocumented.** None of the data-loss
+   protection, error boundary, ZIP guards, or GEDCOM escaping work appeared anywhere in
+   `docs/` or `CHANGELOG.md` at the time of this review. Closed by this same documentation
+   pass — see the updated sections referenced throughout this document.
+
+### Investigated, not fixed (evidence didn't support a fix)
+
+**Whether the FTZ tab-delimited format needs escaping support for tab characters inside
+free-text fields.** Explicitly investigated with real evidence rather than either assumed or
+speculatively coded around: no escape convention appears anywhere in the reverse-engineered
+format spec; the real 473-person/136-family sample shows zero field-count anomalies across
+all 609 records (the signature a stray tab would leave); no unescaping logic exists in
+`parser/rows.ts`. A synthetic fixture confirmed the actual failure mode if this assumption is
+ever wrong (a shifted, corrupted row, flagged at info-level via `EXTRA_FIELDS_PRESERVED` but
+not clearly explained as such). Documented as an accepted, evidence-backed limitation rather
+than defended against speculatively — full writeup and reasoning in
+`docs/ftz-format-spec.md`'s "Known limitation" section and `docs/architecture-plan.md`'s
+"Hidden assumptions" list.

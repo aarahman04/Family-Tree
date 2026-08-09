@@ -3,7 +3,7 @@ import { formatGedcomDate } from "./date.js";
 import { findUnmappedPopulatedFields } from "./fields.js";
 import { formatGedcomName } from "./name.js";
 import { validateForExport } from "./validate.js";
-import { GedcomWriter } from "./writer.js";
+import { GedcomWriter, escapeGedcomValue } from "./writer.js";
 import { XrefAllocator } from "./xref.js";
 
 export interface ExportOptions {
@@ -22,7 +22,7 @@ function writeIndi(writer: GedcomWriter, xrefs: XrefAllocator, person: Person, i
   const xref = xrefs.personXref.get(person.id)!;
   writer.lineWithXref(0, xref, "INDI");
   writer.line(1, "NAME", formatGedcomName(person.name));
-  if (person.nickname) writer.line(2, "NICK", person.nickname);
+  if (person.nickname) writer.line(2, "NICK", escapeGedcomValue(person.nickname));
   writer.line(1, "SEX", genderToSex(person.gender));
 
   if (person.birth) {
@@ -65,7 +65,7 @@ function writeIndi(writer: GedcomWriter, xrefs: XrefAllocator, person: Person, i
   }
 
   for (const note of person.notes) {
-    writer.line(1, "NOTE", note.text);
+    writer.line(1, "NOTE", escapeGedcomValue(note.text));
   }
 
   if (person.ftzId !== undefined) {
@@ -105,7 +105,7 @@ function writeHeader(writer: GedcomWriter, sourceFileName: string | undefined): 
   writer.line(2, "VERS", "5.5.1");
   writer.line(2, "FORM", "LINEAGE-LINKED");
   writer.line(1, "CHAR", "UTF-8");
-  writer.line(1, "FILE", sourceFileName ?? "export.ged");
+  writer.line(1, "FILE", escapeGedcomValue(sourceFileName ?? "export.ged"));
   writer.line(1, "SUBM", "@SUBM1@");
   writer.line(0, "@SUBM1@", "SUBM");
   writer.line(1, "NAME", "Unknown");

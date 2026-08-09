@@ -68,6 +68,36 @@ No change from `docs/gedcom-mapping.md`'s analysis. As of this milestone, that a
 3. Fields with no GEDCOM equivalent and (verified) no data in the real sample are documented as intentionally not exported (layout coordinates), rather than either fabricating a custom tag for them or leaving their absence unexplained.
 4. The internal model itself (`Person.raw`/`Family.raw`, from Milestone 3) is untouched by exporting — the *source of truth* never loses anything regardless of what any one export format can represent. GEDCOM export is a projection, not a migration.
 
+## GEDCOM 5.5.1 spec-compliance details
+
+Two correctness issues were found and fixed during the v1.0 stabilization pass, both in
+`gedcom/writer.ts`:
+
+- **Literal `@` escaping.** Per the 5.5.1 spec, a literal `@` in a line's value must be
+  doubled (`@@`) — an unescaped one can be misread by a strict parser as the start of an
+  `@XREF@` pointer. `escapeGedcomValue()` applies this to genuine free text only — name
+  (`gedcom/name.ts`'s `formatGedcomName`), nickname, note text, and the source file name —
+  never to values that are themselves pointer references (`FAMC`/`FAMS`/`HUSB`/`WIFE`/`CHIL`/
+  `SUBM`), which must reach the output unescaped or every relationship in the file would
+  break. Verified with 9 tests (`tests/gedcom-export.test.ts`) covering an email address, `@`
+  in a name/nickname, multiple `@`, leading `@`, trailing `@`, and — critically — that pointer
+  values stay untouched. Also independently confirmed via a real Gramps import/re-export: a
+  fixture with `@` in a name, nickname, and note imported with "No errors detected," and
+  Gramps' own re-export round-tripped every escaped value faithfully.
+- **UTF-16 surrogate-pair-safe line chunking.** Values longer than ~200 characters are
+  wrapped into `CONC` continuation lines; the boundary is picked by `safeChunkLength()`, which
+  never lands between the two 16-bit code units of a surrogate pair (how most emoji and some
+  rare CJK/mathematical characters are represented in JS's UTF-16 strings). Before this fix, a
+  naive `.slice()` at a fixed offset could — and, reproduced directly, did — cut a pair in
+  half, corrupting the character on both sides of the line break, silently, for any name or
+  note containing an emoji that happened to fall near a chunk boundary. This predates the
+  stabilization pass (the chunking logic is original Milestone 4 code); it survived the
+  original Gramps test only because the real sample's notes don't happen to contain
+  supplementary-plane characters. Verified with 35 tests
+  (`tests/gedcom-writer.test.ts`) sweeping three different supplementary characters across
+  every offset in a window around the chunk boundary, checking both "no line contains a lone
+  surrogate" and "reassembling every emitted line reproduces the original text exactly."
+
 ## Round-trip verification
 
 `gedcom/verify.ts` independently re-parses the generated GEDCOM text (a from-scratch line scanner, not reusing the exporter's own bookkeeping) and diffs person/family counts, every FAMC/FAMS/HUSB/WIFE/CHIL relationship, note counts, and the cousin-marriage/shared-ancestor rate against the source tree. "Independent" is verified, not just claimed: `tests/gedcom-verify.test.ts` deliberately feeds the verifier corrupted GEDCOM text (a missing INDI, a wrong HUSB pointer, a missing NOTE, a duplicate xref, a missing FAM) and confirms it actually catches each one — a verifier that only ever agrees with correct input isn't proven to work.

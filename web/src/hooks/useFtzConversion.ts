@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { FamilyTree, ValidationState } from "../../../models/types.js";
 import { runWorkerTask } from "../worker/workerClient.js";
 
@@ -22,6 +22,9 @@ export type ConversionState =
 const ACCEPTED_EXTENSION = ".ftz";
 
 function friendlyParseError(message: string): string {
+  if (message.includes("file too large") || message.includes("archive entry too large")) {
+    return message; // already written as a clear, specific, user-facing explanation — see parser/zip.ts
+  }
   if (message.includes("node.ftt not found")) {
     return "This ZIP file doesn't contain a node.ftt file, so it doesn't look like a Quick Family Tree export.";
   }
@@ -43,14 +46,30 @@ function friendlyParseError(message: string): string {
  */
 export function useFtzConversion() {
   const [state, setState] = useState<ConversionState>({ stage: "idle" });
+  // True while a *replacement* file (one chosen while a tree is already loaded) is being
+  // parsed/validated in the background. `state` itself is never touched during this window --
+  // only on success -- so a failed or cancelled replace leaves the current session completely
+  // untouched. Kept in sync via render-time assignment (not an effect) so selectFile, which
+  // fires from a user event well after the current render has committed, always reads the
+  // latest stage rather than a stale one captured when this stable callback was first created.
+  const [isReplacing, setIsReplacing] = useState(false);
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   const selectFile = useCallback(async (file: File) => {
+    const isReplace = stateRef.current.stage === "validated";
+
     if (!file.name.toLowerCase().endsWith(ACCEPTED_EXTENSION)) {
+      const userMessage = `"${file.name}" doesn't look like an FTZ file. Please choose a file ending in ${ACCEPTED_EXTENSION}.`;
+      if (isReplace) {
+        window.alert(userMessage);
+        return;
+      }
       setState({
         stage: "error",
         phase: "parse",
         file: { name: file.name, size: file.size },
-        userMessage: `"${file.name}" doesn't look like an FTZ file. Please choose a file ending in ${ACCEPTED_EXTENSION}.`,
+        userMessage,
         technicalDetails: `Rejected file with extension ".${
           file.name.split(".").pop() ?? ""
         }"; expected ${ACCEPTED_EXTENSION}.`,
@@ -59,7 +78,11 @@ export function useFtzConversion() {
     }
 
     const fileMeta: FileMeta = { name: file.name, size: file.size };
-    setState({ stage: "parsing", file: fileMeta });
+    if (isReplace) {
+      setIsReplacing(true);
+    } else {
+      setState({ stage: "parsing", file: fileMeta });
+    }
 
     try {
       const buffer = await file.arrayBuffer();
@@ -68,6 +91,8 @@ export function useFtzConversion() {
         [buffer]
       );
       if (response.type === "parse:success") {
+        // Only point where a replace attempt is allowed to touch `state` -- the new file is
+        // fully parsed and validated by this point, so it's safe to swap it in.
         setState({
           stage: "validated",
           file: fileMeta,
@@ -75,26 +100,33 @@ export function useFtzConversion() {
           validation: response.validation,
         });
       } else if (response.type === "parse:error") {
-        setState({
-          stage: "error",
-          phase: "parse",
-          file: fileMeta,
-          userMessage: friendlyParseError(response.message),
-          technicalDetails: response.stack ?? response.message,
-        });
+        const userMessage = friendlyParseError(response.message);
+        if (isReplace) {
+          window.alert(userMessage);
+        } else {
+          setState({
+            stage: "error",
+            phase: "parse",
+            file: fileMeta,
+            userMessage,
+            technicalDetails: response.stack ?? response.message,
+          });
+        }
       }
     } catch (err) {
-      setState({
-        stage: "error",
-        phase: "parse",
-        file: fileMeta,
-        userMessage: "Something unexpected went wrong while reading this file.",
-        technicalDetails: err instanceof Error ? (err.stack ?? err.message) : String(err),
-      });
+      const userMessage = "Something unexpected went wrong while reading this file.";
+      const technicalDetails = err instanceof Error ? (err.stack ?? err.message) : String(err);
+      if (isReplace) {
+        window.alert(userMessage);
+      } else {
+        setState({ stage: "error", phase: "parse", file: fileMeta, userMessage, technicalDetails });
+      }
+    } finally {
+      if (isReplace) setIsReplacing(false);
     }
   }, []);
 
   const reset = useCallback(() => setState({ stage: "idle" }), []);
 
-  return { state, selectFile, reset };
+  return { state, isReplacing, selectFile, reset };
 }

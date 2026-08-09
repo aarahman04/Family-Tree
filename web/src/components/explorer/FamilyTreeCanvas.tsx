@@ -56,25 +56,32 @@ function CanvasInner({
 
   const nodes: Node<PersonNodeData>[] = useMemo(
     () =>
-      nodeIds.map((id) => {
-        const person = tree.persons[id]!;
+      // flatMap + [] rather than map + `!`: computeNeighborhood only ever includes ids that
+      // resolve in the SAME tree it was computed from, so this is unreachable today (no edit
+      // operation deletes a person), but skipping one bad id keeps the other ~149 nodes on
+      // screen instead of taking the whole canvas down if that ever stops being true.
+      nodeIds.flatMap((id) => {
+        const person = tree.persons[id];
+        if (!person) return [];
         const pos = positions.get(id) ?? { x: 0, y: 0 };
-        return {
-          id,
-          type: "person",
-          position: pos,
-          data: {
-            label: person.name.trim() || "(no name)",
-            gender: person.gender,
-            birthYear: person.birth?.date?.year,
-            deathYear: person.death?.date?.year,
-            selected: id === selectedPersonId,
-            expandable: expandable.has(id),
-            hasWarning: warningPersonIds.has(id),
-            onSelect: () => onSelectPerson(id),
-            onExpand: () => onExpand(id),
+        return [
+          {
+            id,
+            type: "person",
+            position: pos,
+            data: {
+              label: person.name.trim() || "(no name)",
+              gender: person.gender,
+              birthYear: person.birth?.date?.year,
+              deathYear: person.death?.date?.year,
+              selected: id === selectedPersonId,
+              expandable: expandable.has(id),
+              hasWarning: warningPersonIds.has(id),
+              onSelect: () => onSelectPerson(id),
+              onExpand: () => onExpand(id),
+            },
           },
-        };
+        ];
       }),
     [
       nodeIds,

@@ -21,22 +21,34 @@ your browser, with nothing ever uploaded anywhere.
   management, and color-independent gender indicators (WCAG 1.4.1), verified with `jest-axe`.
 - **Private by construction, not just by policy**: no backend exists for your data to be sent
   to. See `docs/security-privacy-review.md` for the verified breakdown.
+- **Your work is protected against accidental loss**: a warning before closing the tab with
+  unsaved edits, a confirmation before Clear/Replace/navigating away destroys anything, and a
+  recovery screen (instead of a blank page) if something genuinely goes wrong. See
+  `docs/explorer-architecture.md`.
 
 ## Fixed in this release
 
-Development testing (including a dedicated release-readiness audit — see
-`docs/audit-findings.md`) found and fixed five real bugs before this became a public release:
-three data-correctness issues in the validation and editing logic caught while writing
-integration tests, plus two found specifically during the v1.0 audit — a race condition that
-could make an exported file silently not match what was on screen, and a CSS layout bug that
-made the tree explorer render completely blank on mobile-width browsers. Full details in the
-audit doc and `CHANGELOG.md`.
+Three successive rounds of testing and adversarial review — the last two explicitly
+instructed to try to reject the release rather than confirm it was ready — found and fixed
+real issues before this became a public release. In order: three data-correctness issues in
+the validation and editing logic caught while writing integration tests; a race condition
+that could make an exported file silently not match what was on screen and a CSS layout bug
+that made the explorer render completely blank on mobile; a missing data-loss-protection
+system, a missing error boundary, a missing ZIP size guard, and a GEDCOM spec-compliance gap
+(unescaped `@` characters); and finally a Unicode correctness bug in GEDCOM line-wrapping
+(could corrupt an emoji in a name or note) plus an accessibility gap in the error boundary
+added the round before. Full details, in order found, in `docs/audit-findings.md` and
+`CHANGELOG.md`.
 
 ## Known limitations
 
 - Validated against one real FTZ sample file; some FTZ fields (`face/` media folder, a couple
   of unmapped columns) remain unimplemented because no example data exists to build against.
   See `docs/ftz-format-spec.md`'s single-sample-risk note.
+- The FTZ format has no escaping mechanism for its own tab delimiter, and the parser assumes
+  a free-text field never contains a literal tab — investigated with real evidence (see
+  `docs/ftz-format-spec.md`'s "Known limitation" section), not just assumed, but not proven
+  impossible either.
 - GEDCOM *import* (the reverse direction) isn't built yet — see `docs/roadmap.md`.
 - The visualization shows a bounded neighborhood (2 generations out, expandable), not the
   entire tree at once, by design — this is what keeps it fast at any tree size, but it means
