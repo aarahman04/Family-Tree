@@ -1,0 +1,29 @@
+{
+  "name": "family-tree",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "FTZ (Quick Family Tree) to GEDCOM open-source converter — parse, validate, explore, edit, and export, entirely client-side. Working project name: TreeBridge (see docs/brand-guide.md).",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "web"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "^2.1.9",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

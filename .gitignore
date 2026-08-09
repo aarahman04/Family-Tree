@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# Env files — no environment variables are required by this project today (see
+# DEPLOYMENT.md), but these are ignored as standard hygiene against future secrets.
+.env
+.env.local
+.env.*.local
+
+# Vercel local CLI state
+.vercel
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-error.log*
+
+# Personal milestone-planning notes — not part of the published project; see
+# docs/architecture-plan.md and the rest of docs/ for the durable, in-repo record of the
+# same decisions.
+/Steps to follow/
+
+# Real personal family-tree data used as a local development/test fixture — see
+# CONTRIBUTING.md "Testing against real data". Never committed: this is a real person's
+# actual family data (names, dates, notes), not synthetic example data.
+/Family Tree FTZ/
+/extracted_ftz/
+/samples/
