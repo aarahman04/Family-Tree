@@ -1,0 +1,243 @@
+import { useMemo, useState } from "react";
+import type { FamilyTree } from "../../../../models/types.js";
+import { computePosterLayout } from "../../../../poster/layout.js";
+import { computePosterPageSize } from "../../../../poster/pageSize.js";
+import { renderPosterSvg } from "../../../../poster/renderSvg.js";
+import { DEFAULT_POSTER_STYLE, type PosterStyleOptions } from "../../../../poster/types.js";
+import { posterSvgToPdfBlob, posterSvgToSvgBlob } from "../../lib/posterExport.js";
+
+interface PosterExportPanelProps {
+  tree: FamilyTree;
+  sourceFileName: string;
+}
+
+const ZOOM_LEVELS = [10, 25, 50, 100];
+
+function posterFileName(sourceFileName: string, ext: string): string {
+  const base = sourceFileName.replace(/\.ftz$/i, "");
+  return `${base || "family-tree"}-poster.${ext}`;
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * The dedicated print-poster feature: a whole-tree, single continuously-sized page (no A4
+ * presets, no tiling -- "print as wide as it goes" per the confirmed scope), built entirely
+ * on the poster/ package rather than the interactive explorer's React Flow + dagre layout.
+ * See docs/poster-architecture.md.
+ */
+export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelProps) {
+  const [style, setStyle] = useState<PosterStyleOptions>(DEFAULT_POSTER_STYLE);
+  const [zoomPercent, setZoomPercent] = useState(25);
+  const [pdfStage, setPdfStage] = useState<"idle" | "generating" | "error">("idle");
+  const [pdfError, setPdfError] = useState<string | undefined>(undefined);
+
+  const layout = useMemo(() => computePosterLayout(tree), [tree]);
+  const page = useMemo(() => computePosterPageSize(layout, style), [layout, style]);
+  const svg = useMemo(() => renderPosterSvg(layout, page, style), [layout, page, style]);
+
+  function updateStyle<K extends keyof PosterStyleOptions>(key: K, value: PosterStyleOptions[K]) {
+    setStyle((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleDownloadSvg() {
+    downloadBlob(posterSvgToSvgBlob(svg), posterFileName(sourceFileName, "svg"));
+  }
+
+  async function handleDownloadPdf() {
+    setPdfStage("generating");
+    setPdfError(undefined);
+    try {
+      const blob = await posterSvgToPdfBlob(svg, page);
+      downloadBlob(blob, posterFileName(sourceFileName, "pdf"));
+      setPdfStage("idle");
+    } catch (err) {
+      setPdfStage("error");
+      setPdfError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  const scale = zoomPercent / 100;
+
+  return (
+    <div className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4">
+      <div>
+        <h2 className="text-sm font-semibold text-slate-800">Print poster</h2>
+        <p className="mt-1 text-xs text-slate-600">
+          One continuous page sized to fit the whole tree at a readable name size — no A4
+          splitting, take the PDF or SVG straight to a print shop and print it as wide as it
+          goes.
+        </p>
+      </div>
+
+      <dl className="grid grid-cols-3 gap-x-3 gap-y-1 text-xs text-slate-600">
+        <dt>People</dt>
+        <dd className="col-span-2 font-medium text-slate-900">{layout.nodes.length}</dd>
+        <dt>Generations</dt>
+        <dd className="col-span-2 font-medium text-slate-900">{layout.generationCount}</dd>
+        <dt>Page size</dt>
+        <dd className="col-span-2 font-medium text-slate-900">
+          {page.widthIn.toFixed(1)}in × {page.heightIn.toFixed(1)}in
+        </dd>
+      </dl>
+
+      <details className="rounded-md border border-slate-200 bg-slate-50 text-sm">
+        <summary className="cursor-pointer select-none px-3 py-2 font-medium text-slate-700 hover:text-slate-900">
+          Customize appearance
+        </summary>
+        <div className="grid grid-cols-2 gap-3 border-t border-slate-200 px-3 py-3">
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
+            Name font size (pt)
+            <input
+              type="number"
+              min={6}
+              max={24}
+              value={style.nameFontSize}
+              onChange={(e) => updateStyle("nameFontSize", Number(e.target.value))}
+              className="rounded border border-slate-300 px-2 py-1"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
+            Node width (pt)
+            <input
+              type="number"
+              min={60}
+              max={400}
+              value={style.nodeWidth}
+              onChange={(e) => updateStyle("nodeWidth", Number(e.target.value))}
+              className="rounded border border-slate-300 px-2 py-1"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
+            Sibling spacing (pt)
+            <input
+              type="number"
+              min={4}
+              max={100}
+              value={style.siblingSpacing}
+              onChange={(e) => updateStyle("siblingSpacing", Number(e.target.value))}
+              className="rounded border border-slate-300 px-2 py-1"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
+            Generation spacing (pt)
+            <input
+              type="number"
+              min={20}
+              max={200}
+              value={style.generationSpacing}
+              onChange={(e) => updateStyle("generationSpacing", Number(e.target.value))}
+              className="rounded border border-slate-300 px-2 py-1"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
+            Line thickness (pt)
+            <input
+              type="number"
+              min={0.5}
+              max={5}
+              step={0.25}
+              value={style.lineThickness}
+              onChange={(e) => updateStyle("lineThickness", Number(e.target.value))}
+              className="rounded border border-slate-300 px-2 py-1"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
+            Margin (pt)
+            <input
+              type="number"
+              min={0}
+              max={144}
+              value={style.marginPt}
+              onChange={(e) => updateStyle("marginPt", Number(e.target.value))}
+              className="rounded border border-slate-300 px-2 py-1"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
+            Text color
+            <input
+              type="color"
+              value={style.textColor}
+              onChange={(e) => updateStyle("textColor", e.target.value)}
+              className="h-8 rounded border border-slate-300"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
+            Line color
+            <input
+              type="color"
+              value={style.lineColor}
+              onChange={(e) => updateStyle("lineColor", e.target.value)}
+              className="h-8 rounded border border-slate-300"
+            />
+          </label>
+        </div>
+      </details>
+
+      <div className="flex items-center gap-2">
+        <label htmlFor="poster-zoom" className="text-xs text-slate-600">
+          Preview zoom
+        </label>
+        <select
+          id="poster-zoom"
+          value={zoomPercent}
+          onChange={(e) => setZoomPercent(Number(e.target.value))}
+          className="rounded border border-slate-300 px-2 py-1 text-xs"
+        >
+          {ZOOM_LEVELS.map((z) => (
+            <option key={z} value={z}>
+              {z}%
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div
+        className="max-h-[50vh] overflow-auto rounded border border-slate-200 bg-slate-50"
+        aria-label="Poster preview"
+      >
+        <div style={{ width: page.widthPt * scale, height: page.heightPt * scale }}>
+          <div
+            style={{ width: page.widthPt, height: page.heightPt, transform: `scale(${scale})`, transformOrigin: "top left" }}
+            // The renderer's own output -- see poster/renderSvg.ts's escapeXml -- not
+            // arbitrary user HTML, so this mirrors the trust boundary already accepted for
+            // exported GEDCOM/SVG downloads elsewhere in the app.
+            dangerouslySetInnerHTML={{ __html: svg }}
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={handleDownloadSvg}
+          className="rounded-md border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          Download SVG
+        </button>
+        <button
+          type="button"
+          onClick={handleDownloadPdf}
+          disabled={pdfStage === "generating"}
+          className="rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          {pdfStage === "generating" ? "Generating PDF…" : "Download PDF"}
+        </button>
+      </div>
+
+      {pdfStage === "error" && (
+        <p className="text-xs text-red-700" role="alert">
+          Couldn't generate the PDF{pdfError ? `: ${pdfError}` : "."} Try the SVG download
+          instead — most print shops and vector editors accept it directly.
+        </p>
+      )}
+    </div>
+  );
+}

@@ -59,10 +59,6 @@ closing the most-requested gaps without adding new architectural surface area.
 These are real architectural additions, not incremental features, and are the ones most
 likely to have their scope revised once actually scoped in detail:
 
-- **Printable family charts.** A dedicated print/export layout (pedigree chart, descendant
-  chart) distinct from the interactive explorer — likely its own rendering path rather than
-  "print the canvas," since a good printed chart has different layout needs than an
-  interactive one.
 - **PWA support.** Installable, works offline after first load. Mostly a packaging/service-
   worker concern with limited data-model impact, but touches the "nothing persists locally"
   privacy stance (`docs/security-privacy-review.md`) — offline support that caches the *app

@@ -225,4 +225,17 @@ describe("Tree explorer — full integration (synthetic fixture)", () => {
 
     await screen.findByText(/conversion successful/i, {}, { timeout: 5000 });
   });
+
+  it("switches to the Print poster tab and shows a whole-tree preview, then back to Explore", async () => {
+    await uploadFixture();
+
+    await userEvent.click(screen.getByRole("tab", { name: /print poster/i }));
+
+    const peopleCount = screen.getByText("People").nextElementSibling;
+    expect(peopleCount?.textContent).toBe("8"); // Grandpa, Grandma, Dad, Mom, Kid, Sibling, KidSpouse, Grandchild
+    expect(screen.getByRole("button", { name: /download svg/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: /^explore$/i }));
+    expect(await screen.findByLabelText(/search people/i)).toBeInTheDocument();
+  });
 });

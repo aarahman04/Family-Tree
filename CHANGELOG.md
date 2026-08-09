@@ -3,6 +3,20 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- **Print poster export** (`poster/`) — a dedicated whole-tree layout engine (not the
+  interactive explorer's dagre layout): generation rows, subtree-width positioning, and
+  correct cousin-marriage/shared-ancestor handling (a person is never duplicated; a
+  distinctly-styled dashed connector links a cousin-marriage spouse's real position back to
+  the marriage point). Auto-sizes one continuous page — no A4 splitting or tiling — and
+  exports vector PDF (via `jspdf` + `svg2pdf.js`, dynamically imported so it never bloats the
+  main bundle) or SVG, both rendered from the same hand-written SVG generator the in-app
+  preview uses, so the preview always matches the download. Verified against the real
+  473-person sample: 31 cross-branch connectors in the output, matching the independently-
+  verified cousin-marriage count. See `docs/poster-architecture.md`.
+
 ## [1.0.0] — Version 1.0 (first public release)
 
 The full pipeline, end to end: upload → parse → validate → explore → edit → export → download,

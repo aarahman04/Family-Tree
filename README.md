@@ -27,6 +27,10 @@ family's data.
    duplicate, remove a broken relationship — every edit is validated immediately and fully
    undoable. This step is optional; skip straight to export if your data is already clean.
 4. **Export** to GEDCOM 5.5.1 and download the `.ged` file.
+5. **Print a poster**, if you want one: a dedicated layout engine lays out the *whole* tree
+   — cousin marriages and shared ancestors included, never a duplicated person — onto one
+   continuously-sized page (no A4 splitting) and exports it as vector PDF or SVG, ready for a
+   print shop. See [`docs/poster-architecture.md`](docs/poster-architecture.md).
 
    ![Family tree explorer](docs/screenshots/explorer.png)
 
@@ -59,12 +63,11 @@ Internal data model + validation       (models/, validation/)
   ▼
 Explore & edit (optional)              (editor/, web/ — React Flow visualization)
   │
-  ▼
-GEDCOM 5.5.1 generation                (gedcom/)
+  ├──▶ GEDCOM 5.5.1 generation         (gedcom/) ──▶ download .ged
   │
-  ▼
-Download — all of the above runs       (web/ — Web Worker, entirely client-side)
-in your browser, nothing leaves it
+  └──▶ Print poster layout + render    (poster/) ──▶ download PDF/SVG
+
+All of the above runs in your browser (Web Worker for parsing/GEDCOM), nothing leaves it.
 ```
 
 Every stage was built and verified as its own milestone, each with its own documentation:
@@ -79,6 +82,7 @@ Every stage was built and verified as its own milestone, each with its own docum
 | [`docs/parser-spec.md`](docs/parser-spec.md) / [`docs/parser-implementation.md`](docs/parser-implementation.md) | Parser design and the real implementation |
 | [`docs/gedcom-exporter.md`](docs/gedcom-exporter.md) | Exporter design, GEDCOM compatibility testing (including a real Gramps import test), known limitations |
 | [`docs/explorer-architecture.md`](docs/explorer-architecture.md) | Tree explorer, in-browser editing, visualization, undo/redo, and state management |
+| [`docs/poster-architecture.md`](docs/poster-architecture.md) | Print poster layout algorithm, page sizing, rendering pipeline, cousin-marriage handling |
 | [`docs/architecture-plan.md`](docs/architecture-plan.md) | Repo structure and a critical risk review |
 | [`docs/security-privacy-review.md`](docs/security-privacy-review.md) | What data ever leaves your device (nothing), and why |
 | [`docs/performance-report.md`](docs/performance-report.md) | Measured load/parse/edit/export timings against real and synthetic data |

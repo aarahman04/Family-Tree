@@ -7,6 +7,7 @@ import { ExportPanel } from "./ExportPanel.js";
 import { FamilyTreeCanvas } from "./FamilyTreeCanvas.js";
 import { PersonInspector } from "./PersonInspector.js";
 import { SearchBox } from "./SearchBox.js";
+import { PosterExportPanel } from "../poster/PosterExportPanel.js";
 
 interface TreeExplorerProps {
   initialTree: FamilyTree;
@@ -45,6 +46,7 @@ export function TreeExplorer({
   );
   const [selectedPersonId, setSelectedPersonId] = useState<UUID | undefined>(undefined);
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<UUID>>(new Set());
+  const [view, setView] = useState<"explore" | "poster">("explore");
   const { state: exportState, runExport, reset: resetExport } = useExport();
   // Export captures the tree by value at click time (it runs in a worker, off the pure
   // editor path) — if editing stayed live during that round-trip, a save/undo/redo could
@@ -96,6 +98,35 @@ export function TreeExplorer({
         </div>
       </div>
 
+      <div className="flex gap-1 border-b border-slate-200" role="tablist" aria-label="Explorer view">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={view === "explore"}
+          onClick={() => setView("explore")}
+          className={`px-3 py-1.5 text-sm font-medium ${
+            view === "explore"
+              ? "border-b-2 border-blue-600 text-blue-700"
+              : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          Explore
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={view === "poster"}
+          onClick={() => setView("poster")}
+          className={`px-3 py-1.5 text-sm font-medium ${
+            view === "poster"
+              ? "border-b-2 border-blue-600 text-blue-700"
+              : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          Print poster
+        </button>
+      </div>
+
       <p className="text-xs text-slate-600" role="status">
         <span className="font-medium text-slate-900">{Object.keys(tree.persons).length}</span>{" "}
         people,{" "}
@@ -116,49 +147,53 @@ export function TreeExplorer({
         )}
       </p>
 
-      <div className="flex flex-col gap-3 lg:flex-row">
-        {/* flex + flex-col so this div's own height comes from the flex algorithm, not a
-            percentage cascade — React Flow's descendants use height:100% chained through
-            several wrapper divs, and a flex item whose height is decided by min-height
-            winning over its flex-basis (as h-[65vh] vs min-h-96 does on narrow viewports)
-            is NOT treated as a "definite" height by percentage-height descendants in
-            Chromium, so those descendants silently collapsed to 0 height on mobile. See
-            docs/explorer-architecture.md's "Known limitations" for the full writeup. */}
-        <div className="flex h-[65vh] min-h-96 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200">
-          <FamilyTreeCanvas
-            tree={tree}
-            focusPersonId={focusPersonId}
-            expandedIds={expandedIds}
-            selectedPersonId={selectedPersonId}
-            onSelectPerson={setSelectedPersonId}
-            onExpand={handleExpand}
-          />
-        </div>
+      {view === "explore" ? (
+        <div className="flex flex-col gap-3 lg:flex-row">
+          {/* flex + flex-col so this div's own height comes from the flex algorithm, not a
+              percentage cascade — React Flow's descendants use height:100% chained through
+              several wrapper divs, and a flex item whose height is decided by min-height
+              winning over its flex-basis (as h-[65vh] vs min-h-96 does on narrow viewports)
+              is NOT treated as a "definite" height by percentage-height descendants in
+              Chromium, so those descendants silently collapsed to 0 height on mobile. See
+              docs/explorer-architecture.md's "Known limitations" for the full writeup. */}
+          <div className="flex h-[65vh] min-h-96 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200">
+            <FamilyTreeCanvas
+              tree={tree}
+              focusPersonId={focusPersonId}
+              expandedIds={expandedIds}
+              selectedPersonId={selectedPersonId}
+              onSelectPerson={setSelectedPersonId}
+              onExpand={handleExpand}
+            />
+          </div>
 
-        <div className="flex w-full flex-col gap-3 lg:w-80 lg:shrink-0">
-          {selectedPersonId && tree.persons[selectedPersonId] && (
-            <div className="max-h-[65vh] overflow-y-auto rounded-lg border border-slate-200 bg-white">
-              <PersonInspector
-                tree={tree}
-                personId={selectedPersonId}
-                searchIndex={searchIndex}
-                onNavigate={goTo}
-                onEdit={edit}
-                onClose={() => setSelectedPersonId(undefined)}
-                disabled={isExporting}
-              />
-            </div>
-          )}
-          <ExportPanel
-            tree={tree}
-            editCount={editCount}
-            sourceFileName={sourceFileName}
-            state={exportState}
-            runExport={runExport}
-            reset={resetExport}
-          />
+          <div className="flex w-full flex-col gap-3 lg:w-80 lg:shrink-0">
+            {selectedPersonId && tree.persons[selectedPersonId] && (
+              <div className="max-h-[65vh] overflow-y-auto rounded-lg border border-slate-200 bg-white">
+                <PersonInspector
+                  tree={tree}
+                  personId={selectedPersonId}
+                  searchIndex={searchIndex}
+                  onNavigate={goTo}
+                  onEdit={edit}
+                  onClose={() => setSelectedPersonId(undefined)}
+                  disabled={isExporting}
+                />
+              </div>
+            )}
+            <ExportPanel
+              tree={tree}
+              editCount={editCount}
+              sourceFileName={sourceFileName}
+              state={exportState}
+              runExport={runExport}
+              reset={resetExport}
+            />
+          </div>
         </div>
-      </div>
+      ) : (
+        <PosterExportPanel tree={tree} sourceFileName={sourceFileName} />
+      )}
     </div>
   );
 }
