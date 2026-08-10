@@ -41,7 +41,8 @@ function detectFormat(fileName: string): TreeFormat | undefined {
 }
 
 function friendlyFtzError(message: string): string {
-  if (message.includes("file too large") || message.includes("archive entry too large")) return message;
+  if (message.includes("file too large") || message.includes("archive entry too large"))
+    return message;
   if (message.includes("node.ftt not found"))
     return "This ZIP file doesn't contain a node.ftt file, so it doesn't look like a Quick Family Tree export.";
   if (message.includes("not a valid FTZ archive"))
@@ -91,13 +92,28 @@ export function useTreeImport() {
         setState({ stage: "validated", file: fileMeta, tree, validation });
       } else {
         const buffer = await file.arrayBuffer();
-        const response = await runWorkerTask({ type: "parse", fileBuffer: buffer, fileName: file.name }, [buffer]);
+        const response = await runWorkerTask(
+          { type: "parse", fileBuffer: buffer, fileName: file.name },
+          [buffer]
+        );
         if (response.type === "parse:success") {
-          setState({ stage: "validated", file: fileMeta, tree: response.tree, validation: response.validation });
+          setState({
+            stage: "validated",
+            file: fileMeta,
+            tree: response.tree,
+            validation: response.validation,
+          });
         } else if (response.type === "parse:error") {
           const userMessage = friendlyFtzError(response.message);
           if (isReplace) window.alert(userMessage);
-          else setState({ stage: "error", phase: "parse", file: fileMeta, userMessage, technicalDetails: response.stack ?? response.message });
+          else
+            setState({
+              stage: "error",
+              phase: "parse",
+              file: fileMeta,
+              userMessage,
+              technicalDetails: response.stack ?? response.message,
+            });
         }
       }
     } catch (err) {
@@ -107,7 +123,8 @@ export function useTreeImport() {
         : "Something unexpected went wrong while reading this file.";
       const technicalDetails = err instanceof Error ? (err.stack ?? err.message) : String(err);
       if (isReplace) window.alert(userMessage);
-      else setState({ stage: "error", phase: "parse", file: fileMeta, userMessage, technicalDetails });
+      else
+        setState({ stage: "error", phase: "parse", file: fileMeta, userMessage, technicalDetails });
     } finally {
       if (isReplace) setIsReplacing(false);
     }

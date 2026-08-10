@@ -98,7 +98,11 @@ export function TreeExplorer({
         </div>
       </div>
 
-      <div className="flex gap-1 border-b border-slate-200" role="tablist" aria-label="Explorer view">
+      <div
+        className="flex gap-1 border-b border-slate-200"
+        role="tablist"
+        aria-label="Explorer view"
+      >
         <button
           type="button"
           role="tab"

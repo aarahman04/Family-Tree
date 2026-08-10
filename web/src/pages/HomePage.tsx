@@ -17,20 +17,44 @@ const FORMATS: FormatCard[] = [
   {
     title: "GEDCOM",
     tagline: ".ged · .gedcom",
-    blurb: "The universal format exported by Ancestry, MyHeritage, FamilySearch, Gramps, RootsMagic & more.",
+    blurb:
+      "The universal format exported by Ancestry, MyHeritage, FamilySearch, Gramps, RootsMagic & more.",
     icon: (
-      <svg aria-hidden="true" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6} d="M12 21a9 9 0 100-18 9 9 0 000 18zm0 0V9m0 0a3 3 0 100-6 3 3 0 000 6zm-6 6a3 3 0 116 0M18 21a3 3 0 10-6 0" />
+      <svg
+        aria-hidden="true"
+        className="h-6 w-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.6}
+          d="M12 21a9 9 0 100-18 9 9 0 000 18zm0 0V9m0 0a3 3 0 100-6 3 3 0 000 6zm-6 6a3 3 0 116 0M18 21a3 3 0 10-6 0"
+        />
       </svg>
     ),
   },
   {
     title: "Quick Family Tree",
     tagline: ".ftz",
-    blurb: "The file the Quick Family Tree mobile app exports. We'll read it directly — no conversion step needed.",
+    blurb:
+      "The file the Quick Family Tree mobile app exports. We'll read it directly — no conversion step needed.",
     icon: (
-      <svg aria-hidden="true" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6} d="M8.25 6.75L12 3l3.75 3.75M12 3v9m6.364.636l-2.121 2.121M17.657 18a5.657 5.657 0 11-11.314 0c0-1.56.636-2.97 1.66-3.99" />
+      <svg
+        aria-hidden="true"
+        className="h-6 w-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.6}
+          d="M8.25 6.75L12 3l3.75 3.75M12 3v9m6.364.636l-2.121 2.121M17.657 18a5.657 5.657 0 11-11.314 0c0-1.56.636-2.97 1.66-3.99"
+        />
       </svg>
     ),
   },
@@ -99,7 +123,10 @@ export function HomePage() {
 
       {!loaded && (
         <section aria-labelledby="format-heading">
-          <h2 id="format-heading" className="mb-3 text-center text-sm font-semibold uppercase tracking-wide text-slate-500">
+          <h2
+            id="format-heading"
+            className="mb-3 text-center text-sm font-semibold uppercase tracking-wide text-slate-500"
+          >
             Two file formats, both welcome here
           </h2>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -114,7 +141,9 @@ export function HomePage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-slate-900">{f.title}</span>
-                    <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-500">{f.tagline}</span>
+                    <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-500">
+                      {f.tagline}
+                    </span>
                   </div>
                   <p className="mt-1 text-sm text-slate-600">{f.blurb}</p>
                 </div>

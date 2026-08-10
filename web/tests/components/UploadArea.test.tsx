@@ -18,7 +18,9 @@ describe("UploadArea", () => {
 
   it("calls onFileSelected when a file is chosen via the input", async () => {
     const onFileSelected = vi.fn();
-    render(<UploadArea onFileSelected={onFileSelected} onClear={vi.fn()} accept=".ftz" hint={HINT} />);
+    render(
+      <UploadArea onFileSelected={onFileSelected} onClear={vi.fn()} accept=".ftz" hint={HINT} />
+    );
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     const file = makeFile("FamilyTree.ftz");
 
@@ -60,12 +62,17 @@ describe("UploadArea", () => {
 
   it("calls onFileSelected on drag-and-drop (synthetic file — always runs in CI)", () => {
     const onFileSelected = vi.fn();
-    render(<UploadArea onFileSelected={onFileSelected} onClear={vi.fn()} accept=".ftz" hint={HINT} />);
+    render(
+      <UploadArea onFileSelected={onFileSelected} onClear={vi.fn()} accept=".ftz" hint={HINT} />
+    );
     const dropzone = screen.getByText(/drag & drop your/i).closest("label")!;
     const file = makeFile("FamilyTree.ftz");
 
     const dataTransfer = { files: [file] } as unknown as DataTransfer;
-    const dropEvent = new Event("drop", { bubbles: true, cancelable: true }) as unknown as DragEvent;
+    const dropEvent = new Event("drop", {
+      bubbles: true,
+      cancelable: true,
+    }) as unknown as DragEvent;
     Object.defineProperty(dropEvent, "dataTransfer", { value: dataTransfer });
     dropzone.dispatchEvent(dropEvent);
 
