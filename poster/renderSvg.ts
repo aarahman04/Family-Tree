@@ -111,6 +111,7 @@ export function renderPosterSvg(layout: PosterLayout, page: PosterPageSize, styl
   const offsetY = style.marginPt;
 
   const nodeCenter = new Map<string, { x: number; y: number; top: number; bottom: number }>();
+  const widthById = new Map<string, number>();
   for (const node of layout.nodes) {
     nodeCenter.set(node.personId, {
       x: offsetX + node.x,
@@ -118,6 +119,7 @@ export function renderPosterSvg(layout: PosterLayout, page: PosterPageSize, styl
       top: offsetY + node.y - node.height / 2,
       bottom: offsetY + node.y + node.height / 2,
     });
+    widthById.set(node.personId, node.width);
   }
 
   const svgParts: string[] = [];
@@ -131,24 +133,20 @@ export function renderPosterSvg(layout: PosterLayout, page: PosterPageSize, styl
     if (connector.kind === "spine") {
       const from = nodeCenter.get(connector.fromPersonId);
       const heads = connector.toPersonIds
-        .map((id) => ({ id, c: nodeCenter.get(id) }))
-        .filter((h): h is { id: string; c: NonNullable<ReturnType<typeof nodeCenter.get>> } => !!h.c);
+        .map((id) => ({ w: widthById.get(id) ?? 0, c: nodeCenter.get(id) }))
+        .filter((h): h is { w: number; c: NonNullable<ReturnType<typeof nodeCenter.get>> } => !!h.c);
       if (!from || heads.length === 0) continue;
-      const sx = offsetX + connector.spineX;
+      // Node-derived: the trunk drops straight from the ancestor; each head is reached by a
+      // short horizontal stub entering from whichever side faces the trunk.
+      const trunkX = from.x;
       const trunkBottom = Math.max(...heads.map((h) => h.c.y));
-      // stub from the ancestor's left edge to the trunk
       svgParts.push(
-        `<line x1="${num(from.x - (layout.nodes.find((n) => n.personId === connector.fromPersonId)?.width ?? 0) / 2)}" y1="${num(from.y)}" x2="${num(sx)}" y2="${num(from.y)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
+        `<line x1="${num(trunkX)}" y1="${num(from.bottom)}" x2="${num(trunkX)}" y2="${num(trunkBottom)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
       );
-      // vertical trunk
-      svgParts.push(
-        `<line x1="${num(sx)}" y1="${num(from.y)}" x2="${num(sx)}" y2="${num(trunkBottom)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
-      );
-      // one horizontal stub into each branch head's left edge
       for (const h of heads) {
-        const headWidth = layout.nodes.find((n) => n.personId === h.id)?.width ?? 0;
+        const nearEdge = h.c.x >= trunkX ? h.c.x - h.w / 2 : h.c.x + h.w / 2;
         svgParts.push(
-          `<line x1="${num(sx)}" y1="${num(h.c.y)}" x2="${num(h.c.x - headWidth / 2)}" y2="${num(h.c.y)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
+          `<line x1="${num(trunkX)}" y1="${num(h.c.y)}" x2="${num(nearEdge)}" y2="${num(h.c.y)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
         );
       }
       continue;

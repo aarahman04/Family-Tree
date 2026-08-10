@@ -63,14 +63,14 @@ export interface DescentConnector {
   childPersonIds: UUID[];
 }
 
-/** Used only by the stacked layout (poster/layoutStacked.ts): a left-hand "spine" bracket
- * connecting one ancestor (`fromPersonId`, e.g. the oldest root couple at the top) down to
- * each of their branch heads (`toPersonIds`), which live in separate stacked bands far below.
- * Rendered as a vertical trunk at `spineX` plus a short horizontal stub into each head's left
- * edge -- so it never crosses the band content the way a normal top-down descent bus would. */
+/** A "spine" bracket used by the balanced layout to connect one ancestor (`fromPersonId`) down
+ * to branch heads (`toPersonIds`) stacked in a column instead of a row. Rendered node-derived
+ * (no stored coordinates, so it moves with the nodes): a vertical trunk dropping from the
+ * ancestor, with a short horizontal stub to each head's near edge -- heads may sit on either
+ * side of the trunk (the root's two wings), and the stub always enters from the facing side,
+ * so the spine never crosses band content the way a top-down descent bus would. */
 export interface SpineConnector {
   kind: "spine";
-  spineX: number;
   fromPersonId: UUID;
   toPersonIds: UUID[];
 }

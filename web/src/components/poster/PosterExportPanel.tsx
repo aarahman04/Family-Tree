@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import type { FamilyTree } from "../../../../models/types.js";
 import { computePosterLayout } from "../../../../poster/layout.js";
-import { computeStackedPosterLayout } from "../../../../poster/layoutStacked.js";
+import { computeBalancedPosterLayout } from "../../../../poster/layoutBalanced.js";
 import { computePosterPageSize } from "../../../../poster/pageSize.js";
 import { renderPosterSvg } from "../../../../poster/renderSvg.js";
 import { DEFAULT_POSTER_STYLE, type PosterStyleOptions } from "../../../../poster/types.js";
@@ -39,7 +39,7 @@ function formatMeters(mm: number): string {
  */
 export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelProps) {
   const [style, setStyle] = useState<PosterStyleOptions>(DEFAULT_POSTER_STYLE);
-  const [layoutMode, setLayoutMode] = useState<"stacked" | "flat">("stacked");
+  const [layoutMode, setLayoutMode] = useState<"balanced" | "flat">("balanced");
   const [zoomPercent, setZoomPercent] = useState(10);
   const [pdfStage, setPdfStage] = useState<"idle" | "generating" | "error">("idle");
   const [pdfError, setPdfError] = useState<string | undefined>(undefined);
@@ -53,8 +53,8 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
 
   const layout = useMemo(
     () =>
-      layoutMode === "stacked"
-        ? computeStackedPosterLayout(tree, style, measurer)
+      layoutMode === "balanced"
+        ? computeBalancedPosterLayout(tree, style, measurer)
         : computePosterLayout(tree, style, measurer),
     [tree, style, measurer, layoutMode]
   );
@@ -109,7 +109,7 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
         <div className="flex flex-wrap gap-2">
           {(
             [
-              ["stacked", "Stacked branches", "Balanced, hangable — each main lineage on its own row"],
+              ["balanced", "Balanced", "Recommended — root centered, branches balanced for a hangable poster"],
               ["flat", "Single row", "One continuous top-down chart — very wide for large trees"],
             ] as const
           ).map(([mode, label, hint]) => (

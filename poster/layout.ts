@@ -187,12 +187,7 @@ interface ChipInfo {
 export function computePosterLayout(
   tree: FamilyTree,
   style: PosterStyleOptions = DEFAULT_POSTER_STYLE,
-  measure: TextMeasurer = heuristicTextMeasurer,
-  /** "center" (default): every couple is centered above its descendant fan -- the right look
-   * for a standalone whole-tree chart. "left": couples are left-aligned above their children,
-   * so a subtree's root sits at its top-LEFT corner -- used by the stacked layout so each
-   * branch head lands right next to the spine (a short connector, not a poster-wide line). */
-  align: "center" | "left" = "center"
+  measure: TextMeasurer = heuristicTextMeasurer
 ): PosterLayout {
   const placements = buildPlacements(tree);
   const generationOf = makeGenerationResolver(tree, placements);
@@ -472,7 +467,7 @@ export function computePosterLayout(
   ) {
     if (family.childrenIds.length === 0) return;
     const childrenTotalWidth = childrenWidthOf(family);
-    let cc = align === "left" ? spanLeft : spanLeft + (spanWidth - childrenTotalWidth) / 2;
+    let cc = spanLeft + (spanWidth - childrenTotalWidth) / 2;
     for (const childId of family.childrenIds) {
       const w = subtreeWidth(childId);
       place(childId, cc, steps + 1);
@@ -506,7 +501,7 @@ export function computePosterLayout(
     // than left-aligned against it. This is what keeps every ancestor (including the oldest,
     // most-centered-of-all root couple) positioned directly above their own descendant fan
     // instead of drifting toward the left edge of it.
-    const coupleLeft = align === "left" ? leftEdge : leftEdge + (reserved - coupleWidth) / 2;
+    const coupleLeft = leftEdge + (reserved - coupleWidth) / 2;
     const ownX = coupleLeft + ownBox.width / 2;
     addNode(personId, ownX, y);
     registerClusterLeader(personId, gen);
