@@ -5,6 +5,7 @@ import JSZip from "jszip";
 import { App } from "../../src/App.js";
 import { buildNodeFtt, personRow } from "../../../tests/helpers.js";
 import { setHasUnsavedEdits } from "../../src/lib/unsavedEdits.js";
+import { clearSavedSession } from "../../src/lib/autosave.js";
 
 async function fixtureFile(): Promise<File> {
   const nodeFtt = buildNodeFtt([personRow({ id: 1, name: "Root Person", gender: 1 })], []);
@@ -32,7 +33,9 @@ describe("Editor interactions", () => {
     window.location.hash = "";
   });
   afterEach(() => {
-    setHasUnsavedEdits(false); // this file makes edits; don't leak the flag to other files
+    // This file makes edits; don't leak the unsaved flag or an autosave to other files.
+    setHasUnsavedEdits(false);
+    clearSavedSession();
   });
 
   it("Quick add creates and selects a new relative", async () => {

@@ -5,6 +5,7 @@ import JSZip from "jszip";
 import { App } from "../../src/App.js";
 import { buildNodeFtt, familyRow, personRow } from "../../../tests/helpers.js";
 import { setHasUnsavedEdits } from "../../src/lib/unsavedEdits.js";
+import { clearSavedSession } from "../../src/lib/autosave.js";
 
 /**
  *   Grandpa(1) x Grandma(2)
@@ -75,7 +76,9 @@ describe("Tree explorer — full integration (synthetic fixture)", () => {
     window.location.hash = "";
   });
   afterEach(() => {
-    setHasUnsavedEdits(false); // this file makes edits; don't leak the flag to other files
+    // This file makes edits; don't leak the unsaved flag or an autosave to other files.
+    setHasUnsavedEdits(false);
+    clearSavedSession();
   });
 
   it("search finds a person and opens the inspector for them", async () => {

@@ -5,6 +5,7 @@ import JSZip from "jszip";
 import { App } from "../../src/App.js";
 import { buildNodeFtt, personRow } from "../../../tests/helpers.js";
 import { setHasUnsavedEdits } from "../../src/lib/unsavedEdits.js";
+import { clearSavedSession } from "../../src/lib/autosave.js";
 
 async function buildFixtureFile(folderName: string, personName: string): Promise<File> {
   const nodeFtt = buildNodeFtt([personRow({ id: 1, name: personName, gender: 1 })], []);
@@ -58,6 +59,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   setHasUnsavedEdits(false); // tests unmount without the editor's own unmount cleanup running
+  clearSavedSession();
 });
 
 describe("beforeunload — registered only while there are unsaved edits (in the editor)", () => {

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { FamilyTree, UUID } from "../../../models/types.js";
 import { buildSearchIndex } from "../lib/search.js";
 import { computeTreeInsights } from "../lib/insights.js";
+import { saveSession } from "../lib/autosave.js";
 import { setHasUnsavedEdits } from "../lib/unsavedEdits.js";
 import { useExport } from "../hooks/useExport.js";
 import { useTreeEditor } from "../state/useTreeEditor.js";
@@ -44,6 +45,7 @@ export function EditorPage() {
 }
 
 function EditorWorkspace({ session }: { session: TreeSession }) {
+  const { setSession } = useTreeSession();
   const { tree, canUndo, canRedo, editCount, edit, undo, redo } = useTreeEditor(session.tree);
   const { state: exportState, runExport, reset: resetExport } = useExport();
   const isExporting = exportState.stage === "exporting";
@@ -64,6 +66,16 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
     setHasUnsavedEdits(editCount > 0);
   }, [editCount]);
   useEffect(() => () => setHasUnsavedEdits(false), []);
+
+  // Autosave: mirror edits into the in-memory session (so leaving and re-entering the editor
+  // resumes them) immediately, and persist to localStorage (debounced) so a reload or crash
+  // can offer to restore. Best-effort — saveSession swallows storage errors.
+  useEffect(() => {
+    if (editCount === 0) return;
+    setSession({ tree, fileName: session.fileName });
+    const id = setTimeout(() => saveSession({ tree, fileName: session.fileName }), 800);
+    return () => clearTimeout(id);
+  }, [tree, editCount, session.fileName, setSession]);
   useEffect(() => {
     if (editCount === 0) return;
     function onBeforeUnload(e: BeforeUnloadEvent) {
