@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import JSZip from "jszip";
 import { App } from "../../src/App.js";
 import { buildNodeFtt, familyRow, personRow } from "../../../tests/helpers.js";
+import { setHasUnsavedEdits } from "../../src/lib/unsavedEdits.js";
 
 /**
  *   Grandpa(1) x Grandma(2)
@@ -72,6 +73,9 @@ async function selectViaSearch(name: string) {
 describe("Tree explorer — full integration (synthetic fixture)", () => {
   beforeEach(() => {
     window.location.hash = "";
+  });
+  afterEach(() => {
+    setHasUnsavedEdits(false); // this file makes edits; don't leak the flag to other files
   });
 
   it("search finds a person and opens the inspector for them", async () => {

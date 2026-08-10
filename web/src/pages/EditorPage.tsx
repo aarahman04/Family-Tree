@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FamilyTree, UUID } from "../../../models/types.js";
 import { buildSearchIndex } from "../lib/search.js";
 import { computeTreeInsights } from "../lib/insights.js";
@@ -10,6 +10,7 @@ import { EditorCanvas } from "../components/editor/EditorCanvas.js";
 import { ExportMenu } from "../components/editor/ExportMenu.js";
 import { InsightsPanel } from "../components/editor/InsightsPanel.js";
 import { InsightsStrip } from "../components/editor/InsightsStrip.js";
+import { QuickActions } from "../components/editor/QuickActions.js";
 import { PersonInspector } from "../components/explorer/PersonInspector.js";
 import { SearchBox } from "../components/explorer/SearchBox.js";
 
@@ -52,6 +53,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
     resolveDefaultFocus(session.tree)
   );
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const searchWrapRef = useRef<HTMLDivElement>(null);
 
   const searchIndex = useMemo(() => buildSearchIndex(tree), [tree]);
   const insights = useMemo(() => computeTreeInsights(tree), [tree]);
@@ -72,6 +74,43 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [editCount]);
 
+  // Keyboard shortcuts: Ctrl/Cmd+F focus search, Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z redo,
+  // Esc clear selection. Editor-wide shortcuts are ignored while typing in a field (so the
+  // field's own undo/find still work), except Escape, which just blurs the field.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const el = e.target as HTMLElement | null;
+      const typing =
+        !!el &&
+        (el.tagName === "INPUT" ||
+          el.tagName === "TEXTAREA" ||
+          el.tagName === "SELECT" ||
+          el.isContentEditable);
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && (e.key === "f" || e.key === "F")) {
+        e.preventDefault();
+        searchWrapRef.current?.querySelector("input")?.focus();
+        return;
+      }
+      if (typing) {
+        if (e.key === "Escape") (el as HTMLElement).blur();
+        return;
+      }
+      if (mod && (e.key === "z" || e.key === "Z")) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          if (canRedo && !isExporting) redo();
+        } else if (canUndo && !isExporting) {
+          undo();
+        }
+        return;
+      }
+      if (e.key === "Escape") setSelectedPersonId(undefined);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canUndo, canRedo, isExporting, undo, redo]);
+
   function goTo(id: UUID) {
     setFocusPersonId(id);
     setSelectedPersonId(id);
@@ -81,7 +120,9 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
     <div className="flex h-full min-h-0 w-full">
       <div className="relative flex min-w-0 flex-1 flex-col">
         <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-2">
-          <SearchBox tree={tree} index={searchIndex} onSelect={goTo} />
+          <div ref={searchWrapRef}>
+            <SearchBox tree={tree} index={searchIndex} onSelect={goTo} />
+          </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -144,17 +185,26 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
       {sidebarOpen && (
         <aside className="flex w-96 shrink-0 flex-col gap-3 overflow-y-auto border-l border-slate-200 bg-slate-50 p-3">
           {selectedPersonId && tree.persons[selectedPersonId] ? (
-            <div className="rounded-lg border border-slate-200 bg-white">
-              <PersonInspector
+            <>
+              <div className="rounded-lg border border-slate-200 bg-white">
+                <PersonInspector
+                  tree={tree}
+                  personId={selectedPersonId}
+                  searchIndex={searchIndex}
+                  onNavigate={goTo}
+                  onEdit={edit}
+                  onClose={() => setSelectedPersonId(undefined)}
+                  disabled={isExporting}
+                />
+              </div>
+              <QuickActions
                 tree={tree}
                 personId={selectedPersonId}
-                searchIndex={searchIndex}
-                onNavigate={goTo}
                 onEdit={edit}
-                onClose={() => setSelectedPersonId(undefined)}
+                onSelect={goTo}
                 disabled={isExporting}
               />
-            </div>
+            </>
           ) : (
             <p className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
               Select a person on the canvas to view and edit their details.

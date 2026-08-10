@@ -3,7 +3,7 @@ import type { FamilyTree, UUID } from "../../../../models/types.js";
 import { computeBalancedPosterLayout } from "../../../../poster/layoutBalanced.js";
 import { computePosterPageSize } from "../../../../poster/pageSize.js";
 import { renderPosterSvg } from "../../../../poster/renderSvg.js";
-import { DEFAULT_POSTER_STYLE } from "../../../../poster/types.js";
+import { DEFAULT_POSTER_STYLE, type PosterNode } from "../../../../poster/types.js";
 import { makeCanvasTextMeasurer } from "../../lib/canvasTextMeasure.js";
 import { hitTestNode } from "../../lib/canvasHitTest.js";
 
@@ -11,7 +11,7 @@ interface EditorCanvasProps {
   tree: FamilyTree;
   selectedPersonId?: UUID;
   onSelectPerson: (id: UUID | undefined) => void;
-  /** When this changes, the canvas re-centers on that person (e.g. after a search). */
+  /** When this changes, the canvas re-centers on that person and briefly pulses them. */
   focusPersonId?: UUID;
 }
 
@@ -24,12 +24,14 @@ interface Transform {
 const MIN_SCALE = 0.05;
 const MAX_SCALE = 4;
 const clampScale = (s: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+const MINIMAP_MAX = { w: 160, h: 120 };
 
 /**
  * The interactive tree view. Deliberately renders the EXACT SVG the Print Poster uses
- * (computeBalancedPosterLayout -> renderPosterSvg), then layers pan/zoom and click-to-select
- * on top of it — so the editor and the poster can never drift apart. The heavy work (layout,
- * SVG string) is memoized on the tree; panning, zooming and selecting never regenerate it.
+ * (computeBalancedPosterLayout -> renderPosterSvg), then layers pan/zoom, click-to-select, a
+ * minimap and a search pulse on top of it — so the editor and the poster can never drift apart.
+ * The heavy work (layout, SVG string) is memoized on the tree; panning, zooming, selecting and
+ * pulsing never regenerate it.
  */
 export function EditorCanvas({
   tree,
@@ -40,6 +42,8 @@ export function EditorCanvas({
   const style = DEFAULT_POSTER_STYLE;
   const viewportRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState<Transform>({ tx: 0, ty: 0, s: 1 });
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const [pulseId, setPulseId] = useState<UUID | undefined>(undefined);
 
   const hasPeople = Object.keys(tree.persons).length > 0;
 
@@ -57,46 +61,55 @@ export function EditorCanvas({
     [layout, page, style]
   );
 
-  const fitToView = useCallback(() => {
+  const nodeById = useMemo(() => {
+    const m = new Map<UUID, PosterNode>();
+    if (layout) for (const n of layout.nodes) m.set(n.personId, n);
+    return m;
+  }, [layout]);
+
+  // Track the viewport size so fit / center / minimap all react to layout changes and resizes.
+  useLayoutEffect(() => {
     const el = viewportRef.current;
-    if (!el || !page) return;
-    const vw = el.clientWidth;
-    const vh = el.clientHeight;
-    if (vw === 0 || vh === 0) return;
-    const s = clampScale(Math.min(vw / page.widthPt, vh / page.heightPt) * 0.9);
-    setTransform({
-      s,
-      tx: (vw - page.widthPt * s) / 2,
-      ty: (vh - page.heightPt * s) / 2,
-    });
-  }, [page]);
+    if (!el) return;
+    const update = () => setSize({ w: el.clientWidth, h: el.clientHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const fitToView = useCallback(() => {
+    if (!page || size.w === 0 || size.h === 0) return;
+    const s = clampScale(Math.min(size.w / page.widthPt, size.h / page.heightPt) * 0.9);
+    setTransform({ s, tx: (size.w - page.widthPt * s) / 2, ty: (size.h - page.heightPt * s) / 2 });
+  }, [page, size]);
 
   const centerOn = useCallback(
     (personId: UUID) => {
-      const el = viewportRef.current;
-      const node = layout?.nodes.find((n) => n.personId === personId);
-      if (!el || !node) return;
-      const vw = el.clientWidth;
-      const vh = el.clientHeight;
-      if (vw === 0 || vh === 0) return;
-      setTransform((prev) => {
-        const cx = style.marginPt + node.x;
-        const cy = style.marginPt + node.y;
-        return { s: prev.s, tx: vw / 2 - cx * prev.s, ty: vh / 2 - cy * prev.s };
-      });
+      const node = nodeById.get(personId);
+      if (!node || size.w === 0 || size.h === 0) return;
+      setTransform((prev) => ({
+        s: prev.s,
+        tx: size.w / 2 - (style.marginPt + node.x) * prev.s,
+        ty: size.h / 2 - (style.marginPt + node.y) * prev.s,
+      }));
     },
-    [layout, style.marginPt]
+    [nodeById, size, style.marginPt]
   );
 
   // Fit once the layout/viewport is ready.
   useLayoutEffect(() => {
     fitToView();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [page, size.w, size.h]);
 
-  // Re-center when the caller asks to focus someone (search/selection navigation).
+  // Re-center + pulse when the caller asks to focus someone (search / selection navigation).
   useEffect(() => {
-    if (focusPersonId) centerOn(focusPersonId);
+    if (!focusPersonId) return;
+    centerOn(focusPersonId);
+    setPulseId(focusPersonId);
+    const t = setTimeout(() => setPulseId(undefined), 2500);
+    return () => clearTimeout(t);
   }, [focusPersonId, centerOn]);
 
   // Wheel zoom toward the cursor. Attached natively (non-passive) so preventDefault works and
@@ -142,33 +155,51 @@ export function EditorCanvas({
     if (!d.moved && Math.abs(dx) + Math.abs(dy) > 4) d.moved = true;
     if (d.moved) setTransform((prev) => ({ ...prev, tx: d.tx + dx, ty: d.ty + dy }));
   }
+  function personAt(clientX: number, clientY: number): UUID | undefined {
+    const el = viewportRef.current;
+    if (!el || !layout) return undefined;
+    const rect = el.getBoundingClientRect();
+    const contentX = (clientX - rect.left - transform.tx) / transform.s;
+    const contentY = (clientY - rect.top - transform.ty) / transform.s;
+    return hitTestNode(layout.nodes, contentX, contentY, style.marginPt);
+  }
   function onPointerUp(e: React.PointerEvent) {
     const d = dragRef.current;
     dragRef.current = null;
-    if (!d || d.moved || !layout) return;
-    const el = viewportRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const contentX = (e.clientX - rect.left - transform.tx) / transform.s;
-    const contentY = (e.clientY - rect.top - transform.ty) / transform.s;
-    onSelectPerson(hitTestNode(layout.nodes, contentX, contentY, style.marginPt));
+    if (!d || d.moved) return;
+    onSelectPerson(personAt(e.clientX, e.clientY));
+  }
+  function onDoubleClick(e: React.MouseEvent) {
+    const id = personAt(e.clientX, e.clientY);
+    if (id) centerOn(id);
   }
 
   function zoomBy(factor: number) {
-    const el = viewportRef.current;
-    const vw = el?.clientWidth ?? 0;
-    const vh = el?.clientHeight ?? 0;
     setTransform((prev) => {
       const s = clampScale(prev.s * factor);
       const k = s / prev.s;
-      // Zoom around the viewport center.
-      return { s, tx: vw / 2 - (vw / 2 - prev.tx) * k, ty: vh / 2 - (vh / 2 - prev.ty) * k };
+      return {
+        s,
+        tx: size.w / 2 - (size.w / 2 - prev.tx) * k,
+        ty: size.h / 2 - (size.h / 2 - prev.ty) * k,
+      };
     });
   }
+  function centerSelection() {
+    if (selectedPersonId && nodeById.has(selectedPersonId)) centerOn(selectedPersonId);
+    else fitToView();
+  }
 
-  const selectedNode = selectedPersonId
-    ? layout?.nodes.find((n) => n.personId === selectedPersonId)
-    : undefined;
+  function overlayRect(personId: UUID) {
+    const n = nodeById.get(personId);
+    if (!n) return undefined;
+    return {
+      left: transform.tx + transform.s * (style.marginPt + n.x - n.width / 2),
+      top: transform.ty + transform.s * (style.marginPt + n.y - n.height / 2),
+      width: transform.s * n.width,
+      height: transform.s * n.height,
+    };
+  }
 
   if (!hasPeople) {
     return (
@@ -178,6 +209,23 @@ export function EditorCanvas({
     );
   }
 
+  const selRect = selectedPersonId ? overlayRect(selectedPersonId) : undefined;
+  const pulseRect = pulseId ? overlayRect(pulseId) : undefined;
+
+  // Minimap geometry.
+  const mmScale = page ? Math.min(MINIMAP_MAX.w / page.widthPt, MINIMAP_MAX.h / page.heightPt) : 0;
+  const mmW = page ? page.widthPt * mmScale : 0;
+  const mmH = page ? page.heightPt * mmScale : 0;
+  const viewRect =
+    page && transform.s > 0
+      ? {
+          left: (-transform.tx / transform.s) * mmScale,
+          top: (-transform.ty / transform.s) * mmScale,
+          width: (size.w / transform.s) * mmScale,
+          height: (size.h / transform.s) * mmScale,
+        }
+      : undefined;
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-slate-50">
       <div
@@ -186,6 +234,7 @@ export function EditorCanvas({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onDoubleClick={onDoubleClick}
         aria-label="Family tree canvas"
         role="application"
       >
@@ -200,23 +249,41 @@ export function EditorCanvas({
           // user HTML — the same trust boundary already used by PosterExportPanel's preview.
           dangerouslySetInnerHTML={{ __html: svg }}
         />
-        {selectedNode && page && (
+        {selRect && (
           <div
             aria-hidden="true"
             className="pointer-events-none absolute rounded-md ring-2 ring-blue-500 ring-offset-1"
-            style={{
-              left:
-                transform.tx +
-                transform.s * (style.marginPt + selectedNode.x - selectedNode.width / 2),
-              top:
-                transform.ty +
-                transform.s * (style.marginPt + selectedNode.y - selectedNode.height / 2),
-              width: transform.s * selectedNode.width,
-              height: transform.s * selectedNode.height,
-            }}
+            style={selRect}
+          />
+        )}
+        {pulseRect && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute animate-ping rounded-md ring-4 ring-emerald-400"
+            style={pulseRect}
           />
         )}
       </div>
+
+      {page && mmW > 0 && (
+        <div
+          aria-hidden="true"
+          className="absolute bottom-3 left-3 overflow-hidden rounded border border-slate-300 bg-white/90 shadow-sm"
+          style={{ width: mmW, height: mmH }}
+        >
+          {viewRect && (
+            <div
+              className="absolute border-2 border-blue-500 bg-blue-500/10"
+              style={{
+                left: Math.max(0, viewRect.left),
+                top: Math.max(0, viewRect.top),
+                width: Math.min(mmW, viewRect.width),
+                height: Math.min(mmH, viewRect.height),
+              }}
+            />
+          )}
+        </div>
+      )}
 
       <div className="absolute bottom-3 right-3 flex flex-col gap-1 rounded-lg border border-slate-200 bg-white/95 p-1 shadow-sm">
         <button
@@ -234,6 +301,14 @@ export function EditorCanvas({
           className="h-8 w-8 rounded text-lg text-slate-700 hover:bg-slate-100"
         >
           −
+        </button>
+        <button
+          type="button"
+          aria-label="Center on selection"
+          onClick={centerSelection}
+          className="h-8 w-8 rounded text-sm text-slate-700 hover:bg-slate-100"
+        >
+          ⊙
         </button>
         <button
           type="button"

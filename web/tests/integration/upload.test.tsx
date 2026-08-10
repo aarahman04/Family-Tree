@@ -2,12 +2,13 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import JSZip from "jszip";
 import { App } from "../../src/App.js";
 import { buildNodeFtt, personRow } from "../../../tests/helpers.js";
+import { setHasUnsavedEdits } from "../../src/lib/unsavedEdits.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SAMPLE_PATH = path.join(__dirname, "..", "..", "..", "Family Tree FTZ", "FamilyTree.ftz");
@@ -28,6 +29,13 @@ async function syntheticFtzFile(fileName: string, personName: string): Promise<F
 }
 
 describe.skipIf(!SAMPLE_EXISTS)("Upload interactions", () => {
+  beforeEach(() => {
+    window.location.hash = "";
+    // The unsaved-edits flag is a worker-level singleton; a prior test file that made an edit
+    // could leave it set, which would route these replace/clear paths through confirm().
+    setHasUnsavedEdits(false);
+  });
+
   it("supports drag-and-drop onto the drop zone", async () => {
     render(<App />);
     const file = await realFtzFile();
