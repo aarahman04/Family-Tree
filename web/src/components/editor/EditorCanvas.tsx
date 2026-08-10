@@ -6,6 +6,7 @@ import { renderPosterSvg } from "../../../../poster/renderSvg.js";
 import { DEFAULT_POSTER_STYLE, type PosterNode } from "../../../../poster/types.js";
 import { makeCanvasTextMeasurer } from "../../lib/canvasTextMeasure.js";
 import { hitTestNode } from "../../lib/canvasHitTest.js";
+import { immediateRelatives } from "../../lib/relatives.js";
 
 interface EditorCanvasProps {
   tree: FamilyTree;
@@ -44,8 +45,17 @@ export function EditorCanvas({
   const [transform, setTransform] = useState<Transform>({ tx: 0, ty: 0, s: 1 });
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [pulseId, setPulseId] = useState<UUID | undefined>(undefined);
+  const [focusMode, setFocusMode] = useState(false);
 
   const hasPeople = Object.keys(tree.persons).length > 0;
+
+  // In focus mode, everyone outside the selected person's immediate family dims. Computed in
+  // content space, so the dim overlays live inside the transformed layer and don't recompute
+  // on every pan/zoom.
+  const relatives = useMemo(
+    () => (focusMode && selectedPersonId ? immediateRelatives(tree, selectedPersonId) : undefined),
+    [focusMode, selectedPersonId, tree]
+  );
 
   const measurer = useMemo(() => makeCanvasTextMeasurer(style.fontFamily), [style.fontFamily]);
   const layout = useMemo(
@@ -239,16 +249,38 @@ export function EditorCanvas({
         role="application"
       >
         <div
+          className="relative"
           style={{
             transform: `translate(${transform.tx}px, ${transform.ty}px) scale(${transform.s})`,
             transformOrigin: "0 0",
             width: page?.widthPt,
             height: page?.heightPt,
           }}
-          // The renderer's own trusted output (see poster/renderSvg.ts), never arbitrary
-          // user HTML — the same trust boundary already used by PosterExportPanel's preview.
-          dangerouslySetInnerHTML={{ __html: svg }}
-        />
+        >
+          <div
+            className="absolute inset-0"
+            // The renderer's own trusted output (see poster/renderSvg.ts), never arbitrary
+            // user HTML — the same trust boundary already used by PosterExportPanel's preview.
+            dangerouslySetInnerHTML={{ __html: svg }}
+          />
+          {relatives &&
+            layout?.nodes
+              .filter((n) => !relatives.has(n.personId))
+              .map((n) => (
+                <div
+                  key={n.personId}
+                  data-testid="focus-dim"
+                  aria-hidden="true"
+                  className="pointer-events-none absolute rounded-md bg-slate-50/75"
+                  style={{
+                    left: style.marginPt + n.x - n.width / 2,
+                    top: style.marginPt + n.y - n.height / 2,
+                    width: n.width,
+                    height: n.height,
+                  }}
+                />
+              ))}
+        </div>
         {selRect && (
           <div
             aria-hidden="true"
@@ -309,6 +341,17 @@ export function EditorCanvas({
           className="h-8 w-8 rounded text-sm text-slate-700 hover:bg-slate-100"
         >
           ⊙
+        </button>
+        <button
+          type="button"
+          aria-label="Focus mode"
+          aria-pressed={focusMode}
+          onClick={() => setFocusMode((v) => !v)}
+          className={`h-8 w-8 rounded text-sm hover:bg-slate-100 ${
+            focusMode ? "bg-emerald-100 text-emerald-700" : "text-slate-700"
+          }`}
+        >
+          ◎
         </button>
         <button
           type="button"
