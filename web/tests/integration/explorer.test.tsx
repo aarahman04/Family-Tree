@@ -247,8 +247,10 @@ describe("Tree explorer — full integration (synthetic fixture)", () => {
     await uploadFixture();
     await openExport();
 
-    const peopleCount = screen.getByText("People").nextElementSibling;
-    expect(peopleCount?.textContent).toBe("8"); // Grandpa, Grandma, Dad, Mom, Kid, Sibling, KidSpouse, Grandchild
+    // The poster panel lists the whole-tree "People" count as a <dt>/<dd> pair (distinct from
+    // the Insights panel's "People" section heading, hence the tag-name filter).
+    const peopleDt = screen.getAllByText("People").find((el) => el.tagName === "DT")!;
+    expect(peopleDt.nextElementSibling?.textContent).toBe("8"); // Grandpa, Grandma, Dad, Mom, Kid, Sibling, KidSpouse, Grandchild
     expect(screen.getByRole("button", { name: /download svg/i })).toBeInTheDocument();
 
     // The canvas (which uses the same poster layout) stays available alongside it.

@@ -201,7 +201,11 @@ export function computeTreeInsights(
     if (!largestFamily || fam.childrenIds.length > largestFamily.childCount) {
       const h = fam.husbandId ? tree.persons[fam.husbandId]?.name : undefined;
       const w = fam.wifeId ? tree.persons[fam.wifeId]?.name : undefined;
-      const parents = [h, w].filter(Boolean).map(displayName).join(" & ") || "(unknown couple)";
+      const parents =
+        [h, w]
+          .filter((n): n is string => !!n)
+          .map(displayName)
+          .join(" & ") || "(unknown couple)";
       largestFamily = { parents, childCount: fam.childrenIds.length };
     }
   }

@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FamilyTree, UUID } from "../../../models/types.js";
 import { buildSearchIndex } from "../lib/search.js";
+import { computeTreeInsights } from "../lib/insights.js";
 import { setHasUnsavedEdits } from "../lib/unsavedEdits.js";
 import { useExport } from "../hooks/useExport.js";
 import { useTreeEditor } from "../state/useTreeEditor.js";
 import { useTreeSession, type TreeSession } from "../state/treeSession.js";
 import { EditorCanvas } from "../components/editor/EditorCanvas.js";
 import { ExportMenu } from "../components/editor/ExportMenu.js";
+import { InsightsPanel } from "../components/editor/InsightsPanel.js";
+import { InsightsStrip } from "../components/editor/InsightsStrip.js";
 import { PersonInspector } from "../components/explorer/PersonInspector.js";
 import { SearchBox } from "../components/explorer/SearchBox.js";
 
@@ -51,6 +54,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const searchIndex = useMemo(() => buildSearchIndex(tree), [tree]);
+  const insights = useMemo(() => computeTreeInsights(tree), [tree]);
   const errors = tree.validation.issues.filter((i) => i.severity === "error");
   const warnings = tree.validation.issues.filter((i) => i.severity === "warning");
 
@@ -126,6 +130,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
             {sidebarOpen ? "Hide panel" : "Show panel"}
           </button>
         </div>
+        <InsightsStrip insights={insights} />
         <div className="min-h-0 flex-1">
           <EditorCanvas
             tree={tree}
@@ -155,6 +160,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
               Select a person on the canvas to view and edit their details.
             </p>
           )}
+          <InsightsPanel insights={insights} />
           <ExportMenu
             tree={tree}
             sourceFileName={session.fileName}

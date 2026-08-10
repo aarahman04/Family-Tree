@@ -1,0 +1,155 @@
+import { useState } from "react";
+import type { TreeInsights } from "../../lib/insights.js";
+
+/** One label/value row. `estimate` renders a small amber "est." badge next to the value. */
+function Stat({ label, value, estimate }: { label: string; value: string; estimate?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2 py-1">
+      <dt className="text-xs text-slate-500">{label}</dt>
+      <dd className="flex items-center gap-1.5 text-right text-sm font-medium text-slate-900">
+        {estimate && (
+          <span className="rounded bg-amber-100 px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+            est.
+          </span>
+        )}
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="border-t border-slate-100 pt-2 first:border-t-0 first:pt-0">
+      <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        {title}
+      </h3>
+      <dl>{children}</dl>
+    </div>
+  );
+}
+
+/**
+ * The detailed "cool insights" panel for the editor sidebar. Every estimated figure carries an
+ * "est." badge and hedged wording ("~1900s", "~175 years") so nothing reads as verified history.
+ * Rows are omitted when the underlying data isn't present, so sparse trees stay uncluttered.
+ */
+export function InsightsPanel({ insights }: { insights: TreeInsights }) {
+  const [open, setOpen] = useState(true);
+  const i = insights;
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-slate-800"
+      >
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden="true">✨</span> Insights
+        </span>
+        <span aria-hidden="true" className="text-slate-400">
+          {open ? "▲" : "▼"}
+        </span>
+      </button>
+
+      {open && (
+        <div className="flex flex-col gap-3 border-t border-slate-200 p-3">
+          <Section title="People">
+            <Stat label="Total members" value={String(i.totalMembers)} />
+            <Stat label="Male" value={`${i.maleCount} (${i.malePercent}%)`} />
+            <Stat label="Female" value={`${i.femaleCount} (${i.femalePercent}%)`} />
+            {i.unknownCount > 0 && (
+              <Stat label="Unspecified gender" value={String(i.unknownCount)} />
+            )}
+            <Stat label="Living (presumed)" value={String(i.livingCount)} estimate />
+            <Stat label="Deceased" value={String(i.deceasedCount)} />
+          </Section>
+
+          <Section title="Family structure">
+            <Stat label="Generations" value={String(i.generationCount)} />
+            <Stat label="Marriages" value={String(i.marriageCount)} />
+            <Stat label="Avg. children / family" value={String(i.averageChildrenPerFamily)} />
+            {i.largestGeneration && (
+              <Stat label="Largest generation" value={`${i.largestGeneration.count} people`} />
+            )}
+            {i.largestFamily && (
+              <Stat
+                label="Largest family"
+                value={`${i.largestFamily.childCount} children (${i.largestFamily.parents})`}
+              />
+            )}
+            {i.disconnectedGroups > 1 && (
+              <Stat label="Separate family groups" value={String(i.disconnectedGroups)} />
+            )}
+          </Section>
+
+          {(i.estimatedEarliestDecade !== undefined || i.estimatedSpanYears !== undefined) && (
+            <Section title="Timeline">
+              {i.estimatedEarliestDecade !== undefined && (
+                <Stat label="Reaches back to" value={`~${i.estimatedEarliestDecade}s`} estimate />
+              )}
+              {i.estimatedSpanYears !== undefined && (
+                <Stat label="Tree spans" value={`~${i.estimatedSpanYears} years`} estimate />
+              )}
+            </Section>
+          )}
+
+          {(i.averageLifespan !== undefined ||
+            i.longestLived ||
+            i.oldestLiving ||
+            i.youngestLiving) && (
+            <Section title="Lifespan">
+              {i.averageLifespan !== undefined && (
+                <Stat label="Average lifespan" value={`${i.averageLifespan} years`} estimate />
+              )}
+              {i.longestLived && (
+                <Stat
+                  label="Longest-lived"
+                  value={`${i.longestLived.name} (${i.longestLived.years} yrs)`}
+                />
+              )}
+              {i.oldestLiving && (
+                <Stat
+                  label="Oldest living"
+                  value={`${i.oldestLiving.name} (${i.oldestLiving.age})`}
+                  estimate
+                />
+              )}
+              {i.youngestLiving && (
+                <Stat
+                  label="Youngest living"
+                  value={`${i.youngestLiving.name} (${i.youngestLiving.age})`}
+                  estimate
+                />
+              )}
+            </Section>
+          )}
+
+          {(i.mostCommonSurname || i.mostCommonFirstName) && (
+            <Section title="Names">
+              {i.mostCommonSurname && (
+                <Stat
+                  label="Most common surname"
+                  value={`${i.mostCommonSurname.name} (${i.mostCommonSurname.count})`}
+                />
+              )}
+              {i.mostCommonFirstName && (
+                <Stat
+                  label="Most common first name"
+                  value={`${i.mostCommonFirstName.name} (${i.mostCommonFirstName.count})`}
+                />
+              )}
+            </Section>
+          )}
+
+          <p className="text-[11px] text-slate-400">
+            Figures marked <span className="font-semibold text-amber-700">est.</span> are estimated
+            from available dates and generation depth (~30 years per generation), not exact records.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
