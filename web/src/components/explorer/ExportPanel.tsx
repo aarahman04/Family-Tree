@@ -16,8 +16,8 @@ interface ExportPanelProps {
 /**
  * Persistent export summary + action, reachable at any point in the explorer (with or
  * without edits) — reuses the existing exportGedcom pipeline via useExport, never a second
- * implementation. `state`/`runExport`/`reset` are owned by TreeExplorer (not this
- * component) so it can also disable editing elsewhere in the explorer while a snapshot is
+ * implementation. `state`/`runExport`/`reset` are owned by EditorPage (not this
+ * component) so it can also disable editing elsewhere in the editor while a snapshot is
  * mid-export — see the "disabled" prop threaded to PersonInspector.
  */
 export function ExportPanel({

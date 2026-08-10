@@ -27,7 +27,7 @@ interface PersonInspectorProps {
   onNavigate: (id: UUID) => void;
   onEdit: (mutate: (tree: FamilyTree) => FamilyTree) => void;
   onClose: () => void;
-  /** True while a GEDCOM export is in flight — see TreeExplorer for why editing pauses then. */
+  /** True while a GEDCOM export is in flight — see EditorPage for why editing pauses then. */
   disabled?: boolean;
 }
 

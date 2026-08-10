@@ -40,23 +40,53 @@ function textLine(
   return `<text x="${num(x)}" y="${num(y)}" font-family="${escapeXml(fontFamily)}" font-size="${num(fontSize)}" fill="${fill}" text-anchor="middle" dominant-baseline="middle"${dir}${w}${i}>${escapeXml(text)}</text>`;
 }
 
+/** A small Mars (♂) / Venus (♀) glyph in the top-left corner of a box, so gender reads at a
+ * glance -- clearer than a color stripe, and it survives grayscale printing. Drawn from vector
+ * primitives (no glyph-font dependency) so it stays crisp in the SVG, PDF and in-app preview. */
+function genderIcon(gender: "male" | "female", boxX: number, boxY: number, style: PosterStyleOptions): string {
+  const color = gender === "male" ? style.maleIndicatorColor : style.femaleIndicatorColor;
+  const r = 3.3;
+  const cx = boxX + 9;
+  const cy = boxY + 11;
+  const stroke = `stroke="${color}" stroke-width="1.3" fill="none" stroke-linecap="round"`;
+  const circle = `<circle cx="${num(cx)}" cy="${num(cy)}" r="${num(r)}" ${stroke}/>`;
+  if (gender === "female") {
+    const sy = cy + r;
+    return (
+      circle +
+      `<line x1="${num(cx)}" y1="${num(sy)}" x2="${num(cx)}" y2="${num(sy + 6)}" ${stroke}/>` +
+      `<line x1="${num(cx - 3)}" y1="${num(sy + 3.5)}" x2="${num(cx + 3)}" y2="${num(sy + 3.5)}" ${stroke}/>`
+    );
+  }
+  // male: an arrow springing from the circle's upper-right toward the top-right corner.
+  const ex = cx + r * 0.7;
+  const ey = cy - r * 0.7;
+  const tx = ex + 5;
+  const ty = ey - 5;
+  return (
+    circle +
+    `<line x1="${num(ex)}" y1="${num(ey)}" x2="${num(tx)}" y2="${num(ty)}" ${stroke}/>` +
+    `<line x1="${num(tx)}" y1="${num(ty)}" x2="${num(tx - 4)}" y2="${num(ty)}" ${stroke}/>` +
+    `<line x1="${num(tx)}" y1="${num(ty)}" x2="${num(tx)}" y2="${num(ty + 4)}" ${stroke}/>`
+  );
+}
+
 function renderNode(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions): string {
   const cx = offsetX + node.x;
   const cy = offsetY + node.y;
   const x = cx - node.width / 2;
   const y = cy - node.height / 2;
-  const indicatorColor =
-    node.gender === "male"
-      ? style.maleIndicatorColor
-      : node.gender === "female"
-        ? style.femaleIndicatorColor
-        : style.lineColor;
 
   const parts: string[] = [];
   parts.push(
     `<rect x="${num(x)}" y="${num(y)}" width="${num(node.width)}" height="${num(node.height)}" rx="4" fill="${style.backgroundColor}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
   );
-  parts.push(`<rect x="${num(x)}" y="${num(y)}" width="4" height="${num(node.height)}" fill="${indicatorColor}"/>`);
+  // Male/female get a gender glyph; unknown/unspecified keep the plain neutral edge stripe.
+  if (node.gender === "male" || node.gender === "female") {
+    parts.push(genderIcon(node.gender, x, y, style));
+  } else {
+    parts.push(`<rect x="${num(x)}" y="${num(y)}" width="4" height="${num(node.height)}" fill="${style.lineColor}"/>`);
+  }
 
   const nameLineHeight = style.nameFontSize * 1.25;
   const noteFontSize = style.yearFontSize * 0.82;

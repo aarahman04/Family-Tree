@@ -93,9 +93,15 @@ describe("renderPosterSvg", () => {
     expect(svg).toContain("Jane O&apos;Neil");
     expect(svg).toContain("1900");
 
-    // One box per person: outer rect + gender-indicator rect, plus the page background.
+    // Page background + one box per person, plus a neutral edge stripe only on boxes whose
+    // gender is unknown (male/female get a vector gender glyph instead of the stripe).
+    const unknownCount = layout.nodes.filter((n) => n.gender !== "male" && n.gender !== "female").length;
     const rectCount = (svg.match(/<rect /g) ?? []).length;
-    expect(rectCount).toBe(1 + layout.nodes.length * 2);
+    expect(rectCount).toBe(1 + layout.nodes.length + unknownCount);
+
+    // Every male/female box carries a Mars/Venus glyph, which is built around a <circle>.
+    const circleCount = (svg.match(/<circle /g) ?? []).length;
+    expect(circleCount).toBe(layout.nodes.length - unknownCount);
   });
 
   it("wraps a long name onto multiple <text> lines instead of overflowing the box", () => {

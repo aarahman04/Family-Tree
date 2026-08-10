@@ -1,9 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import JSZip from "jszip";
 import { App } from "../../src/App.js";
 import { buildNodeFtt, familyRow, personRow } from "../../../tests/helpers.js";
+import { setHasUnsavedEdits } from "../../src/lib/unsavedEdits.js";
+import { clearSavedSession } from "../../src/lib/autosave.js";
 
 /**
  *   Grandpa(1) x Grandma(2)
@@ -47,7 +49,17 @@ async function uploadFixture() {
   render(<App />);
   const input = document.querySelector('input[type="file"]') as HTMLInputElement;
   await userEvent.upload(input, await buildFixtureFile());
+  // Editing now lives on the full-screen #/editor route — follow the handoff into it.
+  await userEvent.click(
+    await screen.findByRole("link", { name: /open editor/i }, { timeout: 5000 })
+  );
   await screen.findByLabelText(/search people/i, {}, { timeout: 5000 });
+}
+
+/** GEDCOM export lives behind the sidebar's collapsible "Export" panel. */
+async function openExport() {
+  const toggle = screen.getByRole("button", { name: /^export$/i });
+  if (toggle.getAttribute("aria-expanded") !== "true") await userEvent.click(toggle);
 }
 
 async function selectViaSearch(name: string) {
@@ -60,6 +72,15 @@ async function selectViaSearch(name: string) {
 }
 
 describe("Tree explorer — full integration (synthetic fixture)", () => {
+  beforeEach(() => {
+    window.location.hash = "";
+  });
+  afterEach(() => {
+    // This file makes edits; don't leak the unsaved flag or an autosave to other files.
+    setHasUnsavedEdits(false);
+    clearSavedSession();
+  });
+
   it("search finds a person and opens the inspector for them", async () => {
     await uploadFixture();
     await selectViaSearch("Kid");
@@ -171,6 +192,7 @@ describe("Tree explorer — full integration (synthetic fixture)", () => {
     await waitFor(() => {
       expect(screen.getByRole("status").textContent).toContain("1 validation warning");
     });
+    await openExport();
     expect(screen.getByRole("button", { name: /export gedcom/i })).toBeEnabled();
   });
 
@@ -186,6 +208,7 @@ describe("Tree explorer — full integration (synthetic fixture)", () => {
     await screen.findByRole("heading", { name: "Kiddo Renamed" });
 
     const spy = vi.spyOn(URL, "createObjectURL");
+    await openExport();
     await userEvent.click(screen.getByRole("button", { name: /export gedcom/i }));
     await screen.findByText(/conversion successful/i, {}, { timeout: 5000 });
 
@@ -211,6 +234,7 @@ describe("Tree explorer — full integration (synthetic fixture)", () => {
     await screen.findByRole("heading", { name: "Kiddo" });
     expect(screen.getByRole("button", { name: /undo last edit/i })).toBeEnabled();
 
+    await openExport();
     await userEvent.click(screen.getByRole("button", { name: /export gedcom/i }));
 
     // While the export worker round-trip is still in flight (see mocks/mockWorker.ts's
@@ -226,16 +250,17 @@ describe("Tree explorer — full integration (synthetic fixture)", () => {
     await screen.findByText(/conversion successful/i, {}, { timeout: 5000 });
   });
 
-  it("switches to the Print poster tab and shows a whole-tree preview, then back to Explore", async () => {
+  it("exposes the whole-tree print-poster preview via the Export menu", async () => {
     await uploadFixture();
+    await openExport();
 
-    await userEvent.click(screen.getByRole("tab", { name: /print poster/i }));
-
-    const peopleCount = screen.getByText("People").nextElementSibling;
-    expect(peopleCount?.textContent).toBe("8"); // Grandpa, Grandma, Dad, Mom, Kid, Sibling, KidSpouse, Grandchild
+    // The poster panel lists the whole-tree "People" count as a <dt>/<dd> pair (distinct from
+    // the Insights panel's "People" section heading, hence the tag-name filter).
+    const peopleDt = screen.getAllByText("People").find((el) => el.tagName === "DT")!;
+    expect(peopleDt.nextElementSibling?.textContent).toBe("8"); // Grandpa, Grandma, Dad, Mom, Kid, Sibling, KidSpouse, Grandchild
     expect(screen.getByRole("button", { name: /download svg/i })).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("tab", { name: /^explore$/i }));
-    expect(await screen.findByLabelText(/search people/i)).toBeInTheDocument();
+    // The canvas (which uses the same poster layout) stays available alongside it.
+    expect(screen.getByLabelText(/search people/i)).toBeInTheDocument();
   });
 });

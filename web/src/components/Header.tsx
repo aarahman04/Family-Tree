@@ -13,12 +13,12 @@ interface HeaderProps {
   current: Route;
 }
 
-// Home's tree explorer keeps the only in-page edit state (see web/src/lib/unsavedEdits.ts) --
-// navigating away from it via one of these plain hash links unmounts it and discards that
-// state instantly, with no beforeunload involved (a hash change isn't a page unload). Guard
-// every link uniformly rather than special-casing "only when leaving home": the guard is a
-// no-op with nothing to lose in every other case, so this stays correct without Header having
-// to track where the unsaved state actually lives.
+// The full-screen editor (#/editor) keeps the only in-page edit state (see
+// web/src/lib/unsavedEdits.ts) -- navigating away from it via one of these plain hash links
+// unmounts it and discards that state instantly, with no beforeunload involved (a hash change
+// isn't a page unload). Guard every link uniformly rather than special-casing "only when
+// leaving the editor": the guard is a no-op with nothing to lose in every other case, so this
+// stays correct without Header having to track where the unsaved state actually lives.
 function guardNavigation(e: MouseEvent<HTMLAnchorElement>, target: Route, current: Route) {
   if (target === current) return; // no navigation actually happens; nothing to confirm
   if (

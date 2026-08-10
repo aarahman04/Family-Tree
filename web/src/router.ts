@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 
-export type Route = "home" | "about" | "privacy";
+export type Route = "home" | "about" | "privacy" | "editor";
 
 function parseHash(): Route {
   const hash = window.location.hash.replace(/^#\/?/, "");
   if (hash === "about") return "about";
   if (hash === "privacy") return "privacy";
+  if (hash === "editor") return "editor";
   return "home";
 }
 

@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../../src/App.js";
@@ -18,12 +18,20 @@ async function convertRealSample() {
   render(<App />);
   const input = document.querySelector('input[type="file"]') as HTMLInputElement;
   await userEvent.upload(input, file);
+  await userEvent.click(
+    await screen.findByRole("link", { name: /open editor/i }, { timeout: 5000 })
+  );
   await screen.findByText(/ready for export/i, {}, { timeout: 5000 });
+  await userEvent.click(screen.getByRole("button", { name: /^export$/i }));
   await userEvent.click(screen.getByRole("button", { name: /export gedcom/i }));
   await screen.findByText(/conversion successful/i, {}, { timeout: 5000 });
 }
 
 describe.skipIf(!SAMPLE_EXISTS)("Download", () => {
+  beforeEach(() => {
+    window.location.hash = "";
+  });
+
   it("creates the GEDCOM blob URL via URL.createObjectURL", async () => {
     const spy = vi.spyOn(URL, "createObjectURL");
     await convertRealSample();
