@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useTreeImport, ACCEPT_EXTENSIONS } from "../hooks/useTreeImport.js";
 import { UploadArea } from "../components/UploadArea.js";
 import { ConversionProgress } from "../components/ConversionProgress.js";
 import { ErrorPanel } from "../components/ErrorPanel.js";
-import { TreeExplorer } from "../components/explorer/TreeExplorer.js";
-import { confirmDiscardIfUnsaved, setHasUnsavedEdits } from "../lib/unsavedEdits.js";
+import { confirmDiscardIfUnsaved } from "../lib/unsavedEdits.js";
+import { useTreeSession } from "../state/treeSession.js";
 
 interface FormatCard {
   title: string;
@@ -62,37 +62,24 @@ const FORMATS: FormatCard[] = [
 
 export function HomePage() {
   const { state, isReplacing, selectFile, reset } = useTreeImport();
-  const [editCount, setEditCount] = useState(0);
-  const hasUnsavedEdits = state.stage === "validated" && editCount > 0;
+  const { setSession, clearSession } = useTreeSession();
   const loaded = state.stage === "validated";
 
+  // Publish the imported tree to the app-level session so the full-screen editor (#/editor)
+  // can pick it up without a re-import.
   useEffect(() => {
-    setHasUnsavedEdits(hasUnsavedEdits);
-  }, [hasUnsavedEdits]);
-  useEffect(() => {
-    return () => setHasUnsavedEdits(false);
-  }, []);
-
-  useEffect(() => {
-    if (!hasUnsavedEdits) return;
-    function handleBeforeUnload(e: BeforeUnloadEvent) {
-      e.preventDefault();
-      e.returnValue = "";
+    if (state.stage === "validated") {
+      setSession({ tree: state.tree, fileName: state.file.name });
     }
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasUnsavedEdits]);
+  }, [state, setSession]);
 
-  function editWarning(action: string) {
-    return `You have ${editCount} unsaved edit${editCount === 1 ? "" : "s"} that will be lost if you ${action}. Continue?`;
-  }
   function handleClear() {
-    if (!confirmDiscardIfUnsaved(editWarning("clear this file"))) return;
-    setEditCount(0);
+    if (!confirmDiscardIfUnsaved("Discard the current tree and any unsaved edits?")) return;
+    clearSession();
     reset();
   }
   function handleFileSelected(file: File) {
-    if (!confirmDiscardIfUnsaved(editWarning("replace this file"))) return;
+    if (!confirmDiscardIfUnsaved("Replace the current tree and discard any unsaved edits?")) return;
     selectFile(file);
   }
 
@@ -156,12 +143,21 @@ export function HomePage() {
       {(state.stage === "parsing" || isReplacing) && <ConversionProgress stage="parsing" />}
 
       {state.stage === "validated" && (
-        <TreeExplorer
-          key={state.tree.metadata.importedAt}
-          initialTree={state.tree}
-          sourceFileName={state.file.name}
-          onEditCountChange={setEditCount}
-        />
+        <section className="flex flex-col items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-6 text-center">
+          <p className="text-base font-semibold text-slate-800">
+            {Object.keys(state.tree.persons).length} people loaded from {state.file.name}.
+          </p>
+          <p className="max-w-md text-sm text-slate-600">
+            Open the full-screen editor to explore, search, edit, and export your family tree —
+            laid out exactly like the printable poster.
+          </p>
+          <a
+            href="#/editor"
+            className="rounded-md bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
+          >
+            Open editor →
+          </a>
+        </section>
       )}
 
       {state.stage === "error" && (
