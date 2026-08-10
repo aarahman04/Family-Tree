@@ -105,7 +105,7 @@ function buildPlacements(tree: FamilyTree): Map<UUID, Placement> {
       continue;
     }
     // Never an anchor: home to the first recorded marriage; any other marriage becomes a
-    // chip back to this position (see chipsByFamily below).
+    // chip back to this position (see anchorChipByFamily/reverseChipsByHost below).
     placements.set(person.id, { kind: "adjacent", homeFamilyId: person.famsIds[0]! });
   }
 
@@ -174,8 +174,13 @@ function yearLineFor(person: Person | undefined): string | undefined {
 
 interface ChipInfo {
   familyId: UUID;
-  anchorId: UUID;
-  spouseId: UUID;
+  /** Unique per placed chip (`${familyId}#${hostId}`) -- a cousin marriage now produces two
+   * chips, one on each spouse's side, so a familyId alone is no longer a unique key. */
+  key: string;
+  /** The real person node this chip sits beside and draws a short connector to. */
+  hostId: UUID;
+  /** The real person this chip NAMES -- their own node lives elsewhere in the tree. */
+  namedId: UUID;
   box: MeasuredBox;
 }
 
@@ -222,10 +227,35 @@ export function computePosterLayout(
     );
   }
 
-  const chipsByFamily = new Map<UUID, ChipInfo>();
+  // A cousin marriage produces a chip on BOTH spouses' sides so each home reads as a married
+  // couple: the anchor chip sits beside the anchor (naming the non-anchor spouse, whose
+  // children live under the anchor), and the reciprocal reverse chip sits beside the
+  // non-anchor spouse at their own home (naming the anchor). The children are drawn only once
+  // (under the anchor); the reverse chip carries no children, and that spouse's box keeps its
+  // "children shown in <anchor>'s branch" note so a reader arriving from either side can find
+  // the family without ever seeing a duplicate child or a spouse who looks unmarried.
+  const anchorChipByFamily = new Map<UUID, ChipInfo>();
+  const reverseChipsByHost = new Map<UUID, ChipInfo[]>();
   for (const def of chipDefs) {
     const spouseName = displayNameOf(tree.persons[def.spouseId]); // see displayNameOf's note above
-    chipsByFamily.set(def.familyId, { ...def, box: computeChipBox(spouseName, style, measure) });
+    const anchorName = displayNameOf(tree.persons[def.anchorId]);
+    anchorChipByFamily.set(def.familyId, {
+      familyId: def.familyId,
+      key: `${def.familyId}#${def.anchorId}`,
+      hostId: def.anchorId,
+      namedId: def.spouseId,
+      box: computeChipBox(spouseName, style, measure),
+    });
+    const reverseChip: ChipInfo = {
+      familyId: def.familyId,
+      key: `${def.familyId}#${def.spouseId}`,
+      hostId: def.spouseId,
+      namedId: def.anchorId,
+      box: computeChipBox(anchorName, style, measure),
+    };
+    const list = reverseChipsByHost.get(def.spouseId);
+    if (list) list.push(reverseChip);
+    else reverseChipsByHost.set(def.spouseId, [reverseChip]);
   }
 
   // Row heights: the tallest box (person or chip) in each generation, then cumulative Y.
@@ -236,8 +266,11 @@ export function computePosterLayout(
   for (const person of Object.values(tree.persons)) {
     bumpRow(generationOf(person.id), personBoxes.get(person.id)!.height);
   }
-  for (const chip of chipsByFamily.values()) {
-    bumpRow(generationOf(chip.anchorId), chip.box.height);
+  for (const chip of anchorChipByFamily.values()) {
+    bumpRow(generationOf(chip.hostId), chip.box.height);
+  }
+  for (const list of reverseChipsByHost.values()) {
+    for (const chip of list) bumpRow(generationOf(chip.hostId), chip.box.height);
   }
   const generationCount =
     rowMaxHeight.size === 0 ? 0 : Math.max(...[...rowMaxHeight.keys()].map((g) => g + 1));
@@ -264,8 +297,16 @@ export function computePosterLayout(
     if (spouseId && isAdjacentHere(placements, spouseId, family.id)) {
       return personBoxes.get(spouseId)!.width;
     }
-    const chip = chipsByFamily.get(family.id);
+    const chip = anchorChipByFamily.get(family.id);
     return chip ? chip.box.width : 0;
+  }
+
+  /** Total horizontal room the reciprocal reverse chips hosted BY `personId` need beside
+   * their own box (each: a gap plus the chip's width). 0 when they host none. */
+  function reverseChipWidthOf(personId: UUID): number {
+    const list = reverseChipsByHost.get(personId);
+    if (!list || list.length === 0) return 0;
+    return list.reduce((sum, c) => sum + style.horizontalSpacing + c.box.width, 0);
   }
 
   function childrenWidthOf(family: Family): number {
@@ -308,6 +349,7 @@ export function computePosterLayout(
         width += style.horizontalSpacing + extraLaneWidth(families[i]!, personId);
       }
     }
+    width += reverseChipWidthOf(personId); // reciprocal cousin-marriage chip(s) beside them
     widthMemo.set(personId, width);
     return width;
   }
@@ -315,14 +357,14 @@ export function computePosterLayout(
   const nodes: PosterNode[] = [];
   const chips: PosterChip[] = [];
   const nodesById = new Map<UUID, PosterNode>();
-  const chipsByFamilyId = new Map<UUID, PosterChip>();
+  const chipsByKey = new Map<string, PosterChip>();
   const placed = new Set<UUID>();
   const clusterLeadersByGen = new Map<number, UUID[]>();
   /** For cascading collision shifts: a cluster leader's directly-placed children, and its
    * attached spouse/chip (see shiftClusterBy). */
   const childrenOfPerson = new Map<UUID, UUID[]>();
   const attachedSpousesOf = new Map<UUID, UUID[]>();
-  const attachedChipFamiliesOf = new Map<UUID, UUID[]>();
+  const attachedChipKeysOf = new Map<UUID, string[]>();
 
   function addNode(personId: UUID, x: number, y: number) {
     const box = personBoxes.get(personId)!;
@@ -348,9 +390,9 @@ export function computePosterLayout(
   function addChip(info: ChipInfo, x: number, y: number) {
     const chip: PosterChip = {
       familyId: info.familyId,
-      anchorPersonId: info.anchorId,
-      spousePersonId: info.spouseId,
-      generation: generationOf(info.anchorId),
+      anchorPersonId: info.hostId, // the node this chip connects to
+      spousePersonId: info.namedId, // the real person it names
+      generation: generationOf(info.hostId),
       x,
       y,
       width: info.box.width,
@@ -359,7 +401,29 @@ export function computePosterLayout(
       rtl: info.box.rtl,
     };
     chips.push(chip);
-    chipsByFamilyId.set(info.familyId, chip);
+    chipsByKey.set(info.key, chip);
+  }
+
+  function registerAttachedChip(hostId: UUID, key: string) {
+    const keys = attachedChipKeysOf.get(hostId);
+    if (keys) keys.push(key);
+    else attachedChipKeysOf.set(hostId, [key]);
+  }
+
+  /** Places the reciprocal reverse chip(s) hosted by `personId` (each naming the anchor of a
+   * cousin marriage `personId` married into but does not anchor) to the right of their own
+   * footprint, starting at `startCursor`. No children are drawn here -- they live under the
+   * anchor, and this person's box carries the "children shown in <anchor>'s branch" note. */
+  function placeReverseChips(personId: UUID, startCursor: number, y: number) {
+    const list = reverseChipsByHost.get(personId);
+    if (!list) return;
+    let cursor = startCursor;
+    for (const chip of list) {
+      cursor += style.horizontalSpacing;
+      addChip(chip, cursor + chip.box.width / 2, y);
+      registerAttachedChip(personId, chip.key);
+      cursor += chip.box.width;
+    }
   }
 
   function registerClusterLeader(personId: UUID, gen: number) {
@@ -383,12 +447,10 @@ export function computePosterLayout(
       connectors.push({ kind: "marriage", personIds: [personId, spouseId] });
       return [personId, spouseId];
     }
-    const chip = chipsByFamily.get(family.id);
+    const chip = anchorChipByFamily.get(family.id);
     if (chip) {
       addChip(chip, centerX, y);
-      const list = attachedChipFamiliesOf.get(personId);
-      if (list) list.push(family.id);
-      else attachedChipFamiliesOf.set(personId, [family.id]);
+      registerAttachedChip(personId, chip.key);
     }
     return [personId];
   }
@@ -428,6 +490,7 @@ export function computePosterLayout(
     if (families.length === 0) {
       addNode(personId, leftEdge + ownBox.width / 2, y);
       registerClusterLeader(personId, gen);
+      placeReverseChips(personId, leftEdge + ownBox.width, y);
       return;
     }
 
@@ -464,6 +527,8 @@ export function computePosterLayout(
       placeChildrenRow(family, cursor, lane, laneParentIds, steps, directChildren);
       cursor += lane;
     }
+
+    placeReverseChips(personId, cursor, y);
 
     if (directChildren.length > 0) childrenOfPerson.set(personId, directChildren);
   }
@@ -517,8 +582,8 @@ export function computePosterLayout(
       const spouseNode = nodesById.get(spouseId);
       if (spouseNode) spouseNode.x += delta;
     }
-    for (const famId of attachedChipFamiliesOf.get(personId) ?? []) {
-      const chip = chipsByFamilyId.get(famId);
+    for (const key of attachedChipKeysOf.get(personId) ?? []) {
+      const chip = chipsByKey.get(key);
       if (chip) chip.x += delta;
     }
     for (const childId of childrenOfPerson.get(personId) ?? []) {
@@ -537,8 +602,8 @@ export function computePosterLayout(
         right = Math.max(right, spouseNode.x + spouseNode.width / 2);
       }
     }
-    for (const famId of attachedChipFamiliesOf.get(personId) ?? []) {
-      const chip = chipsByFamilyId.get(famId);
+    for (const key of attachedChipKeysOf.get(personId) ?? []) {
+      const chip = chipsByKey.get(key);
       if (chip) {
         left = Math.min(left, chip.x - chip.width / 2);
         right = Math.max(right, chip.x + chip.width / 2);

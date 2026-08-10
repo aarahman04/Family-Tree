@@ -133,10 +133,13 @@ describe("renderPosterSvg", () => {
     const page = computePosterPageSize(layout, DEFAULT_POSTER_STYLE);
     const svg = renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE);
 
-    expect(layout.chips).toHaveLength(1);
+    // Two chips: one beside cousinA naming cousinB, and the reciprocal one beside cousinB
+    // naming cousinA -- so each spouse's home reads as married.
+    expect(layout.chips).toHaveLength(2);
     expect(svg).toContain(`stroke="${DEFAULT_POSTER_STYLE.chipBorderColor}"`);
     expect(svg).toContain("stroke-dasharray");
     expect(svg).toContain("⚭ Cousin Bee"); // real name, not a "Spouse:" / "(see own entry)" placeholder
+    expect(svg).toContain("⚭ cousinA"); // reciprocal chip beside cousinB names her husband
     expect(svg).not.toMatch(/spouse:/i);
     expect(svg).not.toMatch(/see own entry/i);
 

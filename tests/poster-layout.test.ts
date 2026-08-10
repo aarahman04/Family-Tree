@@ -254,19 +254,40 @@ describe("computePosterLayout", () => {
     expectNoDisconnectedBranches(layout);
     expectNoOverlaps(layout);
 
-    expect(layout.chips).toHaveLength(1);
-    const chip = layout.chips[0]!;
-    // cousinA is the husband -> anchor; cousinB keeps her own canonical position under her
-    // own parents and is represented at the marriage point only by a compact chip.
-    expect(chip.anchorPersonId).toBe("cousinA");
-    expect(chip.spousePersonId).toBe("cousinB");
-    expect(chip.lines.some((l) => l.includes("Cousin B"))).toBe(true);
-    // Never a placeholder-style label -- no "Spouse:" scaffold text, no dead-end pointer.
-    expect(chip.lines.join(" ")).not.toMatch(/spouse:/i);
-    expect(chip.lines.join(" ")).not.toMatch(/see own entry/i);
-    // No connector at all references the chip's spouse -- no duplicated relationship line.
+    // A cousin marriage now produces a chip on BOTH spouses' sides, so each home reads as a
+    // married couple. Neither spouse is ever drawn as a second box.
+    expect(layout.chips).toHaveLength(2);
+    const anchorChip = layout.chips.find((c) => c.anchorPersonId === "cousinA")!;
+    const reverseChip = layout.chips.find((c) => c.anchorPersonId === "cousinB")!;
+    expect(anchorChip).toBeDefined();
+    expect(reverseChip).toBeDefined();
+
+    // cousinA is the husband -> anchor; beside him a chip NAMES cousinB (whose real node is
+    // under her own parents), and the children live under him.
+    expect(anchorChip.spousePersonId).toBe("cousinB");
+    expect(anchorChip.lines.some((l) => l.includes("Cousin B"))).toBe(true);
+
+    // Beside cousinB's OWN node sits the reciprocal chip NAMING her husband cousinA, so she
+    // never looks unmarried -- her spouse is attached, but NOT their children.
+    expect(reverseChip.spousePersonId).toBe("cousinA");
+    expect(reverseChip.lines.some((l) => l.includes("cousinA"))).toBe(true); // cousinA has no name -> id
+    const reverseChipDx = Math.abs(
+      reverseChip.x - layout.nodes.find((n) => n.personId === "cousinB")!.x
+    );
+    expect(reverseChipDx).toBeLessThan(300); // sits locally beside her, not across the poster
+
+    // Never a placeholder-style label on either chip.
+    for (const chip of layout.chips) {
+      expect(chip.lines.join(" ")).not.toMatch(/spouse:/i);
+      expect(chip.lines.join(" ")).not.toMatch(/see own entry/i);
+    }
+    // No marriage connector references either cousin -- the relationship is carried by the
+    // chips, so there is no duplicated/long relationship line.
     for (const c of layout.connectors) {
-      if (c.kind === "marriage") expect(c.personIds).not.toContain("cousinB");
+      if (c.kind === "marriage") {
+        expect(c.personIds).not.toContain("cousinB");
+        expect(c.personIds).not.toContain("cousinA");
+      }
     }
 
     // Both cousins still sit at their own blood-parent-derived generation (same row here).
@@ -274,9 +295,8 @@ describe("computePosterLayout", () => {
     expect(byId.cousinA!.generation).toBe(2);
     expect(byId.cousinB!.generation).toBe(2);
 
-    // cousinB's OWN node -- in her own branch, under her own real parents -- carries a
-    // pointer naming the real anchor, so a reader arriving from either direction can find
-    // the family. This is on her own box, not a floating/duplicated element.
+    // Only the non-anchor spouse carries the "children shown in <anchor>'s branch" note --
+    // the children are drawn once, under the anchor.
     expect(byId.cousinB!.noteLine).toBeDefined();
     expect(byId.cousinB!.noteLine).toMatch(/branch/i);
     expect(byId.cousinA!.noteLine).toBeUndefined(); // the anchor doesn't need a pointer to themself
@@ -353,12 +373,19 @@ describe("computePosterLayout", () => {
     // genuinely distant-branch case, not a same-row cousin marriage.
     expect(anchorNode.generation).not.toBe(distantNode.generation);
 
-    // The marriage point gets a short local chip next to the anchor...
-    expect(layout.chips).toHaveLength(1);
-    const chip = layout.chips[0]!;
-    expect(chip.anchorPersonId).toBe("anchor");
+    // The marriage point gets a short local chip next to the anchor, naming the distant
+    // spouse... (one chip per side: the anchor's, and the reciprocal one beside the spouse).
+    expect(layout.chips).toHaveLength(2);
+    const chip = layout.chips.find((c) => c.anchorPersonId === "anchor")!;
+    expect(chip.spousePersonId).toBe("distantSpouse");
     const chipDx = Math.abs(chip.x - anchorNode.x);
     expect(chipDx).toBeLessThan(anchorNode.width + chip.width); // local, not clear across the poster
+
+    // ...and a reciprocal chip sits beside the distant spouse's own node, naming the anchor,
+    // so their far-away home also reads as married -- again local, no line across the poster.
+    const reverseChip = layout.chips.find((c) => c.anchorPersonId === "distantSpouse")!;
+    expect(reverseChip.spousePersonId).toBe("anchor");
+    expect(Math.abs(reverseChip.x - distantNode.x)).toBeLessThan(distantNode.width + reverseChip.width);
 
     // ...and NO line/connector reaches all the way to the spouse's real, distant position.
     for (const c of layout.connectors) {
@@ -574,10 +601,17 @@ describe.skipIf(!SAMPLE_EXISTS)("computePosterLayout against the real FTZ sample
       expect(text).not.toMatch(/spouse:/i);
       expect(text).not.toMatch(/see own entry/i);
     }
+    // Each non-anchor spouse of a cousin marriage carries a "children shown in <anchor>'s
+    // branch" note AND a reciprocal chip beside their own node naming that anchor, so their
+    // home reads as a married couple without ever duplicating a child.
     const notedNodes = layout.nodes.filter((n) => n.noteLine);
-    expect(notedNodes).toHaveLength(layout.chips.length); // one note per chip, no more, no less
+    expect(notedNodes.length).toBeGreaterThan(0);
+    const chipHosts = new Set(layout.chips.map((c) => c.anchorPersonId));
     for (const node of notedNodes) {
       expect(node.noteLine).toMatch(/branch/i);
+      expect(chipHosts.has(node.personId)).toBe(true); // reciprocal husband/wife chip attached
     }
+    // Two chips per cousin marriage (one on each side): more chips than notes, never fewer.
+    expect(layout.chips.length).toBeGreaterThanOrEqual(notedNodes.length);
   });
 });
