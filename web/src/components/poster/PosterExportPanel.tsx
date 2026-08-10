@@ -97,10 +97,11 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
       <div>
         <h2 className="text-sm font-semibold text-slate-800">Print poster</h2>
         <p className="mt-1 text-xs text-slate-600">
-          One continuous page sized to fit the whole tree at a readable name size — no A4
-          splitting, no shrinking to fit. <strong className="font-semibold text-slate-800">Download
-          the SVG</strong> and take it straight to a print shop: it is fully vector, has no
-          size limit, and prints crisp at any width, however long the tree needs to be.
+          One continuous page sized to fit the whole tree at a readable name size — no A4 splitting,
+          no shrinking to fit.{" "}
+          <strong className="font-semibold text-slate-800">Download the SVG</strong> and take it
+          straight to a print shop: it is fully vector, has no size limit, and prints crisp at any
+          width, however long the tree needs to be.
         </p>
       </div>
 
@@ -109,7 +110,11 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
         <div className="flex flex-wrap gap-2">
           {(
             [
-              ["balanced", "Balanced", "Recommended — root centered, branches balanced for a hangable poster"],
+              [
+                "balanced",
+                "Balanced",
+                "Recommended — root centered, branches balanced for a hangable poster",
+              ],
               ["flat", "Single row", "One continuous top-down chart — very wide for large trees"],
             ] as const
           ).map(([mode, label, hint]) => (
@@ -153,13 +158,13 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
 
       {isScaledForPdf && (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          This tree needs a poster larger than the PDF format's own page-size limit (200in /
-          5.08m per side), so the PDF download is generated at{" "}
-          <strong>{Math.round(page.pdfScale * 10000) / 100}% scale</strong> — fully vector, so
-          a print shop can scale it back up to {formatMeters(page.widthMm)} ×{" "}
-          {formatMeters(page.heightMm)} with zero quality loss, the same way oversized
-          architectural drawings are printed. The SVG download has no such limit and encodes
-          the true full size directly — prefer it if your print shop accepts SVG.
+          This tree needs a poster larger than the PDF format's own page-size limit (200in / 5.08m
+          per side), so the PDF download is generated at{" "}
+          <strong>{Math.round(page.pdfScale * 10000) / 100}% scale</strong> — fully vector, so a
+          print shop can scale it back up to {formatMeters(page.widthMm)} ×{" "}
+          {formatMeters(page.heightMm)} with zero quality loss, the same way oversized architectural
+          drawings are printed. The SVG download has no such limit and encodes the true full size
+          directly — prefer it if your print shop accepts SVG.
         </p>
       )}
 
@@ -304,7 +309,12 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
       >
         <div style={{ width: page.widthPt * scale, height: page.heightPt * scale }}>
           <div
-            style={{ width: page.widthPt, height: page.heightPt, transform: `scale(${scale})`, transformOrigin: "top left" }}
+            style={{
+              width: page.widthPt,
+              height: page.heightPt,
+              transform: `scale(${scale})`,
+              transformOrigin: "top left",
+            }}
             // The renderer's own output -- see poster/renderSvg.ts's escapeXml -- not
             // arbitrary user HTML, so this mirrors the trust boundary already accepted for
             // exported GEDCOM/SVG downloads elsewhere in the app.
@@ -330,14 +340,18 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
           disabled={pdfStage === "generating"}
           className="rounded-md border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
         >
-          {pdfStage === "generating" ? "Generating PDF…" : isScaledForPdf ? "Download PDF (scaled copy)" : "Download PDF"}
+          {pdfStage === "generating"
+            ? "Generating PDF…"
+            : isScaledForPdf
+              ? "Download PDF (scaled copy)"
+              : "Download PDF"}
         </button>
       </div>
 
       {pdfStage === "error" && (
         <p className="text-xs text-red-700" role="alert">
-          Couldn't generate the PDF{pdfError ? `: ${pdfError}` : "."} Try the SVG download
-          instead — most print shops and vector editors accept it directly.
+          Couldn't generate the PDF{pdfError ? `: ${pdfError}` : "."} Try the SVG download instead —
+          most print shops and vector editors accept it directly.
         </p>
       )}
     </div>
