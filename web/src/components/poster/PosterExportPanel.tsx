@@ -90,8 +90,9 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
         <h2 className="text-sm font-semibold text-slate-800">Print poster</h2>
         <p className="mt-1 text-xs text-slate-600">
           One continuous page sized to fit the whole tree at a readable name size — no A4
-          splitting, no shrinking to fit. Take the PDF or SVG straight to a print shop and
-          print it exactly as long as it needs to be.
+          splitting, no shrinking to fit. <strong className="font-semibold text-slate-800">Download
+          the SVG</strong> and take it straight to a print shop: it is fully vector, has no
+          size limit, and prints crisp at any width, however long the tree needs to be.
         </p>
       </div>
 
@@ -271,21 +272,24 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={handleDownloadSvg}
-          className="rounded-md border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          className="rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
         >
           Download SVG
         </button>
+        <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[11px] font-medium text-blue-700">
+          Recommended for printing
+        </span>
         <button
           type="button"
           onClick={handleDownloadPdf}
           disabled={pdfStage === "generating"}
-          className="rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="rounded-md border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
         >
-          {pdfStage === "generating" ? "Generating PDF…" : "Download PDF"}
+          {pdfStage === "generating" ? "Generating PDF…" : isScaledForPdf ? "Download PDF (scaled copy)" : "Download PDF"}
         </button>
       </div>
 
