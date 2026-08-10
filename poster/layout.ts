@@ -157,6 +157,14 @@ function anchoredFamiliesOf(tree: FamilyTree, personId: UUID): Family[] {
   return families;
 }
 
+/** The name to actually print in a person's box. A blank `name` field (111 of the 473
+ * people in the real sample carry one) must never render as an empty box -- fall back to the
+ * person's nickname, then to "Unknown", matching how chips/branch-notes already resolve a
+ * missing name (see the `|| "Unknown"` sites below). */
+function displayNameOf(person: Person | undefined): string {
+  return person?.name?.trim() || person?.nickname?.trim() || "Unknown";
+}
+
 function yearLineFor(person: Person | undefined): string | undefined {
   const birth = person?.birth?.date?.year;
   const death = person?.death?.date?.year;
@@ -199,10 +207,10 @@ export function computePosterLayout(
     const spouseId = otherSpouseOf(family, anchor);
     if (spouseId && !isAdjacentHere(placements, spouseId, family.id)) {
       chipDefs.push({ familyId: family.id, anchorId: anchor, spouseId });
-      // `||`, not `??`: a person record with a genuinely empty name field must still fall
-      // back to "Unknown" here, or the chip/note would show nothing after the marriage
-      // glyph -- exactly the "empty spouse label" this rule exists to rule out.
-      branchNoteAnchorNameFor.set(spouseId, tree.persons[anchor]?.name || "Unknown");
+      // displayNameOf (name -> nickname -> "Unknown") guarantees a real label after the
+      // marriage glyph: a genuinely empty name field must never leave the chip/note blank --
+      // exactly the "empty spouse label" this rule exists to rule out.
+      branchNoteAnchorNameFor.set(spouseId, displayNameOf(tree.persons[anchor]));
     }
   }
 
@@ -210,13 +218,13 @@ export function computePosterLayout(
   for (const person of Object.values(tree.persons)) {
     personBoxes.set(
       person.id,
-      computePersonBox(person.name, yearLineFor(person), branchNoteAnchorNameFor.get(person.id), style, measure)
+      computePersonBox(displayNameOf(person), yearLineFor(person), branchNoteAnchorNameFor.get(person.id), style, measure)
     );
   }
 
   const chipsByFamily = new Map<UUID, ChipInfo>();
   for (const def of chipDefs) {
-    const spouseName = tree.persons[def.spouseId]?.name || "Unknown"; // see the `||` note above
+    const spouseName = displayNameOf(tree.persons[def.spouseId]); // see displayNameOf's note above
     chipsByFamily.set(def.familyId, { ...def, box: computeChipBox(spouseName, style, measure) });
   }
 
@@ -326,7 +334,7 @@ export function computePosterLayout(
       y,
       width: box.width,
       height: box.height,
-      name: person?.name ?? "Unknown",
+      name: displayNameOf(person),
       nameLines: box.lines,
       yearLine: yearLineFor(person),
       noteLine: box.noteLine,

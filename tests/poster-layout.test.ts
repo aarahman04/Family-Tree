@@ -442,6 +442,22 @@ describe("computePosterLayout", () => {
     expect(node.nameLines.join(" ")).toContain("محمد");
   });
 
+  it("never renders a blank box: an empty name field falls back to nickname, then to 'Unknown'", () => {
+    // 111 of the 473 people in the real sample carry an empty name field; before this fix
+    // they rendered as empty boxes (addNode used `?? \"Unknown\"`, which doesn't catch \"\").
+    const withNickname: Person = { ...person({ id: "p1" }), name: "  ", nickname: "Dada" };
+    const noNameNoNick: Person = { ...person({ id: "p2" }), name: "", nickname: undefined };
+    const tree = buildTree([withNickname, noNameNoNick], []);
+    const layout = computePosterLayout(tree);
+
+    const n1 = layout.nodes.find((n) => n.personId === "p1")!;
+    const n2 = layout.nodes.find((n) => n.personId === "p2")!;
+    expect(n1.name).toBe("Dada"); // nickname fills the blank name
+    expect(n1.nameLines.join("").trim().length).toBeGreaterThan(0);
+    expect(n2.name).toBe("Unknown"); // no name and no nickname -> explicit placeholder, never blank
+    expect(n2.nameLines.join("").trim().length).toBeGreaterThan(0);
+  });
+
   it("resolves a synthetic collision between two unrelated branches with unequal box sizes", () => {
     // Two disconnected trees seeded with very different name lengths -- makes the two
     // subtrees' reserved widths asymmetric enough to plausibly stress the collision sweep.
