@@ -110,3 +110,14 @@ assumption. If a build still fails after that, check the dashboard's Build/Outpu
 Command fields under Settings → General — if any of them have been manually overridden away
 from "inherit from `vercel.json`" (via `... Override` toggles), clear the override rather than
 editing the value, so `vercel.json` is back in full control.
+
+**A push to `main` produced no new deployment at all** (not failed -- just missing from the
+Deployments tab): this has been observed to happen as a one-off GitHub-to-Vercel webhook
+delivery gap, not a code or config problem. Confirm via `gh api
+repos/<owner>/<repo>/deployments` that the most recent deployment's `sha` matches
+`git rev-parse origin/main`; if it's stale, push a commit with a real file change, not an
+empty one (`git commit --allow-empty`) -- an empty commit was observed to reach Vercel but get
+marked `"Skipped - Not affected"` (visible via `gh api
+repos/<owner>/<repo>/deployments/<id>/statuses`), since Vercel's build-skip heuristic detects
+the commit has no diff and never actually rebuilds. A commit that touches a real file (like
+this one) reliably triggers a fresh build.
