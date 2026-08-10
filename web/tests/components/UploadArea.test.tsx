@@ -7,16 +7,18 @@ function makeFile(name: string, content = "x") {
   return new File([content], name, { type: "application/octet-stream" });
 }
 
+const HINT = "Supported: Quick Family Tree (.ftz)";
+
 describe("UploadArea", () => {
-  it("renders a drop zone with browse instructions when no file is selected", () => {
-    render(<UploadArea onFileSelected={vi.fn()} onClear={vi.fn()} />);
-    expect(screen.getByText(/browse files/i)).toBeInTheDocument();
-    expect(screen.getByText(/quick family tree \(\.ftz\)/i)).toBeInTheDocument();
+  it("renders a drop zone with browse instructions and the format hint when no file is selected", () => {
+    render(<UploadArea onFileSelected={vi.fn()} onClear={vi.fn()} accept=".ftz" hint={HINT} />);
+    expect(screen.getByText(/browse/i)).toBeInTheDocument();
+    expect(screen.getByText(HINT)).toBeInTheDocument();
   });
 
   it("calls onFileSelected when a file is chosen via the input", async () => {
     const onFileSelected = vi.fn();
-    render(<UploadArea onFileSelected={onFileSelected} onClear={vi.fn()} />);
+    render(<UploadArea onFileSelected={onFileSelected} onClear={vi.fn()} accept=".ftz" hint={HINT} />);
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     const file = makeFile("FamilyTree.ftz");
 
@@ -30,11 +32,13 @@ describe("UploadArea", () => {
       <UploadArea
         onFileSelected={vi.fn()}
         onClear={vi.fn()}
+        accept=".ftz"
+        hint={HINT}
         currentFile={{ name: "FamilyTree.ftz", size: 2048 }}
       />
     );
     expect(screen.getByText("FamilyTree.ftz")).toBeInTheDocument();
-    expect(screen.getByText("2.0 KB")).toBeInTheDocument();
+    expect(screen.getByText(/2\.0 KB/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /replace file/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /clear/i })).toBeInTheDocument();
   });
@@ -45,6 +49,8 @@ describe("UploadArea", () => {
       <UploadArea
         onFileSelected={vi.fn()}
         onClear={onClear}
+        accept=".ftz"
+        hint={HINT}
         currentFile={{ name: "FamilyTree.ftz", size: 2048 }}
       />
     );
@@ -54,15 +60,12 @@ describe("UploadArea", () => {
 
   it("calls onFileSelected on drag-and-drop (synthetic file — always runs in CI)", () => {
     const onFileSelected = vi.fn();
-    render(<UploadArea onFileSelected={onFileSelected} onClear={vi.fn()} />);
-    const dropzone = screen.getByText(/drag and drop your/i).closest("label")!;
+    render(<UploadArea onFileSelected={onFileSelected} onClear={vi.fn()} accept=".ftz" hint={HINT} />);
+    const dropzone = screen.getByText(/drag & drop your/i).closest("label")!;
     const file = makeFile("FamilyTree.ftz");
 
     const dataTransfer = { files: [file] } as unknown as DataTransfer;
-    const dropEvent = new Event("drop", {
-      bubbles: true,
-      cancelable: true,
-    }) as unknown as DragEvent;
+    const dropEvent = new Event("drop", { bubbles: true, cancelable: true }) as unknown as DragEvent;
     Object.defineProperty(dropEvent, "dataTransfer", { value: dataTransfer });
     dropzone.dispatchEvent(dropEvent);
 
@@ -74,6 +77,8 @@ describe("UploadArea", () => {
       <UploadArea
         onFileSelected={vi.fn()}
         onClear={vi.fn()}
+        accept=".ftz"
+        hint={HINT}
         currentFile={{ name: "FamilyTree.ftz", size: 2048 }}
         disabled
       />

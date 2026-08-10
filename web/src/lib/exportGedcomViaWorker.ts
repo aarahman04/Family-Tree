@@ -5,7 +5,7 @@ export type ExportOutcome =
   | { ok: true; gedcom: string; issues: ValidationIssue[] }
   | { ok: false; userMessage: string; technicalDetails: string };
 
-/** Shared by the initial-conversion flow (useFtzConversion) and the post-edit export flow (explorer) — one place that calls the worker/exporter, so neither re-implements the response mapping. */
+/** Shared by the initial-conversion flow (useTreeImport) and the post-edit export flow (explorer) — one place that calls the worker/exporter, so neither re-implements the response mapping. */
 export async function exportGedcomViaWorker(
   tree: FamilyTree,
   sourceFileName: string

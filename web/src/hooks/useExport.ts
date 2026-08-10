@@ -9,7 +9,7 @@ export type ExportState =
   | { stage: "done"; gedcom: string; issues: ValidationIssue[] }
   | { stage: "error"; userMessage: string; technicalDetails: string };
 
-/** Export-on-demand for the tree explorer — re-uses exportGedcomViaWorker (the same code path useFtzConversion uses), just with its own small idle/exporting/done/error state since it's triggered independently of the initial upload flow. */
+/** Export-on-demand for the tree explorer — re-uses exportGedcomViaWorker (the same code path useTreeImport uses), just with its own small idle/exporting/done/error state since it's triggered independently of the initial upload flow. */
 export function useExport() {
   const [state, setState] = useState<ExportState>({ stage: "idle" });
 

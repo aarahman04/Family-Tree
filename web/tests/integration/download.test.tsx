@@ -52,6 +52,6 @@ describe.skipIf(!SAMPLE_EXISTS)("Download", () => {
     // Still in the explorer, with the same tree — not bounced back to the upload screen.
     expect(screen.queryByText(/conversion successful/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /export gedcom/i })).toBeInTheDocument();
-    expect(screen.queryByText(/browse files/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("browse")).not.toBeInTheDocument();
   }, 15000);
 });
