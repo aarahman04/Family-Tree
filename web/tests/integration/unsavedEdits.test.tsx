@@ -104,14 +104,14 @@ describe("Clear — destructive action confirmation", () => {
     await waitFor(() => {
       expect(screen.queryByLabelText(/search people/i)).not.toBeInTheDocument();
     });
-    expect(screen.getByText(/drag and drop your/i)).toBeInTheDocument();
+    expect(screen.getByText(/drag & drop your/i)).toBeInTheDocument();
   });
 
   it("does not prompt at all when there are no unsaved edits", async () => {
     await uploadFixture();
     await userEvent.click(screen.getByRole("button", { name: /^clear$/i }));
     expect(window.confirm).not.toHaveBeenCalled();
-    expect(screen.getByText(/drag and drop your/i)).toBeInTheDocument();
+    expect(screen.getByText(/drag & drop your/i)).toBeInTheDocument();
   });
 });
 

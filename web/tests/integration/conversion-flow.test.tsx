@@ -58,7 +58,7 @@ describe("End-to-end conversion flow (real sample FTZ)", () => {
 
     // Drag-and-drop (unlike the file input's `accept` attribute) has no built-in extension
     // filtering in a real browser, so this is the realistic path for a wrong-extension file.
-    const dropzone = screen.getByText(/drag and drop your/i).closest("label")!;
+    const dropzone = screen.getByText(/drag & drop your/i).closest("label")!;
     const dataTransfer = { files: [wrongFile] } as unknown as DataTransfer;
     const dropEvent = new Event("drop", {
       bubbles: true,
@@ -67,6 +67,6 @@ describe("End-to-end conversion flow (real sample FTZ)", () => {
     Object.defineProperty(dropEvent, "dataTransfer", { value: dataTransfer });
     dropzone.dispatchEvent(dropEvent);
 
-    expect(await screen.findByText(/doesn't look like an ftz file/i)).toBeInTheDocument();
+    expect(await screen.findByText(/isn't a supported file/i)).toBeInTheDocument();
   });
 });

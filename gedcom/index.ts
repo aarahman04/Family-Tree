@@ -1,6 +1,7 @@
 export { exportGedcom } from "./export.js";
 export type { ExportOptions } from "./export.js";
-export { GedcomExportError } from "./errors.js";
+export { importGedcom, parseGedcomDate } from "./import.js";
+export { GedcomExportError, GedcomImportError } from "./errors.js";
 export { formatGedcomDate } from "./date.js";
 export { formatGedcomName, splitName } from "./name.js";
 export { XrefAllocator } from "./xref.js";

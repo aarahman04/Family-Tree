@@ -68,7 +68,7 @@ describe("Accessibility (axe smoke tests)", () => {
   it("Home page error state has no violations", async () => {
     const { container } = render(<App />);
     // Drag-and-drop bypasses the file input's `accept` filter, same as a real browser.
-    const dropzone = screen.getByText(/drag and drop your/i).closest("label")!;
+    const dropzone = screen.getByText(/drag & drop your/i).closest("label")!;
     const wrongFile = new File(["x"], "notes.txt", { type: "text/plain" });
     const dataTransfer = { files: [wrongFile] } as unknown as DataTransfer;
     const dropEvent = new Event("drop", {
@@ -77,7 +77,7 @@ describe("Accessibility (axe smoke tests)", () => {
     }) as unknown as DragEvent;
     Object.defineProperty(dropEvent, "dataTransfer", { value: dataTransfer });
     dropzone.dispatchEvent(dropEvent);
-    await screen.findByText(/doesn't look like an ftz file/i);
+    await screen.findByText(/isn't a supported file/i);
 
     expect(await axe(container)).toHaveNoViolations();
   });

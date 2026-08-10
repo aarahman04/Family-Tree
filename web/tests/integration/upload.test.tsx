@@ -31,7 +31,7 @@ describe.skipIf(!SAMPLE_EXISTS)("Upload interactions", () => {
   it("supports drag-and-drop onto the drop zone", async () => {
     render(<App />);
     const file = await realFtzFile();
-    const dropzone = screen.getByText(/drag and drop your/i).closest("label")!;
+    const dropzone = screen.getByText(/drag & drop your/i).closest("label")!;
 
     const dataTransfer = { files: [file] } as unknown as DataTransfer;
     const dropEvent = new Event("drop", {
@@ -88,7 +88,7 @@ describe.skipIf(!SAMPLE_EXISTS)("Upload interactions", () => {
     await userEvent.click(screen.getByRole("button", { name: /^clear$/i }));
 
     expect(screen.queryByText("FamilyTree.ftz")).not.toBeInTheDocument();
-    expect(screen.getByText(/browse files/i)).toBeInTheDocument();
+    expect(screen.getByText("browse")).toBeInTheDocument();
   });
 });
 
