@@ -18,6 +18,14 @@ export interface Metadata {
   importedAt: string;
   ftzAnchorId?: FtzId;
   formatVersion?: string;
+  /** User-facing tree name (set for manually-created trees; optional for imports). */
+  name?: string;
+  /** Optional free-text description of the tree. */
+  description?: string;
+  /** ISO timestamp the tree was first created (manual trees). */
+  createdAt?: string;
+  /** ISO timestamp of the most recent edit. */
+  updatedAt?: string;
 }
 
 export type ValidationIssueCode =

@@ -132,6 +132,14 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
     <div className="flex h-full min-h-0 w-full">
       <div className="relative flex min-w-0 flex-1 flex-col">
         <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-2">
+          {tree.metadata.name && (
+            <span
+              className="max-w-[10rem] shrink-0 truncate text-sm font-semibold text-slate-800"
+              title={tree.metadata.name}
+            >
+              {tree.metadata.name}
+            </span>
+          )}
           <div ref={searchWrapRef}>
             <SearchBox tree={tree} index={searchIndex} onSelect={goTo} />
           </div>
