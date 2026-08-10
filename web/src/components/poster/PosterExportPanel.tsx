@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import type { FamilyTree } from "../../../../models/types.js";
 import { computePosterLayout } from "../../../../poster/layout.js";
+import { computeStackedPosterLayout } from "../../../../poster/layoutStacked.js";
 import { computePosterPageSize } from "../../../../poster/pageSize.js";
 import { renderPosterSvg } from "../../../../poster/renderSvg.js";
 import { DEFAULT_POSTER_STYLE, type PosterStyleOptions } from "../../../../poster/types.js";
@@ -38,6 +39,7 @@ function formatMeters(mm: number): string {
  */
 export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelProps) {
   const [style, setStyle] = useState<PosterStyleOptions>(DEFAULT_POSTER_STYLE);
+  const [layoutMode, setLayoutMode] = useState<"stacked" | "flat">("stacked");
   const [zoomPercent, setZoomPercent] = useState(10);
   const [pdfStage, setPdfStage] = useState<"idle" | "generating" | "error">("idle");
   const [pdfError, setPdfError] = useState<string | undefined>(undefined);
@@ -49,7 +51,13 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
   // layout algorithm; only the measurement precision differs.
   const measurer = useMemo(() => makeCanvasTextMeasurer(style.fontFamily), [style.fontFamily]);
 
-  const layout = useMemo(() => computePosterLayout(tree, style, measurer), [tree, style, measurer]);
+  const layout = useMemo(
+    () =>
+      layoutMode === "stacked"
+        ? computeStackedPosterLayout(tree, style, measurer)
+        : computePosterLayout(tree, style, measurer),
+    [tree, style, measurer, layoutMode]
+  );
   const page = useMemo(() => computePosterPageSize(layout, style), [layout, style]);
   const svg = useMemo(() => renderPosterSvg(layout, page, style), [layout, page, style]);
 
@@ -95,6 +103,39 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
           size limit, and prints crisp at any width, however long the tree needs to be.
         </p>
       </div>
+
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className="text-xs font-medium text-slate-700">Layout</legend>
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ["stacked", "Stacked branches", "Balanced, hangable — each main lineage on its own row"],
+              ["flat", "Single row", "One continuous top-down chart — very wide for large trees"],
+            ] as const
+          ).map(([mode, label, hint]) => (
+            <label
+              key={mode}
+              className={`flex-1 min-w-[180px] cursor-pointer rounded-md border px-3 py-2 text-xs ${
+                layoutMode === mode
+                  ? "border-blue-500 bg-blue-50 text-slate-900"
+                  : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <input
+                type="radio"
+                name="poster-layout"
+                value={mode}
+                checked={layoutMode === mode}
+                onChange={() => setLayoutMode(mode)}
+                className="sr-only"
+              />
+              <span className="font-semibold">{label}</span>
+              {layoutMode === mode && <span className="ml-1 text-blue-700">✓</span>}
+              <span className="mt-0.5 block text-slate-500">{hint}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       <dl className="grid grid-cols-3 gap-x-3 gap-y-1 text-xs text-slate-600">
         <dt>People</dt>

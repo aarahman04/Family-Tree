@@ -128,6 +128,31 @@ export function renderPosterSvg(layout: PosterLayout, page: PosterPageSize, styl
 
   // Connectors and chips first so node boxes render on top of the lines that touch their edges.
   for (const connector of layout.connectors) {
+    if (connector.kind === "spine") {
+      const from = nodeCenter.get(connector.fromPersonId);
+      const heads = connector.toPersonIds
+        .map((id) => ({ id, c: nodeCenter.get(id) }))
+        .filter((h): h is { id: string; c: NonNullable<ReturnType<typeof nodeCenter.get>> } => !!h.c);
+      if (!from || heads.length === 0) continue;
+      const sx = offsetX + connector.spineX;
+      const trunkBottom = Math.max(...heads.map((h) => h.c.y));
+      // stub from the ancestor's left edge to the trunk
+      svgParts.push(
+        `<line x1="${num(from.x - (layout.nodes.find((n) => n.personId === connector.fromPersonId)?.width ?? 0) / 2)}" y1="${num(from.y)}" x2="${num(sx)}" y2="${num(from.y)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
+      );
+      // vertical trunk
+      svgParts.push(
+        `<line x1="${num(sx)}" y1="${num(from.y)}" x2="${num(sx)}" y2="${num(trunkBottom)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
+      );
+      // one horizontal stub into each branch head's left edge
+      for (const h of heads) {
+        const headWidth = layout.nodes.find((n) => n.personId === h.id)?.width ?? 0;
+        svgParts.push(
+          `<line x1="${num(sx)}" y1="${num(h.c.y)}" x2="${num(h.c.x - headWidth / 2)}" y2="${num(h.c.y)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
+        );
+      }
+      continue;
+    }
     if (connector.kind === "marriage") {
       const [aId, bId] = connector.personIds;
       const a = nodeCenter.get(aId);

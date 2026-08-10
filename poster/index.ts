@@ -1,4 +1,5 @@
 export { computePosterLayout } from "./layout.js";
+export { computeStackedPosterLayout } from "./layoutStacked.js";
 export { computePosterPageSize } from "./pageSize.js";
 export { renderPosterSvg } from "./renderSvg.js";
 export { DEFAULT_POSTER_STYLE, PDF_MAX_DIMENSION_PT } from "./types.js";

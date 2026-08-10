@@ -63,7 +63,19 @@ export interface DescentConnector {
   childPersonIds: UUID[];
 }
 
-export type PosterConnector = MarriageConnector | DescentConnector;
+/** Used only by the stacked layout (poster/layoutStacked.ts): a left-hand "spine" bracket
+ * connecting one ancestor (`fromPersonId`, e.g. the oldest root couple at the top) down to
+ * each of their branch heads (`toPersonIds`), which live in separate stacked bands far below.
+ * Rendered as a vertical trunk at `spineX` plus a short horizontal stub into each head's left
+ * edge -- so it never crosses the band content the way a normal top-down descent bus would. */
+export interface SpineConnector {
+  kind: "spine";
+  spineX: number;
+  fromPersonId: UUID;
+  toPersonIds: UUID[];
+}
+
+export type PosterConnector = MarriageConnector | DescentConnector | SpineConnector;
 
 export interface PosterLayout {
   nodes: PosterNode[];

@@ -76,9 +76,12 @@ function expectNoDisconnectedBranches(layout: PosterLayout) {
   const referenced = new Set<UUID>();
   for (const c of layout.connectors) {
     if (c.kind === "marriage") c.personIds.forEach((id) => referenced.add(id));
-    else {
+    else if (c.kind === "descent") {
       c.parentPersonIds.forEach((id) => referenced.add(id));
       c.childPersonIds.forEach((id) => referenced.add(id));
+    } else {
+      referenced.add(c.fromPersonId);
+      c.toPersonIds.forEach((id) => referenced.add(id));
     }
   }
   for (const chip of layout.chips) referenced.add(chip.anchorPersonId);
