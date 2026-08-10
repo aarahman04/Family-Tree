@@ -31,6 +31,9 @@ export function TreeSessionProvider({ children }: { children: ReactNode }) {
   return <TreeSessionContext.Provider value={value}>{children}</TreeSessionContext.Provider>;
 }
 
+// This context file intentionally exports both the provider component and its hook together;
+// the fast-refresh "components only" rule doesn't apply to a context module.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTreeSession(): TreeSessionContextValue {
   const value = useContext(TreeSessionContext);
   if (!value) throw new Error("useTreeSession must be used within a TreeSessionProvider");

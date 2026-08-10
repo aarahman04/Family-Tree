@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../../src/App.js";
@@ -19,6 +19,10 @@ const SAMPLE_EXISTS = existsSync(SAMPLE_PATH);
  * exporter (via the mock worker — see tests/mocks/mockWorker.ts), not fixtures or stubs.
  */
 describe("End-to-end conversion flow (real sample FTZ)", () => {
+  beforeEach(() => {
+    window.location.hash = "";
+  });
+
   it.skipIf(!SAMPLE_EXISTS)(
     "uploads, validates, converts, and produces a downloadable GEDCOM file",
     async () => {
@@ -30,15 +34,21 @@ describe("End-to-end conversion flow (real sample FTZ)", () => {
       const input = document.querySelector('input[type="file"]') as HTMLInputElement;
       await userEvent.upload(input, file);
 
-      // Validation summary should show the real counts from Milestone 2/3's analysis.
-      // "473"/"136" legitimately appear twice once validated (top summary bar + export
-      // sidebar), so assert on the unique "ready" status text instead.
+      // Editing/exporting now lives on the full-screen #/editor route.
+      await userEvent.click(
+        await screen.findByRole("link", { name: /open editor/i }, { timeout: 5000 })
+      );
+
+      // The editor status line shows the real counts from Milestone 2/3's analysis.
+      // "473"/"136" legitimately appear more than once (status bar + poster panel), so assert
+      // on the unique "ready" status text plus a non-zero count occurrence.
       expect(
         await screen.findByText(/ready for export/i, {}, { timeout: 5000 })
       ).toBeInTheDocument();
       expect(screen.getAllByText("473").length).toBeGreaterThan(0);
       expect(screen.getAllByText("136").length).toBeGreaterThan(0);
 
+      await userEvent.click(screen.getByRole("button", { name: /^export$/i }));
       await userEvent.click(screen.getByRole("button", { name: /export gedcom/i }));
 
       expect(

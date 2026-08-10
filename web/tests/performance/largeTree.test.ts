@@ -4,7 +4,6 @@ import { applyEdit } from "../../../editor/index.js";
 import { updatePersonFields } from "../../../editor/operations.js";
 import { buildNodeFtt, familyRow, personRow } from "../../../tests/helpers.js";
 import { buildSearchIndex, searchPeople } from "../../src/lib/search.js";
-import { computeNeighborhood, layoutNeighborhood } from "../../src/lib/neighborhood.js";
 import type { FamilyTree } from "../../../models/types.js";
 
 /**
@@ -86,39 +85,5 @@ describe("Performance at 10,000+ people / 5,000+ families", () => {
     const queryElapsed = performance.now() - queryStart;
     expect(queryElapsed).toBeLessThan(200);
     expect(results.length).toBeGreaterThan(0);
-  });
-
-  it("neighborhood computation + layout cost is independent of total tree size", () => {
-    const founderId = Object.keys(tree.persons)[0]!;
-    const deepId = Object.keys(tree.persons)[personCount - 1]!;
-
-    for (const focusId of [founderId, deepId]) {
-      const start = performance.now();
-      const { nodeIds, edges, truncated } = computeNeighborhood(tree, focusId, new Set());
-      const positions = layoutNeighborhood(nodeIds, edges);
-      const elapsedMs = performance.now() - start;
-
-      // Bounded regardless of a 10,000+ person tree — this is the core architectural claim.
-      expect(nodeIds.length).toBeLessThan(200);
-      expect(positions.size).toBe(nodeIds.length);
-      expect(elapsedMs).toBeLessThan(500);
-      expect(typeof truncated).toBe("boolean");
-    }
-  });
-
-  it("repeated expansion (simulating a user exploring) stays bounded and fast", () => {
-    const founderId = Object.keys(tree.persons)[0]!;
-    let expanded = new Set<string>();
-    const base = computeNeighborhood(tree, founderId, expanded);
-
-    // Expand a handful of border nodes, one at a time, like a user clicking "+".
-    const toExpand = base.nodeIds.slice(0, 5);
-    const start = performance.now();
-    for (const id of toExpand) {
-      expanded = new Set(expanded).add(id);
-      computeNeighborhood(tree, founderId, expanded);
-    }
-    const elapsedMs = performance.now() - start;
-    expect(elapsedMs).toBeLessThan(1000);
   });
 });

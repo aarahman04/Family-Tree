@@ -41,9 +41,10 @@ describe.skipIf(!SAMPLE_EXISTS)("Upload interactions", () => {
     Object.defineProperty(dropEvent, "dataTransfer", { value: dataTransfer });
     dropzone.dispatchEvent(dropEvent);
 
-    // "473" legitimately appears twice once validated (top summary bar + export sidebar) —
-    // assert on the unique "ready" status instead of a specific count text.
-    expect(await screen.findByText(/ready for export/i, {}, { timeout: 5000 })).toBeInTheDocument();
+    // Once validated, Home shows the "Open editor" call-to-action.
+    expect(
+      await screen.findByRole("link", { name: /open editor/i }, { timeout: 5000 })
+    ).toBeInTheDocument();
   });
 
   it("supports replacing an already-selected file with a valid new one", async () => {

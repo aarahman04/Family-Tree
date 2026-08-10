@@ -33,9 +33,9 @@ function formatMeters(mm: number): string {
 
 /**
  * The dedicated print-poster feature: a whole-tree, single continuously-sized page (no A4
- * presets, no tiling -- "print as wide as it goes" per the confirmed scope), built entirely
- * on the poster/ package's multi-pass, collision-aware layout engine rather than the
- * interactive explorer's React Flow + dagre layout. See docs/poster-architecture.md.
+ * presets, no tiling -- "print as wide as it goes" per the confirmed scope), built on the
+ * poster/ package's multi-pass, collision-aware layout engine. The interactive editor
+ * (EditorCanvas) reuses this exact same engine. See docs/poster-architecture.md.
  */
 export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelProps) {
   const [style, setStyle] = useState<PosterStyleOptions>(DEFAULT_POSTER_STYLE);

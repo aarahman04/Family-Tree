@@ -105,12 +105,12 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
             families.{" "}
             {errors.length > 0 && (
               <span className="text-red-700">
-                {errors.length} {errors.length === 1 ? "error" : "errors"}.{" "}
+                {errors.length} validation {errors.length === 1 ? "error" : "errors"}.{" "}
               </span>
             )}
             {warnings.length > 0 && (
               <span className="text-amber-700">
-                {warnings.length} {warnings.length === 1 ? "warning" : "warnings"}.
+                {warnings.length} validation {warnings.length === 1 ? "warning" : "warnings"}.
               </span>
             )}
             {errors.length === 0 && warnings.length === 0 && (

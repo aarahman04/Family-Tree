@@ -148,8 +148,8 @@ export function HomePage() {
             {Object.keys(state.tree.persons).length} people loaded from {state.file.name}.
           </p>
           <p className="max-w-md text-sm text-slate-600">
-            Open the full-screen editor to explore, search, edit, and export your family tree —
-            laid out exactly like the printable poster.
+            Open the full-screen editor to explore, search, edit, and export your family tree — laid
+            out exactly like the printable poster.
           </p>
           <a
             href="#/editor"

@@ -126,7 +126,13 @@ export function EditorCanvas({
   );
   function onPointerDown(e: React.PointerEvent) {
     (e.target as Element).setPointerCapture?.(e.pointerId);
-    dragRef.current = { x: e.clientX, y: e.clientY, tx: transform.tx, ty: transform.ty, moved: false };
+    dragRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      tx: transform.tx,
+      ty: transform.ty,
+      moved: false,
+    };
   }
   function onPointerMove(e: React.PointerEvent) {
     const d = dragRef.current;
@@ -199,8 +205,12 @@ export function EditorCanvas({
             aria-hidden="true"
             className="pointer-events-none absolute rounded-md ring-2 ring-blue-500 ring-offset-1"
             style={{
-              left: transform.tx + transform.s * (style.marginPt + selectedNode.x - selectedNode.width / 2),
-              top: transform.ty + transform.s * (style.marginPt + selectedNode.y - selectedNode.height / 2),
+              left:
+                transform.tx +
+                transform.s * (style.marginPt + selectedNode.x - selectedNode.width / 2),
+              top:
+                transform.ty +
+                transform.s * (style.marginPt + selectedNode.y - selectedNode.height / 2),
               width: transform.s * selectedNode.width,
               height: transform.s * selectedNode.height,
             }}
@@ -209,13 +219,28 @@ export function EditorCanvas({
       </div>
 
       <div className="absolute bottom-3 right-3 flex flex-col gap-1 rounded-lg border border-slate-200 bg-white/95 p-1 shadow-sm">
-        <button type="button" aria-label="Zoom in" onClick={() => zoomBy(1.2)} className="h-8 w-8 rounded text-lg text-slate-700 hover:bg-slate-100">
+        <button
+          type="button"
+          aria-label="Zoom in"
+          onClick={() => zoomBy(1.2)}
+          className="h-8 w-8 rounded text-lg text-slate-700 hover:bg-slate-100"
+        >
           +
         </button>
-        <button type="button" aria-label="Zoom out" onClick={() => zoomBy(1 / 1.2)} className="h-8 w-8 rounded text-lg text-slate-700 hover:bg-slate-100">
+        <button
+          type="button"
+          aria-label="Zoom out"
+          onClick={() => zoomBy(1 / 1.2)}
+          className="h-8 w-8 rounded text-lg text-slate-700 hover:bg-slate-100"
+        >
           −
         </button>
-        <button type="button" aria-label="Fit to view" onClick={fitToView} className="h-8 w-8 rounded text-xs font-medium text-slate-700 hover:bg-slate-100">
+        <button
+          type="button"
+          aria-label="Fit to view"
+          onClick={fitToView}
+          className="h-8 w-8 rounded text-xs font-medium text-slate-700 hover:bg-slate-100"
+        >
           Fit
         </button>
       </div>
