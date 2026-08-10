@@ -37,7 +37,7 @@ describe("PosterExportPanel", () => {
     // Shared ancestors from a cousin marriage must still render exactly once each.
     expect(screen.getAllByText("Grandpa")).toHaveLength(1);
     expect(screen.getAllByText("Grandma")).toHaveLength(1);
-    expect(screen.getByText("Page size")).toBeInTheDocument();
+    expect(screen.getByText("Poster size")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /download svg/i })).toBeEnabled();
     expect(screen.getByRole("button", { name: /download pdf/i })).toBeEnabled();
   });

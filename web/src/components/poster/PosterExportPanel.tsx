@@ -1,17 +1,16 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { FamilyTree } from "../../../../models/types.js";
 import { computePosterLayout } from "../../../../poster/layout.js";
 import { computePosterPageSize } from "../../../../poster/pageSize.js";
 import { renderPosterSvg } from "../../../../poster/renderSvg.js";
 import { DEFAULT_POSTER_STYLE, type PosterStyleOptions } from "../../../../poster/types.js";
+import { makeCanvasTextMeasurer } from "../../lib/canvasTextMeasure.js";
 import { posterSvgToPdfBlob, posterSvgToSvgBlob } from "../../lib/posterExport.js";
 
 interface PosterExportPanelProps {
   tree: FamilyTree;
   sourceFileName: string;
 }
-
-const ZOOM_LEVELS = [10, 25, 50, 100];
 
 function posterFileName(sourceFileName: string, ext: string): string {
   const base = sourceFileName.replace(/\.ftz$/i, "");
@@ -27,19 +26,30 @@ function downloadBlob(blob: Blob, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
+function formatMeters(mm: number): string {
+  return mm >= 1000 ? `${(mm / 1000).toFixed(2)}m` : `${Math.round(mm)}mm`;
+}
+
 /**
  * The dedicated print-poster feature: a whole-tree, single continuously-sized page (no A4
  * presets, no tiling -- "print as wide as it goes" per the confirmed scope), built entirely
- * on the poster/ package rather than the interactive explorer's React Flow + dagre layout.
- * See docs/poster-architecture.md.
+ * on the poster/ package's multi-pass, collision-aware layout engine rather than the
+ * interactive explorer's React Flow + dagre layout. See docs/poster-architecture.md.
  */
 export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelProps) {
   const [style, setStyle] = useState<PosterStyleOptions>(DEFAULT_POSTER_STYLE);
-  const [zoomPercent, setZoomPercent] = useState(25);
+  const [zoomPercent, setZoomPercent] = useState(10);
   const [pdfStage, setPdfStage] = useState<"idle" | "generating" | "error">("idle");
   const [pdfError, setPdfError] = useState<string | undefined>(undefined);
+  const previewRef = useRef<HTMLDivElement>(null);
 
-  const layout = useMemo(() => computePosterLayout(tree), [tree]);
+  // A canvas.measureText-backed measurer gives pixel-accurate box sizing against the actual
+  // rendered font in the browser -- poster/'s own default (used by tests and any non-browser
+  // caller) is a character-width heuristic that can't do this. Both feed the exact same
+  // layout algorithm; only the measurement precision differs.
+  const measurer = useMemo(() => makeCanvasTextMeasurer(style.fontFamily), [style.fontFamily]);
+
+  const layout = useMemo(() => computePosterLayout(tree, style, measurer), [tree, style, measurer]);
   const page = useMemo(() => computePosterPageSize(layout, style), [layout, style]);
   const svg = useMemo(() => renderPosterSvg(layout, page, style), [layout, page, style]);
 
@@ -64,7 +74,15 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
     }
   }
 
+  function handleFitToPage() {
+    const available = previewRef.current?.clientWidth;
+    if (!available || page.widthPt === 0) return;
+    const fitPercent = Math.max(1, Math.floor((available / page.widthPt) * 100));
+    setZoomPercent(Math.min(fitPercent, 100));
+  }
+
   const scale = zoomPercent / 100;
+  const isScaledForPdf = page.pdfScale < 1;
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4">
@@ -72,8 +90,8 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
         <h2 className="text-sm font-semibold text-slate-800">Print poster</h2>
         <p className="mt-1 text-xs text-slate-600">
           One continuous page sized to fit the whole tree at a readable name size — no A4
-          splitting, take the PDF or SVG straight to a print shop and print it as wide as it
-          goes.
+          splitting, no shrinking to fit. Take the PDF or SVG straight to a print shop and
+          print it exactly as long as it needs to be.
         </p>
       </div>
 
@@ -82,11 +100,26 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
         <dd className="col-span-2 font-medium text-slate-900">{layout.nodes.length}</dd>
         <dt>Generations</dt>
         <dd className="col-span-2 font-medium text-slate-900">{layout.generationCount}</dd>
-        <dt>Page size</dt>
+        <dt>Poster size</dt>
         <dd className="col-span-2 font-medium text-slate-900">
-          {page.widthIn.toFixed(1)}in × {page.heightIn.toFixed(1)}in
+          {formatMeters(page.widthMm)} × {formatMeters(page.heightMm)}
+          <span className="ml-1 text-slate-500">
+            ({page.widthIn.toFixed(1)}in × {page.heightIn.toFixed(1)}in)
+          </span>
         </dd>
       </dl>
+
+      {isScaledForPdf && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          This tree needs a poster larger than the PDF format's own page-size limit (200in /
+          5.08m per side), so the PDF download is generated at{" "}
+          <strong>{Math.round(page.pdfScale * 10000) / 100}% scale</strong> — fully vector, so
+          a print shop can scale it back up to {formatMeters(page.widthMm)} ×{" "}
+          {formatMeters(page.heightMm)} with zero quality loss, the same way oversized
+          architectural drawings are printed. The SVG download has no such limit and encodes
+          the true full size directly — prefer it if your print shop accepts SVG.
+        </p>
+      )}
 
       <details className="rounded-md border border-slate-200 bg-slate-50 text-sm">
         <summary className="cursor-pointer select-none px-3 py-2 font-medium text-slate-700 hover:text-slate-900">
@@ -105,24 +138,35 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-slate-600">
-            Node width (pt)
+            Min box width (pt)
             <input
               type="number"
               min={60}
               max={400}
-              value={style.nodeWidth}
-              onChange={(e) => updateStyle("nodeWidth", Number(e.target.value))}
+              value={style.nodeMinWidth}
+              onChange={(e) => updateStyle("nodeMinWidth", Number(e.target.value))}
               className="rounded border border-slate-300 px-2 py-1"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-slate-600">
-            Sibling spacing (pt)
+            Max box width before wrapping (pt)
+            <input
+              type="number"
+              min={100}
+              max={600}
+              value={style.nodeMaxWidth}
+              onChange={(e) => updateStyle("nodeMaxWidth", Number(e.target.value))}
+              className="rounded border border-slate-300 px-2 py-1"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
+            Spacing between boxes (pt)
             <input
               type="number"
               min={4}
               max={100}
-              value={style.siblingSpacing}
-              onChange={(e) => updateStyle("siblingSpacing", Number(e.target.value))}
+              value={style.horizontalSpacing}
+              onChange={(e) => updateStyle("horizontalSpacing", Number(e.target.value))}
               className="rounded border border-slate-300 px-2 py-1"
             />
           </label>
@@ -181,26 +225,39 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
         </div>
       </details>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <label htmlFor="poster-zoom" className="text-xs text-slate-600">
           Preview zoom
         </label>
-        <select
+        <input
           id="poster-zoom"
+          type="range"
+          min={1}
+          max={100}
           value={zoomPercent}
           onChange={(e) => setZoomPercent(Number(e.target.value))}
-          className="rounded border border-slate-300 px-2 py-1 text-xs"
+          className="w-32"
+        />
+        <span className="w-10 text-xs tabular-nums text-slate-600">{zoomPercent}%</span>
+        <button
+          type="button"
+          onClick={handleFitToPage}
+          className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
         >
-          {ZOOM_LEVELS.map((z) => (
-            <option key={z} value={z}>
-              {z}%
-            </option>
-          ))}
-        </select>
+          Fit to view
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoomPercent(100)}
+          className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+        >
+          Actual size
+        </button>
       </div>
 
       <div
-        className="max-h-[50vh] overflow-auto rounded border border-slate-200 bg-slate-50"
+        ref={previewRef}
+        className="max-h-[60vh] overflow-auto rounded border border-slate-200 bg-slate-50"
         aria-label="Poster preview"
       >
         <div style={{ width: page.widthPt * scale, height: page.heightPt * scale }}>

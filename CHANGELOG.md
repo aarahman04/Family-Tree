@@ -5,17 +5,33 @@ All notable changes to this project are documented here. Format loosely follows
 
 ## [Unreleased]
 
-### Added
+### Changed
+- **Print poster layout engine, V2** (`poster/`) — a from-scratch rewrite focused entirely on
+  publication-quality layout, not new features. Real text measurement (a pixel-accurate
+  `canvas.measureText`-backed measurer in the browser, a deterministic heuristic for
+  Node/tests) drives auto-sizing boxes that grow width before height and never clip, even for
+  a single unbreakable long name; Arabic names are detected and rendered right-to-left. A
+  genuine seven-stage algorithm (hierarchy → box measurement → initial placement → collision
+  detection → shift → connector routing → convergence) replaces V1's fixed-size, abstract-unit
+  layout, with a proven-converging collision-resolution sweep as a defense-in-depth layer on
+  top of accurate width reservation — verified with zero overlaps across 504 boxes (person
+  nodes + chips) on the real 473-person sample, and against a ~4,100-person synthetic tree.
+  Cousin marriages now render as a compact "Spouse: <name>" chip at the marriage point instead
+  of V1's connector line spanning the entire poster — the spouse still has exactly one real
+  node, under their own parents; the chip only names them and points there, with no duplicated
+  relationship line. The real sample now renders at ~18.4m × 229mm; since the PDF file format
+  itself caps a page at 14,400pt (200in/5.08m — confirmed empirically against `jsPDF`, which
+  otherwise silently clamps and clips), the PDF export now proportionally scales down and
+  clearly labels the print scale factor on screen, while the SVG export stays fully uncapped.
+  The preview gained metric (m/mm) sizing, fit-to-view, and actual-size controls. See
+  `docs/poster-architecture.md`'s "Version history" for the full V1 → V2 diff.
+
+### Added (V1, now superseded by the V2 changes above)
 - **Print poster export** (`poster/`) — a dedicated whole-tree layout engine (not the
-  interactive explorer's dagre layout): generation rows, subtree-width positioning, and
-  correct cousin-marriage/shared-ancestor handling (a person is never duplicated; a
-  distinctly-styled dashed connector links a cousin-marriage spouse's real position back to
-  the marriage point). Auto-sizes one continuous page — no A4 splitting or tiling — and
-  exports vector PDF (via `jspdf` + `svg2pdf.js`, dynamically imported so it never bloats the
-  main bundle) or SVG, both rendered from the same hand-written SVG generator the in-app
-  preview uses, so the preview always matches the download. Verified against the real
-  473-person sample: 31 cross-branch connectors in the output, matching the independently-
-  verified cousin-marriage count. See `docs/poster-architecture.md`.
+  interactive explorer's dagre layout), auto-sized to one continuous page (no A4 splitting or
+  tiling), exporting vector PDF (via `jspdf` + `svg2pdf.js`, dynamically imported so it never
+  bloats the main bundle) or SVG from a single shared SVG generator so the in-app preview
+  always matches the download. See `docs/poster-architecture.md`.
 
 ## [1.0.0] — Version 1.0 (first public release)
 

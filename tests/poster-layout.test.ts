@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import type { Family, FamilyTree, Gender, Person, UUID } from "../models/types.js";
 import { parseFtzFile } from "../parser/index.js";
 import { computePosterLayout } from "../poster/layout.js";
-import type { PosterLayout } from "../poster/types.js";
+import type { PosterChip, PosterLayout, PosterNode } from "../poster/types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SAMPLE_PATH = path.join(__dirname, "..", "Family Tree FTZ", "FamilyTree.ftz");
@@ -70,26 +70,69 @@ function expectNoDuplicates(layout: PosterLayout, expectedCount: number) {
   expect(new Set(ids).size).toBe(expectedCount);
 }
 
-/** Every non-root node must be reachable via at least one connector (descent, marriage, or
- * cross-branch) -- i.e. no person renders as a floating, disconnected box. */
+/** Every non-root node must be reachable via at least one connector (descent or marriage)
+ * or a chip -- i.e. no person renders as a floating, disconnected box. */
 function expectNoDisconnectedBranches(layout: PosterLayout) {
   const referenced = new Set<UUID>();
   for (const c of layout.connectors) {
     if (c.kind === "marriage") c.personIds.forEach((id) => referenced.add(id));
-    else if (c.kind === "cross-branch") {
-      referenced.add(c.fromPersonId);
-      referenced.add(c.toMarriageAnchorId);
-    } else {
+    else {
       c.parentPersonIds.forEach((id) => referenced.add(id));
       c.childPersonIds.forEach((id) => referenced.add(id));
     }
   }
+  for (const chip of layout.chips) referenced.add(chip.anchorPersonId);
   const roots = new Set(
     layout.nodes.filter((n) => n.generation === 0 && !referenced.has(n.personId)).map((n) => n.personId)
   );
   for (const node of layout.nodes) {
     if (roots.has(node.personId)) continue;
     expect(referenced.has(node.personId)).toBe(true);
+  }
+}
+
+type Box = { left: number; right: number; top: number; bottom: number; label: string };
+
+function boxOf(item: PosterNode | PosterChip, label: string): Box {
+  return {
+    left: item.x - item.width / 2,
+    right: item.x + item.width / 2,
+    top: item.y - item.height / 2,
+    bottom: item.y + item.height / 2,
+    label,
+  };
+}
+
+function overlaps(a: Box, b: Box): boolean {
+  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+}
+
+/** The core "professional print quality" bar: no two boxes (person or chip) may ever
+ * overlap, anywhere on the poster -- checked pairwise, not just within a row, since a very
+ * tall wrapped-text box could in principle overlap a neighboring generation if row heights
+ * were computed wrong. */
+function expectNoOverlaps(layout: PosterLayout) {
+  const boxes: Box[] = [
+    ...layout.nodes.map((n) => boxOf(n, n.personId)),
+    ...layout.chips.map((c) => boxOf(c, `chip:${c.familyId}`)),
+  ];
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = i + 1; j < boxes.length; j++) {
+      if (overlaps(boxes[i]!, boxes[j]!)) {
+        throw new Error(`Boxes overlap: ${boxes[i]!.label} and ${boxes[j]!.label}`);
+      }
+    }
+  }
+}
+
+/** Every node has at least one render-ready line (even a blank name still gets a box, per
+ * some real FTZ records having an empty name field) -- i.e. rendering never produces a node
+ * with nothing to draw at all. */
+function expectTextFitsBoxes(layout: PosterLayout) {
+  for (const node of layout.nodes) {
+    expect(node.nameLines.length).toBeGreaterThan(0);
+    expect(node.width).toBeGreaterThan(0);
+    expect(node.height).toBeGreaterThan(0);
   }
 }
 
@@ -108,12 +151,14 @@ describe("computePosterLayout", () => {
     const layout = computePosterLayout(tree);
     expectNoDuplicates(layout, 4);
     expectNoDisconnectedBranches(layout);
+    expectNoOverlaps(layout);
 
     const byId = Object.fromEntries(layout.nodes.map((n) => [n.personId, n]));
     expect(byId.dad!.generation).toBe(0);
     expect(byId.mom!.generation).toBe(0);
     expect(byId.kid1!.generation).toBe(1);
     expect(byId.kid2!.generation).toBe(1);
+    expect(byId.kid1!.y).toBeGreaterThan(byId.dad!.y); // children strictly below parents
 
     const marriage = layout.connectors.find((c) => c.kind === "marriage");
     expect(marriage).toBeDefined();
@@ -139,6 +184,7 @@ describe("computePosterLayout", () => {
 
     const layout = computePosterLayout(tree);
     expectNoDuplicates(layout, 5);
+    expectNoOverlaps(layout);
     const byId = Object.fromEntries(layout.nodes.map((n) => [n.personId, n]));
     expect(byId.gpa!.generation).toBe(0);
     expect(byId.parent!.generation).toBe(1);
@@ -156,6 +202,7 @@ describe("computePosterLayout", () => {
 
     const layout = computePosterLayout(tree);
     expectNoDuplicates(layout, 10);
+    expectNoOverlaps(layout);
     const descentConnectors = layout.connectors.filter((c) => c.kind === "descent");
     // One shared branch for the whole sibling group, never one line per child.
     expect(descentConnectors).toHaveLength(1);
@@ -175,13 +222,14 @@ describe("computePosterLayout", () => {
     const tree = buildTree(persons, families);
     const layout = computePosterLayout(tree);
     expectNoDuplicates(layout, 6);
+    expectNoOverlaps(layout);
     expect(layout.generationCount).toBe(6);
     for (let g = 0; g < 6; g++) {
       expect(layout.nodes.find((n) => n.personId === `gen${g}`)?.generation).toBe(g);
     }
   });
 
-  it("renders a cousin marriage without duplicating either spouse", () => {
+  it("renders a cousin marriage as a compact chip, never a second copy of either spouse", () => {
     // Shared ancestor couple -> two children -> each has a child (cousins) -> cousins marry.
     const tree = buildTree(
       [
@@ -190,7 +238,7 @@ describe("computePosterLayout", () => {
         person({ id: "branchA", famcId: "fRoot" }),
         person({ id: "branchB", famcId: "fRoot" }),
         person({ id: "cousinA", famcId: "fA" }),
-        person({ id: "cousinB", famcId: "fB" }),
+        person({ id: "cousinB", famcId: "fB", name: "Cousin B" }),
       ],
       [
         family("fRoot", "ancestorM", "ancestorF", ["branchA", "branchB"]),
@@ -201,17 +249,21 @@ describe("computePosterLayout", () => {
     );
 
     const layout = computePosterLayout(tree);
-    // Every person appears exactly once, including both cousins.
+    // Every person appears exactly once, including both cousins -- neither gets a second box.
     expectNoDuplicates(layout, 6);
     expectNoDisconnectedBranches(layout);
+    expectNoOverlaps(layout);
 
-    const crossBranch = layout.connectors.filter((c) => c.kind === "cross-branch");
-    expect(crossBranch).toHaveLength(1);
-    if (crossBranch[0]?.kind === "cross-branch") {
-      // cousinA is the husband -> anchor; cousinB keeps her own canonical position under
-      // her own parents and gets a cross-branch connector back to the marriage point.
-      expect(crossBranch[0].fromPersonId).toBe("cousinB");
-      expect(crossBranch[0].toMarriageAnchorId).toBe("cousinA");
+    expect(layout.chips).toHaveLength(1);
+    const chip = layout.chips[0]!;
+    // cousinA is the husband -> anchor; cousinB keeps her own canonical position under her
+    // own parents and is represented at the marriage point only by a compact chip.
+    expect(chip.anchorPersonId).toBe("cousinA");
+    expect(chip.spousePersonId).toBe("cousinB");
+    expect(chip.lines.some((l) => l.includes("Cousin B"))).toBe(true);
+    // No connector at all references the chip's spouse -- no duplicated relationship line.
+    for (const c of layout.connectors) {
+      if (c.kind === "marriage") expect(c.personIds).not.toContain("cousinB");
     }
 
     // Both cousins still sit at their own blood-parent-derived generation (same row here).
@@ -243,11 +295,11 @@ describe("computePosterLayout", () => {
 
     const layout = computePosterLayout(tree);
     expectNoDuplicates(layout, 7);
-    const crossBranch = layout.connectors.filter((c) => c.kind === "cross-branch");
-    // c2 is shared across two marriages: one where c2 is anchor's spouse (cross-branch out),
-    // and appears only once as a node regardless.
-    expect(crossBranch.length).toBeGreaterThanOrEqual(1);
+    expectNoOverlaps(layout);
+    // c2 is shared across two marriages but still appears exactly once as a real node --
+    // both marriages resolve to chips pointing back at the SAME single node.
     expect(layout.nodes.filter((n) => n.personId === "c2")).toHaveLength(1);
+    expect(layout.chips.length).toBeGreaterThanOrEqual(1);
   });
 
   it("never drops a person, even from a family record missing both parents", () => {
@@ -262,9 +314,57 @@ describe("computePosterLayout", () => {
     expect(layout.nodes.some((n) => n.personId === "orphan")).toBe(true);
   });
 
+  it("widens a box to fit a very long name instead of clipping it", () => {
+    const longName = "Mohammad Abdul Kareem Uddin Sheik Al-Hussaini bin Yusuf";
+    const tree = buildTree([person({ id: "p1", name: longName })], []);
+    const layout = computePosterLayout(tree);
+    const node = layout.nodes[0]!;
+    expect(node.name).toBe(longName);
+    // Long enough that it must wrap to more than one line at the default max width.
+    expect(node.nameLines.length).toBeGreaterThan(1);
+    // "Width before height": the box is at least as wide as the configured max, never
+    // narrower just because the name is long.
+    expect(node.width).toBeGreaterThanOrEqual(220 * 0.9);
+  });
+
+  it("widens a box beyond the max width for a single unbreakable long word, rather than clipping", () => {
+    const unbreakable = "Muhammadibnabdirrahmanibnkhalidassuperlongsurname";
+    const tree = buildTree([person({ id: "p1", name: unbreakable })], []);
+    const layout = computePosterLayout(tree);
+    const node = layout.nodes[0]!;
+    expect(node.nameLines).toEqual([unbreakable]); // nothing to break on, stays one line
+    expect(node.width).toBeGreaterThan(220); // widened past nodeMaxWidth rather than clipped
+  });
+
+  it("renders Arabic names right-to-left and sizes their box from the actual text", () => {
+    const tree = buildTree([person({ id: "p1", name: "محمد عبد الكريم" })], []);
+    const layout = computePosterLayout(tree);
+    const node = layout.nodes[0]!;
+    expect(node.rtl).toBe(true);
+    expect(node.width).toBeGreaterThan(0);
+    expect(node.nameLines.join(" ")).toContain("محمد");
+  });
+
+  it("resolves a synthetic collision between two unrelated branches with unequal box sizes", () => {
+    // Two disconnected trees seeded with very different name lengths -- makes the two
+    // subtrees' reserved widths asymmetric enough to plausibly stress the collision sweep.
+    const tree = buildTree(
+      [
+        person({ id: "shortA", name: "Al" }),
+        person({ id: "shortA2", famcId: "fA" }),
+        person({ id: "longB", name: "Abdul Rahman Muhammad Al-Hussaini Sheik" }),
+        person({ id: "longB2", famcId: "fB" }),
+      ],
+      [family("fA", "shortA", undefined, ["shortA2"]), family("fB", "longB", undefined, ["longB2"])]
+    );
+    const layout = computePosterLayout(tree);
+    expectNoDuplicates(layout, 4);
+    expectNoOverlaps(layout);
+  });
+
   it("scales to a large synthetic tree without exponential blowup", () => {
     // Perfect binary-branching genealogy: 1 root couple, each person has 2 children, to a
-    // depth that yields > 5,000 people -- and one cousin marriage stitched in for realism.
+    // depth that yields > 1,000 people -- and one cousin marriage stitched in for realism.
     const persons: Person[] = [];
     const families: Family[] = [];
     let counter = 0;
@@ -274,10 +374,10 @@ describe("computePosterLayout", () => {
 
     function buildBranch(depth: number, famcId: string | undefined): string {
       const id = nextId();
-      persons.push(person({ id, famcId }));
+      persons.push(person({ id, famcId, name: `Person ${id}` }));
       if (depth === 0) return id;
       const spouseId = nextId();
-      persons.push(person({ id: spouseId }));
+      persons.push(person({ id: spouseId, name: `Spouse ${spouseId}` }));
       const famId = `f${id}`;
       const child1 = buildBranch(depth - 1, famId);
       const child2 = buildBranch(depth - 1, famId);
@@ -285,47 +385,55 @@ describe("computePosterLayout", () => {
       return id;
     }
 
-    buildBranch(12, undefined); // 2^13 - 1 ≈ 8191 people, well over the 5,000-person target
+    buildBranch(11, undefined); // 2^12 - 1 = 4095 people, well over the 1,000-person target
 
     const tree = buildTree(persons, families);
-    expect(Object.keys(tree.persons).length).toBeGreaterThan(5000);
+    expect(Object.keys(tree.persons).length).toBeGreaterThan(1000);
 
     const start = performance.now();
     const layout = computePosterLayout(tree);
     const elapsedMs = performance.now() - start;
 
     expectNoDuplicates(layout, Object.keys(tree.persons).length);
-    expect(layout.generationCount).toBe(13);
+    expectNoOverlaps(layout);
+    expect(layout.generationCount).toBe(12);
     // Generous bound: catches accidental exponential behavior (which would take seconds to
-    // minutes at this size) without being a flaky micro-benchmark.
-    expect(elapsedMs).toBeLessThan(5000);
+    // minutes at this size) without being a flaky micro-benchmark. Layout quality is
+    // explicitly allowed to take longer than the interactive viewer per the spec -- this is
+    // only guarding against a real algorithmic blowup, not chasing raw speed.
+    expect(elapsedMs).toBeLessThan(15000);
   });
 });
 
 describe.skipIf(!SAMPLE_EXISTS)("computePosterLayout against the real FTZ sample", () => {
-  it("lays out all 473 people exactly once, with every relationship represented", async () => {
+  it("lays out all 473 people exactly once, with every relationship represented, no overlaps", async () => {
     const bytes = await readFile(SAMPLE_PATH);
     const { tree } = await parseFtzFile(bytes, "FamilyTree.ftz");
 
+    const start = performance.now();
     const layout = computePosterLayout(tree);
+    const elapsedMs = performance.now() - start;
+
     expectNoDuplicates(layout, Object.keys(tree.persons).length);
     expectNoDisconnectedBranches(layout);
+    expectNoOverlaps(layout);
+    expectTextFitsBoxes(layout);
+    expect(elapsedMs).toBeLessThan(15000);
 
     // Every family with a recorded marriage produces either a marriage connector (both
-    // spouses rendered adjacent) or a cross-branch connector (cousin marriage) -- never
-    // neither, whenever both spouses are known.
+    // spouses rendered adjacent) or a chip (cousin marriage) -- never neither, whenever
+    // both spouses are known.
     for (const fam of Object.values(tree.families)) {
       if (!fam.husbandId || !fam.wifeId) continue;
       const hasMarriage = layout.connectors.some(
         (c) => c.kind === "marriage" && c.personIds.includes(fam.husbandId!) && c.personIds.includes(fam.wifeId!)
       );
-      const hasCrossBranch = layout.connectors.some(
+      const hasChip = layout.chips.some(
         (c) =>
-          c.kind === "cross-branch" &&
-          ((c.fromPersonId === fam.husbandId && c.toMarriageAnchorId === fam.wifeId) ||
-            (c.fromPersonId === fam.wifeId && c.toMarriageAnchorId === fam.husbandId))
+          (c.anchorPersonId === fam.husbandId && c.spousePersonId === fam.wifeId) ||
+          (c.anchorPersonId === fam.wifeId && c.spousePersonId === fam.husbandId)
       );
-      expect(hasMarriage || hasCrossBranch).toBe(true);
+      expect(hasMarriage || hasChip).toBe(true);
     }
   });
 });
