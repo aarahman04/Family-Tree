@@ -12,11 +12,17 @@ import type { PosterStyleOptions } from "./types.js";
 const PADDING_X = 10; // pt, inside a box on each side
 const PADDING_Y = 6;
 const LINE_HEIGHT_RATIO = 1.25;
+const NOTE_FONT_RATIO = 0.82; // the "children shown in X's branch" note is smaller than the name
 
 export interface MeasuredBox {
   width: number;
   height: number;
   lines: string[];
+  /** A smaller, visually distinct line (see renderSvg.ts) pointing to where this person's
+   * descendants are actually shown -- only set for the non-anchor spouse of a cousin
+   * marriage. Never a placeholder: always names the real person their descendants are
+   * grouped under. */
+  noteLine?: string;
   rtl: boolean;
 }
 
@@ -38,25 +44,34 @@ function wrappedLinesFor(
 export function computePersonBox(
   name: string,
   yearText: string | undefined,
+  branchNoteAnchorName: string | undefined,
   style: PosterStyleOptions,
   measure: TextMeasurer = heuristicTextMeasurer
 ): MeasuredBox {
   const rtl = isRtlText(name);
   const { lines, widestLineWidth } = wrappedLinesFor(name, style.nameFontSize, style.nodeMaxWidth, measure);
-  const width = Math.max(style.nodeMinWidth, widestLineWidth);
+
+  const noteLine = branchNoteAnchorName ? `children shown in ${branchNoteAnchorName}'s branch` : undefined;
+  const noteFontSize = style.yearFontSize * NOTE_FONT_RATIO;
+  const noteWidth = noteLine ? measure(noteLine, noteFontSize) + PADDING_X * 2 : 0;
+
+  const width = Math.max(style.nodeMinWidth, widestLineWidth, noteWidth);
 
   const nameLineHeight = style.nameFontSize * LINE_HEIGHT_RATIO;
   const yearLineHeight = yearText ? style.yearFontSize * LINE_HEIGHT_RATIO : 0;
+  const noteLineHeight = noteLine ? noteFontSize * LINE_HEIGHT_RATIO : 0;
   const height = Math.max(
     style.nodeMinHeight,
-    PADDING_Y * 2 + lines.length * nameLineHeight + yearLineHeight
+    PADDING_Y * 2 + lines.length * nameLineHeight + yearLineHeight + noteLineHeight
   );
 
-  return { width, height, lines, rtl };
+  return { width, height, lines, noteLine, rtl };
 }
 
 /** Chips use a smaller font and a tighter max width than a full person box -- they're a
- * pointer, not a record. */
+ * compact pointer to a real record, not a second copy of it. Content is the person's actual
+ * name only (prefixed with a marriage glyph) -- never a "Spouse:" / "(see own entry)"
+ * placeholder-style label. */
 export function computeChipBox(
   spouseName: string,
   style: PosterStyleOptions,
@@ -64,27 +79,14 @@ export function computeChipBox(
 ): MeasuredBox {
   const chipFontSize = style.yearFontSize;
   const chipMaxWidth = Math.max(style.nodeMinWidth * 0.85, style.nodeMaxWidth * 0.65);
-  const label = "Spouse:";
-  const pointer = "(see own entry)";
+  const displayText = `⚭ ${spouseName}`;
 
   const rtl = isRtlText(spouseName);
-  const { lines: nameLines, widestLineWidth: nameWidth } = wrappedLinesFor(
-    spouseName,
-    chipFontSize,
-    chipMaxWidth,
-    measure
-  );
-  const labelWidth = measure(label, chipFontSize) + PADDING_X * 2;
-  const pointerWidth = measure(pointer, chipFontSize * 0.9) + PADDING_X * 2;
-  const width = Math.max(style.nodeMinWidth * 0.7, labelWidth, nameWidth, pointerWidth);
+  const { lines, widestLineWidth } = wrappedLinesFor(displayText, chipFontSize, chipMaxWidth, measure);
+  const width = Math.max(style.nodeMinWidth * 0.6, widestLineWidth);
 
   const lineHeight = chipFontSize * LINE_HEIGHT_RATIO;
-  const pointerLineHeight = chipFontSize * 0.9 * LINE_HEIGHT_RATIO;
-  const lines = [label, ...nameLines, pointer];
-  const height = Math.max(
-    style.nodeMinHeight * 0.7,
-    PADDING_Y * 2 + (1 + nameLines.length) * lineHeight + pointerLineHeight
-  );
+  const height = Math.max(style.nodeMinHeight * 0.55, PADDING_Y * 2 + lines.length * lineHeight);
 
   return { width, height, lines, rtl };
 }

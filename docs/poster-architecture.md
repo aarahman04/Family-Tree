@@ -1,10 +1,12 @@
 # Print Poster — Developer Documentation
 
-Status: **V2**, a from-scratch rewrite of the layout engine for publication-quality output.
-V1 shipped a working dedicated layout + PDF/SVG export; this milestone was explicitly *not*
-about adding features but about layout **quality** — real text measurement, variable box
-sizing, a collision-detection-and-shift pass, and a redesigned cousin-marriage annotation.
-See "Version history" at the end for what changed and why.
+Status: **V3**, a layout-correctness pass on top of V2's publication-quality engine. V1
+shipped a working dedicated layout + PDF/SVG export; V2 rewrote the algorithm for real text
+measurement, variable box sizing, and collision resolution; V3 fixed a real centering bug
+(ancestors drifted toward the left edge of their own descendant fan instead of sitting above
+its middle) and replaced the cousin-marriage chip's placeholder-style text ("Spouse: <name>
+/ (see own entry)") with the person's real name plus a reciprocal note on their own record.
+See "Version history" at the end for the full diff between versions.
 
 ## Scope
 
@@ -25,10 +27,18 @@ what they wanted directly conflicted (named paper presets + tiling vs. one custo
 
 The V2 request added an explicit, unambiguous instruction that shapes several decisions
 below: **do not shrink the tree to fit a page.** The poster grows to whatever size the data
-requires — the real sample tree renders at roughly **18.4m × 229mm**. There is no upper
+requires — the real sample tree renders at roughly **14.8m × 226mm** (V3's tighter,
+correctly-centered layout is somewhat more space-efficient than V2's). There is no upper
 bound on the SVG output; see "PDF page-size limit" for the one real external constraint this
 runs into (a PDF-format limit, not a self-imposed one) and how it's handled honestly rather
 than silently.
+
+The V3 request was explicitly a **layout correction pass, not a new feature**: the oldest
+ancestor couple must sit in the horizontal center of the poster with descendants spreading
+outward from them, spouses must stay visually adjacent with short connectors, and cousin
+marriages must never show an empty or placeholder-looking spouse reference. All three were
+real defects in V2's output, not stylistic preferences — see "Centering the oldest ancestor
+couple" and "Cousin marriage handling" below for what was actually wrong and how it's fixed.
 
 ## Package layout
 
@@ -93,7 +103,10 @@ renderer/browser, this only makes sure the direction is declared correctly.
    a hard failure per the spec; a slightly-over-budget box is not.
 
 Chips (see "Cousin marriage handling") use the same primitives at a smaller, tighter max
-width, since they hold a label and a name, not a full record.
+width, since they hold only a name, not a full record. A person who is the non-anchor spouse
+of a cousin marriage also gets a small extra "branch note" line factored into their own box's
+height up front (`computePersonBox`'s `branchNoteAnchorName` parameter) — sized and wrapped
+before placement, the same as the name itself, so it can never overflow either.
 
 ## Layout algorithm — seven stages
 
@@ -113,12 +126,18 @@ are the max box height in that row; row Y-coordinates are a straight cumulative 
 heights plus `generationSpacing`, computed once, up front.
 
 **3. Initial placement.** Bottom-up subtree-width reservation (Reingold–Tilford-style), but
-in **real physical units** (points), not an abstract "sibling slot" count: a person's
-reserved width is their own box width plus, for each marriage they anchor, a "lane" whose
-width is the larger of that marriage's attachment (an adjacent spouse's box, or a chip) and
-the combined width its children need. Children are centered within their lane; multiple
-marriages (remarriage) get side-by-side lanes. Position assignment then walks top-down,
-handing each child the exact span its own reserved width claims.
+in **real physical units** (points), not an abstract "sibling slot" count, and **centered**,
+not left-aligned: for a person's first (primary) marriage, `reserved` is the wider of
+`coupleWidth` (their own box, plus — if present — their adjacent spouse's box or a chip,
+side by side) and the width their children need. The couple is centered within `reserved`,
+and their children are *also* centered within that same span — so the couple always sits
+directly above the horizontal middle of their own descendant fan, whichever of the two is
+wider. (A second or later marriage, i.e. remarriage, gets its own lane appended beside
+`reserved` instead of being folded into the same centered span — see "Known limitations.")
+Position assignment then walks top-down, handing each child the exact span its own reserved
+width claims. See "Centering the oldest ancestor couple" for why this composes into the
+*whole tree's* oldest ancestors landing in the horizontal middle of the poster, not just each
+couple individually.
 
 **4–5. Collision detection + shift.** A left-to-right sweep across every generation row
 (*every* row, not just direct siblings — this also catches two unrelated branches that
@@ -148,36 +167,82 @@ generation-transition never cross each other either, because the collision-resol
 guarantees their child x-ranges don't overlap and each family's children are always placed as
 one contiguous block.
 
+## Centering the oldest ancestor couple
+
+**The bug.** V2 placed an anchor at the *left edge* of the span reserved for their marriage
+and children — `ownX = leftEdge + ownBox.width / 2` — with their spouse and children's block
+extending to the right of them. For anyone with a non-trivial descendant fan, this visibly
+dragged them toward the left side of their own subtree instead of sitting above its middle,
+and for the tree's oldest ancestor couple (whose descendant fan is the entire rest of the
+poster) this meant they rendered far to the left of center rather than in the middle, exactly
+the defect reported against the real dataset.
+
+**The fix** is the centered placement described in Stage 3 above: every couple centers within
+the wider of their own footprint and their children's combined width, and their children
+center within that same span. This is a *local* rule (applied once per couple, recursively),
+but it composes into *global* centering by simple induction: if every parent is centered
+above their own children, then by induction the tree's root is centered above the horizontal
+extent of the entire descendant tree, generations deep — this is the standard definition of a
+"centered" (as opposed to "left-aligned") tree layout.
+
+**Multiple disconnected lineages.** A real export can contain more than one structurally
+disconnected top-level lineage (e.g. an isolated individual with no recorded parents or
+spouse, alongside the main family). `computePosterLayout` orders these so the single
+*largest* one — by reserved subtree width, almost always the tree's real oldest/primary
+ancestor couple — sits in the horizontal middle, with any smaller fragments fanning out to
+both sides by descending size (`orderedRootIds` in `layout.ts`). In the common case of one
+connected family tree, there's only one such lineage, which trivially ends up centered over
+the whole poster once combined with the per-couple centering above.
+
+**Verified** against the real 473-person sample: the two generation-0 nodes (the oldest
+recorded couple) have a combined midpoint within **~1.2pt of the poster's true horizontal
+center**, out of a poster roughly 42,000pt (14.8m) wide — see `tests/poster-layout.test.ts`'s
+"centers the oldest ancestor couple on the real dataset" test, and confirmed independently by
+parsing the actual browser-downloaded SVG's box coordinates.
+
 ## Cousin marriage handling
 
 When both spouses in a marriage have their own recorded blood parents, the anchor (per the
 convention above) keeps the children. The **other spouse is never re-rendered** as a second
-node at the marriage point, and — this is the V2 change — **no line is drawn all the way
-across the poster to their real position either.** Instead, a compact `PosterChip` sits at
-the marriage point:
+node at the marriage point, and no line is drawn all the way across the poster to their real
+position either (a V2 decision that still holds — see "V2" in Version history for why a
+cross-poster line is worse than no line at all on a poster that can be 10+ meters wide).
+Two things happen instead, both pointing at the same real person, in both directions:
+
+**At the marriage point**, beside the anchor, a compact `PosterChip` names them:
 
 ```
 ┌ ─ ─ ─ ─ ─ ┐
-   Spouse:
-  Cousin Bee
- (see own entry)
+⚭ Cousin Bee
 └ ─ ─ ─ ─ ─ ┘
 ```
 
-connected only by a short local line to the anchor. The named spouse still has exactly one
-real node, drawn once, under their own actual parents, wherever that is on the poster. This
-was a deliberate redesign from V1 (which drew a dashed line spanning the full width of the
-poster to the spouse's real position): for a poster that can legitimately be 10+ meters wide,
-a line connecting two points that far apart is not "visually obvious," it's noise. A small,
-clearly-labeled chip conveys the same information — who they married, and that their
-descendants are shown elsewhere — without a relationship line that has to be traced across
-the entire poster. Verified against the real sample: the output contains exactly 31 chips,
-matching the independently-verified cousin-marriage count in `tests/real-sample.test.ts`.
+connected only by a short local line to the anchor. This is the V3 fix to a real defect: V2's
+chip read `Spouse: Cousin Bee / (see own entry)` — generic label scaffolding around the name,
+easy to mistake for an unfilled template field, especially when (as happens in the real
+dataset) a person's name field is itself empty and the chip would otherwise show nothing at
+all after the label. V3's chip is just the real name (falling back to the literal word
+"Unknown" — not blank — for the rare person with no recorded name at all), prefixed with a
+small marriage glyph, never English label text.
+
+**At the spouse's own real node** — under their own actual parents, wherever that is on the
+poster — a second, small line is added to their box: *"children shown in Cousin A's
+branch"*, naming the real anchor. This is new in V3: V2 gave a reader arriving at the
+non-anchor spouse's own record no indication they were even married, or where to find their
+descendants. Now both directions are covered — arriving at the anchor, the chip names the
+spouse; arriving at the spouse's own branch, the note names the anchor and says where the
+children are.
+
+Verified against the real sample: the output contains exactly 31 chips and exactly 31
+matching notes, matching the independently-verified cousin-marriage count in
+`tests/real-sample.test.ts` — one chip and one note per cousin marriage, never more, never
+a blank one.
 
 A person who's the *non-anchor* spouse in more than one marriage (remarriage into two
 different cousin lines) still gets exactly one node; every marriage beyond their first
 resolves to its own chip pointing back at that single node — never a second copy of them or
-their descendants.
+their descendants. (Their own note names only one of those anchors, not all of them — a
+documented limitation, see below, for this genuinely rare compound case.)
 
 ## Page sizing
 
@@ -206,10 +271,10 @@ ready." `computePosterPageSize` handles it honestly:
   scale percentage and the true target size, and recommending the (uncapped) SVG download for
   print shops that accept it directly.
 
-Verified against the real sample (18.4m wide, well over the limit): the downloaded PDF's
-`/MediaBox` is exactly `[0 0 14400 179]`, at 27.61% scale — matching `18.4m / 0.2761 ≈
-14400pt` — with a valid single page, confirmed with `pdftotext`-independent inspection of the
-raw PDF bytes.
+Verified against the real sample (14.8m wide, well over the limit): the downloaded PDF's
+`/MediaBox` is exactly `[0 0 14400 219.7]`, at 34.33% scale — matching `14.8m × 0.3433 ≈
+14400pt` — with a valid single page, confirmed with direct inspection of the raw PDF bytes
+(no external PDF tooling required, just the `/MediaBox` entry in the file itself).
 
 ## Rendering pipeline
 
@@ -260,20 +325,28 @@ blowup.
 
 - `tests/poster-layout.test.ts` — single family; three generations; wide (8-child) sibling
   groups render as one shared descent branch; deep (6-generation) ancestry; a cousin marriage
-  (exactly one chip, zero duplicated nodes, zero connector referencing the chip's spouse);
+  (exactly one chip naming the real spouse, no "Spouse:"/"(see own entry)" text, a matching
+  note on the spouse's own node, zero duplicated nodes, zero connector referencing the chip's
+  spouse); a plain married couple (adjacent, short direct connector, not a long line); the
+  oldest-ancestor-couple centering fix on a deliberately lopsided (asymmetric) descendant fan;
+  a spouse from a structurally distant branch (different generation entirely, not just a
+  same-row cousin marriage) — local chip, no long connector, a note at their real position;
   multiple cousin marriages sharing an ancestor; a corrupted-data edge case (family record
   missing both parents); a very long name that wraps instead of overflowing; a single
   unbreakable word that widens the box instead of clipping; an Arabic name (RTL flag set, box
   sized from the real text); a synthetic two-branch collision scenario with asymmetric box
   sizes; a ~4,100-person synthetic tree; and, when the real sample file is present, the full
-  real 473-person/136-family tree with pairwise overlap checking across every node and chip.
+  real 473-person/136-family tree with pairwise overlap checking across every node and chip,
+  plus a dedicated test confirming the oldest ancestor couple is centered and every chip/note
+  names a real person.
 - `tests/poster-render.test.ts` — page auto-sizing produces a wide page for a wide sibling
   group; the PDF-scale path (a synthetic 50,000pt-wide layout triggers `pdfScale < 1` and a
   correctly-scaled `pdfWidthPt`); the SVG is well-formed and XML-escapes special characters;
   long names wrap onto multiple real `<text>` elements; a cousin-marriage chip renders with
-  its distinct dashed style and the spouse's name, while their real node (elsewhere) still
-  renders too — exactly twice total (once as their own record, once inside the chip's text);
-  the SVG always encodes the true uncapped size even when the PDF page would need to scale.
+  its distinct dashed style, the real spouse's name (no placeholder text), and the matching
+  italic branch-note on their own node; their real node (elsewhere) still renders too —
+  exactly twice total (once as their own record, once inside the chip's text); the SVG always
+  encodes the true uncapped size even when the PDF page would need to scale.
 - `web/tests/components/poster/PosterExportPanel.test.tsx` — renders a real cousin-marriage
   tree, confirms shared ancestors appear exactly once, confirms style controls change the
   rendered SVG.
@@ -282,9 +355,10 @@ blowup.
 - Manually verified end-to-end in a real Chromium browser against the real sample file:
   upload → Print Poster → preview renders (dashed chips visible, no console errors) → fit to
   view / zoom work → SVG downloads (504 boxes, independently confirmed zero pairwise
-  overlaps, 31 dashed chips matching the known cousin-marriage count) → PDF downloads (valid
-  single page, `/MediaBox [0 0 14400 179]`, matching the expected 27.61% scale-down) →
-  switching back to Explore still works.
+  overlaps, 31 dashed chips naming real people with zero placeholder text, 31 matching
+  branch-notes, oldest ancestor couple centered within ~1.2pt of true center on a ~42,000pt
+  poster) → PDF downloads (valid single page, `/MediaBox [0 0 14400 219.7]`, matching the
+  expected 34.33% scale-down) → switching back to Explore still works.
 
 ## Known limitations
 
@@ -292,6 +366,12 @@ blowup.
   the side of the person's fixed position rather than perfectly centering the person between
   all their spouses. Structurally correct (no duplication, no overlap, no lost relationships)
   but not pixel-perfect for this comparatively rare case.
+- A person who is the *non-anchor* spouse in more than one cousin marriage gets a branch-note
+  naming only one of the anchors (whichever family is processed last while building the
+  layout, not a deliberately chosen "most important" one) — every marriage still gets its own
+  correct chip, this only affects which single anchor name appears on the spouse's own box.
+  Not observed in the real sample; would require the same person to be a non-blood-anchoring
+  cousin-marriage spouse twice over.
 - The heuristic text measurer (used by Node/tests, and as a defensive fallback if a browser's
   `canvas.getContext("2d")` is ever unavailable) is a character-width approximation, not real
   font metrics — the browser's canvas-backed measurer used for the live preview and every
@@ -319,9 +399,20 @@ blowup.
 - **V1**: dedicated layout engine, fixed-size boxes, abstract "sibling slot" spacing units, a
   dashed connector line spanning the poster for cousin marriages, PDF/SVG export, basic zoom
   preview.
-- **V2** (this document): real text measurement and variable box sizing (width-before-height,
-  never clip), a genuine multi-pass collision-detection-and-shift algorithm (rather than
-  relying solely on width reservation), the cousin-marriage chip redesign (replacing the
-  cross-poster connector line), honest handling of the PDF format's page-size limit (V1 would
-  have silently produced a clipped PDF past ~5m), metric (m/mm) sizing display matching the
-  spec's own units, and a real fit-to-view/actual-size/pan/zoom preview.
+- **V2**: real text measurement and variable box sizing (width-before-height, never clip), a
+  genuine multi-pass collision-detection-and-shift algorithm (rather than relying solely on
+  width reservation), the cousin-marriage chip redesign (replacing the cross-poster connector
+  line with a chip naming the spouse), honest handling of the PDF format's page-size limit
+  (V1 would have silently produced a clipped PDF past ~5m), metric (m/mm) sizing display
+  matching the spec's own units, and a real fit-to-view/actual-size/pan/zoom preview.
+- **V3** (this document, a layout-correctness pass, not a new feature): fixed a real
+  centering bug where every couple — including the tree's oldest ancestors — was left-aligned
+  against their own descendant fan instead of centered above it; fixed V2's cousin-marriage
+  chip reading like unfilled placeholder text (`Spouse: <name>` / `(see own entry)`,
+  sometimes rendering fully blank for a person with no recorded name) by showing just the
+  real name (falling back to the literal word "Unknown," never blank); added a reciprocal
+  "children shown in `<anchor>`'s branch" note on the non-anchor spouse's own real node, so a
+  reader can find the family from either direction. Verified on the real sample: the oldest
+  ancestor couple now centers within ~1.2pt of true center on a ~42,000pt-wide poster, and
+  the poster is measurably tighter (14.8m vs. V2's 18.4m) as a side effect of the smaller,
+  more honest chip content and the corrected centering.

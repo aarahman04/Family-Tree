@@ -136,11 +136,16 @@ describe("renderPosterSvg", () => {
     expect(layout.chips).toHaveLength(1);
     expect(svg).toContain(`stroke="${DEFAULT_POSTER_STYLE.chipBorderColor}"`);
     expect(svg).toContain("stroke-dasharray");
-    expect(svg).toContain("Cousin Bee");
+    expect(svg).toContain("⚭ Cousin Bee"); // real name, not a "Spouse:" / "(see own entry)" placeholder
+    expect(svg).not.toMatch(/spouse:/i);
+    expect(svg).not.toMatch(/see own entry/i);
 
-    // cousinB's own node (under her real parents) still renders too -- exactly once.
+    // cousinB's own node (under her real parents) still renders too -- exactly once -- and
+    // carries a note pointing back at cousinA's branch, styled distinctly (italic).
     const cousinBBoxes = (svg.match(/Cousin Bee/g) ?? []).length;
     expect(cousinBBoxes).toBe(2); // her own node's name, plus the chip naming her
+    expect(svg).toContain("children shown in cousinA&apos;s branch");
+    expect(svg).toMatch(/font-style="italic"[^>]*>children shown in/);
   });
 
   it("keeps the SVG at the true uncapped size even when the PDF page would need to scale down", () => {

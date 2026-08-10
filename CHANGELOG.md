@@ -6,6 +6,20 @@ All notable changes to this project are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Changed
+- **Print poster layout, V3** (`poster/`) — a layout-correctness pass, not a new feature.
+  Fixed a real bug where every couple (including the tree's oldest ancestors) was positioned
+  at the *left edge* of their own descendant span instead of centered above it, so the whole
+  tree visibly drifted left; couples are now centered within the wider of their own footprint
+  and their children's combined width, which composes recursively into the oldest ancestor
+  couple landing in the horizontal middle of the entire poster (verified on the real sample:
+  within ~1.2pt of true center on a ~42,000pt-wide poster). Replaced the V2 cousin-marriage
+  chip's placeholder-reading text (`Spouse: <name>` / `(see own entry)`, which rendered fully
+  blank after the label for a person with no recorded name) with just the real name — falling
+  back to the literal word "Unknown," never blank — plus a new reciprocal "children shown in
+  `<anchor>`'s branch" note on the non-anchor spouse's own real node, so the family is
+  findable from either direction. The real sample's poster is now measurably tighter (14.8m
+  vs. the previous 18.4m) as a side effect. See `docs/poster-architecture.md`'s "Version
+  history" for the full diff.
 - **Print poster layout engine, V2** (`poster/`) — a from-scratch rewrite focused entirely on
   publication-quality layout, not new features. Real text measurement (a pixel-accurate
   `canvas.measureText`-backed measurer in the browser, a deterministic heuristic for

@@ -1,5 +1,5 @@
 /**
- * Dedicated print-poster layout engine (V2) -- see docs/poster-architecture.md.
+ * Dedicated print-poster layout engine (V3) -- see docs/poster-architecture.md.
  *
  * Deliberately NOT the interactive explorer's layout (React Flow + dagre, bounded to a
  * neighborhood around one focus person). This engine lays out the WHOLE tree at once, on
@@ -11,7 +11,11 @@
  *     its actual text content before any position is decided (poster/boxSizing.ts).
  *  3. Initial placement -- generation rows are assigned real heights from the tallest box in
  *     each row; x-coordinates come from a bottom-up subtree-width reservation (Reingold-
- *     Tilford-style) using each box's REAL measured width, not a constant.
+ *     Tilford-style, CENTERED: a couple is always centered above the span their own
+ *     children need, not left-aligned against it -- see `place()`), using each box's REAL
+ *     measured width. Disconnected top-level lineages are ordered so the single largest one
+ *     (almost always the tree's oldest/primary ancestor couple) sits in the middle, with any
+ *     smaller unrelated fragments fanning out to both sides by size.
  *  4-5. Collision detection + shift -- a left-to-right sweep per generation row that pushes
  *     any two clusters (a person plus its attached spouse/chip) apart to the configured
  *     minimum spacing, cascading the same shift down through every descendant so relative
@@ -26,16 +30,16 @@
  * Cousin marriages / shared ancestors: when both spouses in a family have their own known
  * blood parents, the "anchor" (husband, by convention, else wife) keeps the children. The
  * other spouse is never re-rendered as a second node at the marriage point -- they already
- * have a canonical position under their own parents elsewhere in the layout. Instead, a
- * compact `PosterChip` ("Spouse: <name>") sits at the marriage point with no line connecting
- * it back across the poster to their real node, per the confirmed design: identify who they
- * are, without duplicating them, their descendants, or any relationship line a second time.
+ * have a canonical position under their own parents elsewhere in the layout. Instead: a
+ * short, local `PosterChip` naming them (never a placeholder -- always their real name) sits
+ * beside the anchor with no line spanning the poster, AND their own real node (wherever it
+ * is) gets a small "children shown in <anchor>'s branch" note so a reader arriving from
+ * either direction can find the family. See "Cousin marriage handling" in the docs.
  *
  * Complexity: stages 1-3 are O(n + f). Stage 4-5's sweep is O(n log n) for the per-row sorts;
  * each shift cascades to a subtree, and the sum of all subtree sizes shifted across one full
- * top-down pass is bounded by O(n) (a node is shifted at most once per pass, by the row that
- * contains it or an ancestor's row). With a small fixed cap on convergence passes, the whole
- * algorithm stays O(n log n) -- verified against a 5,000+-person synthetic tree in
+ * top-down pass is bounded by O(n). With a small fixed cap on convergence passes, the whole
+ * algorithm stays O(n log n) -- verified against a 4,000+-person synthetic tree in
  * tests/poster-layout.test.ts.
  */
 
@@ -178,25 +182,42 @@ export function computePosterLayout(
   // ------------------------------------------------------------------------------------
   // Stage 2: box measurement
   // ------------------------------------------------------------------------------------
-  const personBoxes = new Map<UUID, MeasuredBox>();
-  for (const person of Object.values(tree.persons)) {
-    personBoxes.set(person.id, computePersonBox(person.name, yearLineFor(person), style, measure));
-  }
 
-  const chipsByFamily = new Map<UUID, ChipInfo>();
+  // Pre-pass over families: for every cousin marriage (both spouses have their own blood
+  // parents), the non-anchor spouse needs a short "children shown in <anchor>'s branch" note
+  // on THEIR OWN box -- computed before boxes so it's included in that box's own sizing.
+  interface ChipDef {
+    familyId: UUID;
+    anchorId: UUID;
+    spouseId: UUID;
+  }
+  const chipDefs: ChipDef[] = [];
+  const branchNoteAnchorNameFor = new Map<UUID, string>(); // spousePersonId -> anchor's name
   for (const family of Object.values(tree.families)) {
     const anchor = anchorIdOf(tree, family);
     if (!anchor) continue;
     const spouseId = otherSpouseOf(family, anchor);
     if (spouseId && !isAdjacentHere(placements, spouseId, family.id)) {
-      const spouseName = tree.persons[spouseId]?.name ?? "Unknown";
-      chipsByFamily.set(family.id, {
-        familyId: family.id,
-        anchorId: anchor,
-        spouseId,
-        box: computeChipBox(spouseName, style, measure),
-      });
+      chipDefs.push({ familyId: family.id, anchorId: anchor, spouseId });
+      // `||`, not `??`: a person record with a genuinely empty name field must still fall
+      // back to "Unknown" here, or the chip/note would show nothing after the marriage
+      // glyph -- exactly the "empty spouse label" this rule exists to rule out.
+      branchNoteAnchorNameFor.set(spouseId, tree.persons[anchor]?.name || "Unknown");
     }
+  }
+
+  const personBoxes = new Map<UUID, MeasuredBox>();
+  for (const person of Object.values(tree.persons)) {
+    personBoxes.set(
+      person.id,
+      computePersonBox(person.name, yearLineFor(person), branchNoteAnchorNameFor.get(person.id), style, measure)
+    );
+  }
+
+  const chipsByFamily = new Map<UUID, ChipInfo>();
+  for (const def of chipDefs) {
+    const spouseName = tree.persons[def.spouseId]?.name || "Unknown"; // see the `||` note above
+    chipsByFamily.set(def.familyId, { ...def, box: computeChipBox(spouseName, style, measure) });
   }
 
   // Row heights: the tallest box (person or chip) in each generation, then cumulative Y.
@@ -223,28 +244,47 @@ export function computePosterLayout(
   }
 
   // ------------------------------------------------------------------------------------
-  // Stage 3: initial placement (subtree width + position assignment)
+  // Stage 3: initial placement (subtree width + CENTERED position assignment)
   // ------------------------------------------------------------------------------------
   const widthMemo = new Map<UUID, number>();
 
-  /** This family's own extra "lane" width beyond the anchor's own box: the wider of its
-   * attachment (adjacent spouse box, or chip) and the total width its children need. */
-  function laneWidth(family: Family, anchorId: UUID): number {
-    const spouseId = otherSpouseOf(family, anchorId);
-    let attachmentWidth = 0;
+  /** The width of whatever sits beside `personId` at this marriage point: an adjacent
+   * (married-in) spouse's real box, or a cousin-marriage chip naming the absent spouse. 0 if
+   * neither (e.g. only one parent recorded for this family). */
+  function attachmentWidthOf(family: Family, personId: UUID): number {
+    const spouseId = otherSpouseOf(family, personId);
     if (spouseId && isAdjacentHere(placements, spouseId, family.id)) {
-      attachmentWidth = personBoxes.get(spouseId)!.width;
-    } else {
-      const chip = chipsByFamily.get(family.id);
-      if (chip) attachmentWidth = chip.box.width;
+      return personBoxes.get(spouseId)!.width;
     }
-    let childrenWidth = 0;
-    if (family.childrenIds.length > 0) {
-      childrenWidth =
-        family.childrenIds.reduce((sum, id) => sum + subtreeWidth(id), 0) +
-        style.horizontalSpacing * (family.childrenIds.length - 1);
-    }
-    return Math.max(attachmentWidth, childrenWidth);
+    const chip = chipsByFamily.get(family.id);
+    return chip ? chip.box.width : 0;
+  }
+
+  function childrenWidthOf(family: Family): number {
+    if (family.childrenIds.length === 0) return 0;
+    return (
+      family.childrenIds.reduce((sum, id) => sum + subtreeWidth(id), 0) +
+      style.horizontalSpacing * (family.childrenIds.length - 1)
+    );
+  }
+
+  /** The reserved span for `personId`'s FIRST (primary) marriage: `coupleWidth` is their own
+   * box plus, if present, the attachment beside it -- this is what gets centered within
+   * `reserved`, which is the wider of the couple and their children. Every ancestor is
+   * centered above their own descendants because of this -- see place() below. */
+  function primaryReserved(personId: UUID, family: Family): { coupleWidth: number; reserved: number } {
+    const ownWidth = personBoxes.get(personId)!.width;
+    const attachmentW = attachmentWidthOf(family, personId);
+    const coupleWidth = attachmentW > 0 ? ownWidth + style.horizontalSpacing + attachmentW : ownWidth;
+    const childrenWidth = childrenWidthOf(family);
+    return { coupleWidth, reserved: Math.max(coupleWidth, childrenWidth) };
+  }
+
+  /** A second (or third...) marriage's own lane, appended beside the primary reserved span --
+   * remarriage is rare enough that this isn't re-centered against the person's own box (see
+   * docs/poster-architecture.md's "Known limitations"), only internally consistent. */
+  function extraLaneWidth(family: Family, personId: UUID): number {
+    return Math.max(attachmentWidthOf(family, personId), childrenWidthOf(family));
   }
 
   function subtreeWidth(personId: UUID): number {
@@ -255,8 +295,10 @@ export function computePosterLayout(
     const families = anchoredFamiliesOf(tree, personId);
     let width = ownWidth;
     if (families.length > 0) {
-      const lanes = families.map((f) => laneWidth(f, personId));
-      width = ownWidth + lanes.reduce((sum, w) => sum + w + style.horizontalSpacing, 0);
+      width = primaryReserved(personId, families[0]!).reserved;
+      for (let i = 1; i < families.length; i++) {
+        width += style.horizontalSpacing + extraLaneWidth(families[i]!, personId);
+      }
     }
     widthMemo.set(personId, width);
     return width;
@@ -287,6 +329,7 @@ export function computePosterLayout(
       name: person?.name ?? "Unknown",
       nameLines: box.lines,
       yearLine: yearLineFor(person),
+      noteLine: box.noteLine,
       rtl: box.rtl,
       gender: person?.gender ?? "unknown",
     };
@@ -311,7 +354,58 @@ export function computePosterLayout(
     chipsByFamilyId.set(info.familyId, chip);
   }
 
+  function registerClusterLeader(personId: UUID, gen: number) {
+    const genList = clusterLeadersByGen.get(gen);
+    if (genList) genList.push(personId);
+    else clusterLeadersByGen.set(gen, [personId]);
+  }
+
   const connectors: PosterConnector[] = [];
+
+  /** Places `family`'s attachment (adjacent spouse or chip) centered at `centerX`, and
+   * returns the parent id(s) a descent connector for this family should originate from. */
+  function placeAttachment(family: Family, personId: UUID, centerX: number, y: number): UUID[] {
+    const spouseId = otherSpouseOf(family, personId);
+    if (spouseId && isAdjacentHere(placements, spouseId, family.id)) {
+      addNode(spouseId, centerX, y);
+      placed.add(spouseId);
+      const list = attachedSpousesOf.get(personId);
+      if (list) list.push(spouseId);
+      else attachedSpousesOf.set(personId, [spouseId]);
+      connectors.push({ kind: "marriage", personIds: [personId, spouseId] });
+      return [personId, spouseId];
+    }
+    const chip = chipsByFamily.get(family.id);
+    if (chip) {
+      addChip(chip, centerX, y);
+      const list = attachedChipFamiliesOf.get(personId);
+      if (list) list.push(family.id);
+      else attachedChipFamiliesOf.set(personId, [family.id]);
+    }
+    return [personId];
+  }
+
+  /** Centers `family`'s children within [spanLeft, spanLeft + spanWidth), recursing into
+   * each, and records the shared descent connector for the whole sibling group. */
+  function placeChildrenRow(
+    family: Family,
+    spanLeft: number,
+    spanWidth: number,
+    parentPersonIds: UUID[],
+    steps: number,
+    directChildren: UUID[]
+  ) {
+    if (family.childrenIds.length === 0) return;
+    const childrenTotalWidth = childrenWidthOf(family);
+    let cc = spanLeft + (spanWidth - childrenTotalWidth) / 2;
+    for (const childId of family.childrenIds) {
+      const w = subtreeWidth(childId);
+      place(childId, cc, steps + 1);
+      cc += w + style.horizontalSpacing;
+      directChildren.push(childId);
+    }
+    connectors.push({ kind: "descent", parentPersonIds, childPersonIds: [...family.childrenIds] });
+  }
 
   function place(personId: UUID, leftEdge: number, steps: number) {
     if (placed.has(personId) || steps > MAX_WALK) return; // corrupted-data safety net
@@ -320,69 +414,74 @@ export function computePosterLayout(
     const gen = generationOf(personId);
     const y = rowY.get(gen) ?? 0;
     const ownBox = personBoxes.get(personId)!;
-    const ownX = leftEdge + ownBox.width / 2;
-    addNode(personId, ownX, y);
-
-    const genList = clusterLeadersByGen.get(gen);
-    if (genList) genList.push(personId);
-    else clusterLeadersByGen.set(gen, [personId]);
-
-    let cursor = leftEdge + ownBox.width;
+    const families = anchoredFamiliesOf(tree, personId);
     const directChildren: UUID[] = [];
 
-    for (const family of anchoredFamiliesOf(tree, personId)) {
+    if (families.length === 0) {
+      addNode(personId, leftEdge + ownBox.width / 2, y);
+      registerClusterLeader(personId, gen);
+      return;
+    }
+
+    const primaryFamily = families[0]!;
+    const { coupleWidth, reserved } = primaryReserved(personId, primaryFamily);
+    // The couple (this person + their attachment, if any) is CENTERED within `reserved` --
+    // the wider of the couple's own footprint and the span their children need -- rather
+    // than left-aligned against it. This is what keeps every ancestor (including the oldest,
+    // most-centered-of-all root couple) positioned directly above their own descendant fan
+    // instead of drifting toward the left edge of it.
+    const coupleLeft = leftEdge + (reserved - coupleWidth) / 2;
+    const ownX = coupleLeft + ownBox.width / 2;
+    addNode(personId, ownX, y);
+    registerClusterLeader(personId, gen);
+
+    const attachmentW = attachmentWidthOf(primaryFamily, personId);
+    let parentPersonIds = [personId];
+    if (attachmentW > 0) {
+      const attachCenterX = coupleLeft + ownBox.width + style.horizontalSpacing + attachmentW / 2;
+      parentPersonIds = placeAttachment(primaryFamily, personId, attachCenterX, y);
+    }
+    placeChildrenRow(primaryFamily, leftEdge, reserved, parentPersonIds, steps, directChildren);
+
+    let cursor = leftEdge + reserved;
+    for (let i = 1; i < families.length; i++) {
       cursor += style.horizontalSpacing;
-      const lane = laneWidth(family, personId);
-      const spouseId = otherSpouseOf(family, personId);
-      const spouseAdjacent = spouseId !== undefined && isAdjacentHere(placements, spouseId, family.id);
-      const chipInfo = chipsByFamily.get(family.id);
-
-      const attachmentCenterX = cursor + lane / 2;
-      let parentPersonIds: UUID[] = [personId];
-
-      if (spouseAdjacent) {
-        addNode(spouseId!, attachmentCenterX, y);
-        placed.add(spouseId!);
-        const spouseList = attachedSpousesOf.get(personId);
-        if (spouseList) spouseList.push(spouseId!);
-        else attachedSpousesOf.set(personId, [spouseId!]);
-        connectors.push({ kind: "marriage", personIds: [personId, spouseId!] });
-        parentPersonIds = [personId, spouseId!];
-      } else if (chipInfo) {
-        addChip(chipInfo, attachmentCenterX, y);
-        const list = attachedChipFamiliesOf.get(personId);
-        if (list) list.push(family.id);
-        else attachedChipFamiliesOf.set(personId, [family.id]);
+      const family = families[i]!;
+      const lane = extraLaneWidth(family, personId);
+      const laneAttachmentW = attachmentWidthOf(family, personId);
+      let laneParentIds = [personId];
+      if (laneAttachmentW > 0) {
+        laneParentIds = placeAttachment(family, personId, cursor + lane / 2, y);
       }
-
-      if (family.childrenIds.length > 0) {
-        const childWidths = family.childrenIds.map((id) => subtreeWidth(id));
-        const childrenTotalWidth =
-          childWidths.reduce((a, b) => a + b, 0) + style.horizontalSpacing * (family.childrenIds.length - 1);
-        let cc = cursor + (lane - childrenTotalWidth) / 2;
-        for (const childId of family.childrenIds) {
-          const w = subtreeWidth(childId);
-          place(childId, cc, steps + 1);
-          cc += w + style.horizontalSpacing;
-          directChildren.push(childId);
-        }
-        connectors.push({ kind: "descent", parentPersonIds, childPersonIds: [...family.childrenIds] });
-      }
-
+      placeChildrenRow(family, cursor, lane, laneParentIds, steps, directChildren);
       cursor += lane;
     }
 
     if (directChildren.length > 0) childrenOfPerson.set(personId, directChildren);
   }
 
-  const topLevelRoots = Object.keys(tree.persons)
-    .filter((id) => placements.get(id)?.kind === "top")
-    .sort(); // deterministic order, independent of object key iteration order
+  const topLevelRootIds = Object.keys(tree.persons).filter((id) => placements.get(id)?.kind === "top");
+
+  // Order disconnected top-level lineages so the single LARGEST one -- almost always the
+  // tree's real oldest/primary ancestor couple -- sits in the horizontal middle, with any
+  // smaller unrelated fragments fanning out to both sides by descending size. In the common
+  // case (one connected family tree) there's only one such root, which trivially ends up
+  // centered over the whole poster once combined with the couple-centering fix above.
+  const orderedRootIds: UUID[] = [];
+  {
+    const withWidth = topLevelRootIds
+      .map((id) => ({ id, width: subtreeWidth(id) }))
+      .sort((a, b) => b.width - a.width || (a.id < b.id ? -1 : 1)); // descending, deterministic tiebreak
+    const left: UUID[] = [];
+    const right: UUID[] = [];
+    withWidth.slice(1).forEach((r, i) => (i % 2 === 0 ? right : left).push(r.id));
+    if (withWidth.length > 0) orderedRootIds.push(...left.reverse(), withWidth[0]!.id, ...right);
+  }
 
   {
     let cursor = 0;
-    for (const rootId of topLevelRoots) {
-      const width = subtreeWidth(rootId);
+    for (const rootId of orderedRootIds) {
+      const width = subtreeWidth(rootId); // memoized above; free to call again
       place(rootId, cursor, 0);
       cursor += width + style.horizontalSpacing;
     }

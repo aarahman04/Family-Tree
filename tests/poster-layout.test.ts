@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import type { Family, FamilyTree, Gender, Person, UUID } from "../models/types.js";
 import { parseFtzFile } from "../parser/index.js";
 import { computePosterLayout } from "../poster/layout.js";
-import type { PosterChip, PosterLayout, PosterNode } from "../poster/types.js";
+import { DEFAULT_POSTER_STYLE, type PosterChip, type PosterLayout, type PosterNode } from "../poster/types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SAMPLE_PATH = path.join(__dirname, "..", "Family Tree FTZ", "FamilyTree.ftz");
@@ -261,6 +261,9 @@ describe("computePosterLayout", () => {
     expect(chip.anchorPersonId).toBe("cousinA");
     expect(chip.spousePersonId).toBe("cousinB");
     expect(chip.lines.some((l) => l.includes("Cousin B"))).toBe(true);
+    // Never a placeholder-style label -- no "Spouse:" scaffold text, no dead-end pointer.
+    expect(chip.lines.join(" ")).not.toMatch(/spouse:/i);
+    expect(chip.lines.join(" ")).not.toMatch(/see own entry/i);
     // No connector at all references the chip's spouse -- no duplicated relationship line.
     for (const c of layout.connectors) {
       if (c.kind === "marriage") expect(c.personIds).not.toContain("cousinB");
@@ -270,6 +273,100 @@ describe("computePosterLayout", () => {
     const byId = Object.fromEntries(layout.nodes.map((n) => [n.personId, n]));
     expect(byId.cousinA!.generation).toBe(2);
     expect(byId.cousinB!.generation).toBe(2);
+
+    // cousinB's OWN node -- in her own branch, under her own real parents -- carries a
+    // pointer naming the real anchor, so a reader arriving from either direction can find
+    // the family. This is on her own box, not a floating/duplicated element.
+    expect(byId.cousinB!.noteLine).toBeDefined();
+    expect(byId.cousinB!.noteLine).toMatch(/branch/i);
+    expect(byId.cousinA!.noteLine).toBeUndefined(); // the anchor doesn't need a pointer to themself
+  });
+
+  it("keeps husband and wife adjacent with a short direct marriage connector, never a long line", () => {
+    const tree = buildTree(
+      [person({ id: "h", gender: "male", name: "Husband" }), person({ id: "w", gender: "female", name: "Wife" })],
+      [family("f1", "h", "w", [])]
+    );
+    const layout = computePosterLayout(tree);
+    expectNoOverlaps(layout);
+    const h = layout.nodes.find((n) => n.personId === "h")!;
+    const w = layout.nodes.find((n) => n.personId === "w")!;
+    const gap = Math.abs(w.x - h.x) - (h.width + w.width) / 2;
+    expect(gap).toBeGreaterThanOrEqual(0);
+    expect(gap).toBeLessThan(DEFAULT_POSTER_STYLE.horizontalSpacing + 1); // touching, not far apart
+    const marriage = layout.connectors.find((c) => c.kind === "marriage");
+    expect(marriage).toBeDefined();
+    if (marriage?.kind === "marriage") expect(marriage.personIds.sort()).toEqual(["h", "w"]);
+  });
+
+  it("centers the oldest ancestor couple above their own descendants, even when the tree is lopsided", () => {
+    // One child's branch has 6 grandchildren; the other has 1 -- a genuinely asymmetric
+    // descendant fan, to prove centering isn't an accident of a symmetric fixture.
+    const grandkids = Array.from({ length: 6 }, (_, i) => `g${i}`);
+    const tree = buildTree(
+      [
+        person({ id: "gpa", gender: "male" }),
+        person({ id: "gma", gender: "female" }),
+        person({ id: "c1", famcId: "fRoot" }),
+        person({ id: "c2", famcId: "fRoot" }),
+        person({ id: "c1spouse", gender: "female" }),
+        ...grandkids.map((id) => person({ id, famcId: "fBig" })),
+      ],
+      [family("fRoot", "gpa", "gma", ["c1", "c2"]), family("fBig", "c1", "c1spouse", grandkids)]
+    );
+    const layout = computePosterLayout(tree);
+    expectNoOverlaps(layout);
+    const gpa = layout.nodes.find((n) => n.personId === "gpa")!;
+    const gma = layout.nodes.find((n) => n.personId === "gma")!;
+    const coupleCenter = (gpa.x + gma.x) / 2;
+    expect(coupleCenter).toBeCloseTo(layout.contentWidth / 2, 0);
+  });
+
+  it("handles a spouse from a structurally distant branch: local chip, no long connector, and a note at their real position", () => {
+    // The spouse's own ancestry is many generations away from the anchor's -- a real
+    // "distant branch" case, not just a same-generation cousin marriage.
+    const tree = buildTree(
+      [
+        person({ id: "anchorRoot" }),
+        person({ id: "anchor", famcId: "fAnchor" }),
+        person({ id: "distantRoot" }),
+        person({ id: "d1", famcId: "fD1" }),
+        person({ id: "d2", famcId: "fD2" }),
+        person({ id: "d3", famcId: "fD3" }),
+        person({ id: "distantSpouse", famcId: "fD3", name: "Distant Spouse" }),
+      ],
+      [
+        family("fAnchor", "anchorRoot", undefined, ["anchor"]),
+        family("fD1", "distantRoot", undefined, ["d1"]),
+        family("fD2", "d1", undefined, ["d2"]),
+        family("fD3", "d2", undefined, ["d3", "distantSpouse"]),
+        family("fMarriage", "anchor", "distantSpouse", []),
+      ]
+    );
+    const layout = computePosterLayout(tree);
+    expectNoDuplicates(layout, 7);
+    expectNoOverlaps(layout);
+
+    const anchorNode = layout.nodes.find((n) => n.personId === "anchor")!;
+    const distantNode = layout.nodes.find((n) => n.personId === "distantSpouse")!;
+    // They're on different generation rows (structurally distant) -- confirms this is a
+    // genuinely distant-branch case, not a same-row cousin marriage.
+    expect(anchorNode.generation).not.toBe(distantNode.generation);
+
+    // The marriage point gets a short local chip next to the anchor...
+    expect(layout.chips).toHaveLength(1);
+    const chip = layout.chips[0]!;
+    expect(chip.anchorPersonId).toBe("anchor");
+    const chipDx = Math.abs(chip.x - anchorNode.x);
+    expect(chipDx).toBeLessThan(anchorNode.width + chip.width); // local, not clear across the poster
+
+    // ...and NO line/connector reaches all the way to the spouse's real, distant position.
+    for (const c of layout.connectors) {
+      if (c.kind === "marriage") expect(c.personIds).not.toContain("distantSpouse");
+    }
+
+    // The spouse's own real node still carries a note pointing back at the anchor.
+    expect(distantNode.noteLine).toMatch(/branch/i);
   });
 
   it("handles multiple cousin marriages sharing the same ancestor without duplication", () => {
@@ -434,6 +531,37 @@ describe.skipIf(!SAMPLE_EXISTS)("computePosterLayout against the real FTZ sample
           (c.anchorPersonId === fam.wifeId && c.spousePersonId === fam.husbandId)
       );
       expect(hasMarriage || hasChip).toBe(true);
+    }
+  });
+
+  it("centers the oldest ancestor couple on the real dataset, and every chip/note names a real person", async () => {
+    const bytes = await readFile(SAMPLE_PATH);
+    const { tree } = await parseFtzFile(bytes, "FamilyTree.ftz");
+    const layout = computePosterLayout(tree);
+
+    // The generation-0 person(s) with the largest reserved subtree are the "oldest ancestor
+    // couple" -- their combined midpoint should sit within a couple of box-widths of the
+    // poster's true horizontal center (exact equality isn't expected: the two spouses'
+    // boxes can differ slightly in width, shifting the midpoint by half that difference).
+    const gen0 = layout.nodes.filter((n) => n.generation === 0);
+    expect(gen0.length).toBeGreaterThan(0);
+    const centerX = layout.contentWidth / 2;
+    const closest = [...gen0].sort((a, b) => Math.abs(a.x - centerX) - Math.abs(b.x - centerX))[0]!;
+    const tolerance = Math.max(closest.width, 200);
+    expect(Math.abs(closest.x - centerX)).toBeLessThan(tolerance);
+
+    // No chip or branch-note ever reads as an unfilled placeholder -- every one names a
+    // real person, and none use the retired "Spouse:" / "(see own entry)" scaffold text.
+    for (const chip of layout.chips) {
+      const text = chip.lines.join(" ");
+      expect(text.trim().length).toBeGreaterThan(1); // more than just the "⚭" glyph
+      expect(text).not.toMatch(/spouse:/i);
+      expect(text).not.toMatch(/see own entry/i);
+    }
+    const notedNodes = layout.nodes.filter((n) => n.noteLine);
+    expect(notedNodes).toHaveLength(layout.chips.length); // one note per chip, no more, no less
+    for (const node of notedNodes) {
+      expect(node.noteLine).toMatch(/branch/i);
     }
   });
 });

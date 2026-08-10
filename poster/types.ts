@@ -20,6 +20,10 @@ export interface PosterNode {
   /** Word-wrapped display lines for `name` -- see poster/boxSizing.ts. Never empty. */
   nameLines: string[];
   yearLine?: string;
+  /** Set only when this person is the non-anchor spouse of a cousin marriage: a small,
+   * visually distinct pointer ("children shown in <anchor>'s branch") on their OWN box,
+   * naming the real person their descendants are grouped under -- never a placeholder. */
+  noteLine?: string;
   rtl: boolean;
   gender: "male" | "female" | "unknown";
 }

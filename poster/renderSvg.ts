@@ -32,11 +32,12 @@ function textLine(
   fill: string,
   fontFamily: string,
   rtl: boolean,
-  weight?: string
+  opts?: { weight?: string; italic?: boolean }
 ): string {
   const dir = rtl ? ` direction="rtl"` : "";
-  const w = weight ? ` font-weight="${weight}"` : "";
-  return `<text x="${num(x)}" y="${num(y)}" font-family="${escapeXml(fontFamily)}" font-size="${num(fontSize)}" fill="${fill}" text-anchor="middle" dominant-baseline="middle"${dir}${w}>${escapeXml(text)}</text>`;
+  const w = opts?.weight ? ` font-weight="${opts.weight}"` : "";
+  const i = opts?.italic ? ` font-style="italic"` : "";
+  return `<text x="${num(x)}" y="${num(y)}" font-family="${escapeXml(fontFamily)}" font-size="${num(fontSize)}" fill="${fill}" text-anchor="middle" dominant-baseline="middle"${dir}${w}${i}>${escapeXml(text)}</text>`;
 }
 
 function renderNode(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions): string {
@@ -58,15 +59,28 @@ function renderNode(node: PosterNode, offsetX: number, offsetY: number, style: P
   parts.push(`<rect x="${num(x)}" y="${num(y)}" width="4" height="${num(node.height)}" fill="${indicatorColor}"/>`);
 
   const nameLineHeight = style.nameFontSize * 1.25;
-  const totalTextHeight = node.nameLines.length * nameLineHeight + (node.yearLine ? style.yearFontSize * 1.25 : 0);
+  const noteFontSize = style.yearFontSize * 0.82;
+  const totalTextHeight =
+    node.nameLines.length * nameLineHeight +
+    (node.yearLine ? style.yearFontSize * 1.25 : 0) +
+    (node.noteLine ? noteFontSize * 1.25 : 0);
   let lineY = cy - totalTextHeight / 2 + nameLineHeight / 2;
   for (const line of node.nameLines) {
     parts.push(textLine(cx + 2, lineY, line, style.nameFontSize, style.textColor, style.fontFamily, node.rtl));
     lineY += nameLineHeight;
   }
   if (node.yearLine) {
+    parts.push(textLine(cx + 2, lineY, node.yearLine, style.yearFontSize, style.textColor, style.fontFamily, false));
+    lineY += style.yearFontSize * 1.25;
+  }
+  if (node.noteLine) {
+    // A pointer to where this person's descendants are actually shown -- never a
+    // placeholder, always names the real anchor (see poster/boxSizing.ts). Visually
+    // distinct (smaller, italic, the chip's own color) so it reads as a cross-reference.
     parts.push(
-      textLine(cx + 2, lineY, node.yearLine, style.yearFontSize, style.textColor, style.fontFamily, false)
+      textLine(cx + 2, lineY, node.noteLine, noteFontSize, style.chipBorderColor, style.fontFamily, node.rtl, {
+        italic: true,
+      })
     );
   }
   return parts.join("");
@@ -85,22 +99,10 @@ function renderChip(chip: PosterChip, offsetX: number, offsetY: number, style: P
     `<rect x="${num(x)}" y="${num(y)}" width="${num(chip.width)}" height="${num(chip.height)}" rx="4" fill="${style.chipFillColor}" stroke="${style.chipBorderColor}" stroke-width="${num(style.lineThickness)}" stroke-dasharray="4,3"/>`
   );
   let lineY = cy - (chip.lines.length * lineHeight) / 2 + lineHeight / 2;
-  chip.lines.forEach((line, i) => {
-    const isPointer = i === chip.lines.length - 1;
-    parts.push(
-      textLine(
-        cx,
-        lineY,
-        line,
-        isPointer ? fontSize * 0.9 : fontSize,
-        style.textColor,
-        style.fontFamily,
-        chip.rtl && !isPointer,
-        i === 0 ? "600" : undefined
-      )
-    );
+  for (const line of chip.lines) {
+    parts.push(textLine(cx, lineY, line, fontSize, style.textColor, style.fontFamily, chip.rtl));
     lineY += lineHeight;
-  });
+  }
   return parts.join("");
 }
 
