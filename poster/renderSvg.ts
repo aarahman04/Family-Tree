@@ -88,7 +88,7 @@ function photoClip(id: string, x: number, y: number, side: number, shape: "squar
 
 /** A polished neutral placeholder: subtle gray fill + a simple head-and-shoulders silhouette,
  * clipped to the same shape as real photos. Never an empty white box. */
-function photoPlaceholder(x: number, y: number, side: number, clipAttr: string, name: string): string {
+function photoPlaceholder(x: number, y: number, side: number, clipAttr: string): string {
   const cx = x + side / 2;
   const headR = side * 0.17;
   const headCy = y + side * 0.4;
@@ -225,7 +225,7 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
       `<image href="${escapeXml(photoHref)}" x="${num(photoX)}" y="${num(photoY)}" width="${num(side)}" height="${num(side)}" preserveAspectRatio="xMidYMid slice" ${clip.attr}><title>Photo of ${escapeXml(node.name)}</title></image>`
     );
   } else {
-    parts.push(photoPlaceholder(photoX, photoY, side, clip.attr, node.name));
+    parts.push(photoPlaceholder(photoX, photoY, side, clip.attr));
   }
 
   // Divider under the photo.
