@@ -732,6 +732,9 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
   - `export function computeSquareCrop(width: number, height: number, face?: FaceBox): { sx: number; sy: number; size: number }`
   - `export async function processImageFile(file: File): Promise<PersonPhoto>` (throws `Error` on unsupported type / oversize)
 
+**Post-audit acceptance criterion (autosave/memory safety — settle explicitly, do not leave implicit):**
+- **Print bytes in persisted state.** `processImageFile` returns a `PersonPhoto` carrying BOTH `thumb` and `print`; stored on `person.photo` it lands in the tree that autosave writes to localStorage (`saveSession`, `EditorPage.tsx`). Because the original is discarded, `print` cannot be regenerated from the 160px `thumb`, so "just keep thumb" isn't free. **Decide and record here** whether autosave persists `print` at all — e.g. (a) persist `thumb` only and treat `print` as in-session-only (a reload requires re-upload to re-export at High quality), vs. (b) persist both with a quota-aware autosave failure path (two 640px WebP URIs/person can exceed the ~5MB localStorage quota on a large tree, and contradict refinement 5). This choice drives Task 6's quality handling and Task 13's export.
+
 - [ ] **Step 1: Write the failing tests** (pure functions + validation only — canvas encode needs a browser, so it is not asserted here)
 
 Create `web/tests/lib/photo.test.ts`:
@@ -922,6 +925,8 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
   - `export function photoAlt(person: Person): string` → `person.photo?.alt ?? "Photo of {name}"`
   - `export function resolvePhoto(person: Person, quality: PhotoQuality): string | undefined`
   - `export function buildPhotoMap(tree: FamilyTree, quality: PhotoQuality): Map<UUID, string>` — the `photos` map passed to `renderPosterSvg`.
+
+**Post-audit acceptance criterion:** `resolvePhoto(person, "print")` must behave correctly under whichever print-bytes-in-persisted-state decision Task 5 records — in particular, if `print` is not persisted, resolving `"print"` on a reloaded person must degrade predictably (documented fallback), not return a broken/empty href.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1150,6 +1155,8 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: existing internal `withPerson(tree, personId, fn)` helper; `PersonPhoto` (Task 1).
 - Produces: `export function setPersonPhoto(tree: FamilyTree, personId: UUID, photo: PersonPhoto | undefined): FamilyTree`
+
+**Post-audit acceptance criterion (enforced invariant — encode-then-dispatch):** `setPersonPhoto` must only ever be called with a fully-built `PersonPhoto` (or `undefined`). The async WebP encode (Task 5) completes BEFORE the edit is dispatched, so the tree — and therefore any autosave snapshot taken mid-interaction — never holds a partial/half-encoded photo. `setPersonPhoto` itself stays synchronous, total, and never starts async work.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1703,6 +1710,8 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Consumes: `processImageFile` (Task 5), `setPersonPhoto` (Task 8), `resolvePhoto`/`photoAlt` (Task 6). Uses the existing `onEdit(mutate)` prop.
 - Produces: no new exports; UI section with an accessible file input and Upload/Replace/Remove controls, plus drag-and-drop, showing an instant preview.
 
+**Post-audit acceptance criterion (encode-then-dispatch in the UI):** the inspector `await`s `processImageFile` fully, THEN calls `onEdit` → `setPersonPhoto` with the finished `PersonPhoto`. No intermediate "uploading…" state is ever written into `person.photo` (keep any progress/spinner in component state), so an autosave firing during an upload persists either the old photo or the complete new one — never a partial. Add a test asserting the edit is dispatched only after the encode resolves.
+
 - [ ] **Step 1: Write the failing test** (mock `processImageFile` so no real canvas is needed)
 
 Add to `web/tests/components/explorer/PersonInspector.test.tsx`:
@@ -2008,3 +2017,17 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Export/editor/PDF consistency (refinement 4) → Global Constraints + Final verification (single `renderPosterSvg` string).
 - Memory — thumb until export needs print (refinement 5) → Tasks 6, 10 (thumb map), 11 (thumb hover), 13 (print only on High quality).
 - Tests (the five explicitly requested) → Task 2/3 (compact↔photoCards consistency; placeholder per shape), Task 4/10 (photo change no re-layout), Task 7 (prefs persist), Task 13 (quality selects thumb vs print).
+
+## Audit-derived follow-ups (post-Task-3 read-only audit, 2026-08-11)
+
+Prioritized findings from the read-only audit, scoped into tasks. The audit's B2/A1/A2 are NOT listed — they are already covered by Tasks 6/10/13, Tasks 9/13, and Task 10 respectively. Land after Task 13 unless noted; isolated items may land anytime.
+
+- **AUD-1 — DONE (commit `cac5f24`).** Validation cycle detection: catch mixed paternal/maternal cycles, report each once. Isolated (`validation/integrity.ts`).
+- **AUD-2 — Med, export-affecting — HARD DEPENDENCY of Task 9/13.** `renderPhotoCard` omits `node.noteLine` (the cousin-marriage branch-note cross-ref) while `computePersonBox` reserves height for it → in photoCards mode the note is missing from the exported SVG/PDF and leaves a dead band. **photoCards mode must NOT be made user-selectable (Task 9/13) until this lands.** Fix: draw `noteLine` in `renderPhotoCard`; then **re-verify** `computePersonBox`'s reserved `noteLineHeight` matches what the drawn line actually needs (do not assume the existing reservation was correct). Files: `renderSvg.ts` + `boxSizing.ts`.
+- **AUD-3 — Low, arc.** `layout.ts` living heuristic `!person?.death?.date?.year` flags a death-with-unparsed-year as living. Files: `layout.ts`.
+- **AUD-4 — Low, arc (RTL is baseline for a genealogy tool — "arc" must NOT quietly mean "someday"; ensure it is in the cleanup pass).** Gender glyph + compact text-nudge ignore `node.rtl`. Files: `renderSvg.ts`.
+- **AUD-5 — Low, arc.** Living dot: no legend, can collide on min-width cards, hue-only (colorblind). Files: `renderSvg.ts`.
+- **AUD-6 — Med, suspected — GATED behind a repro fixture before any layout-engine edit.** `layoutBalanced.finalize` doesn't reposition disconnected fragments below the chart as its comment claims; can overlap/clip off-page. Build a multi-root fixture demonstrating it first. Files: `layoutBalanced.ts`.
+- **AUD-7 — Low, arc.** `?–1900` (birth-unknown) reads as truncated; the living `1974–` form is intended (spec). Files: `layout.ts`.
+
+Order: AUD-1 done; AUD-2 ahead of Task 9/13; AUD-6 gated on a fixture; AUD-3/4/5/7 batched into the arc cleanup. Autosave safety (encode-then-dispatch; print-bytes-in-persisted-state) is folded into Tasks 5/6/8/12 as acceptance criteria above.
