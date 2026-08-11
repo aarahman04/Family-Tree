@@ -2031,3 +2031,7 @@ Prioritized findings from the read-only audit, scoped into tasks. The audit's B2
 - **AUD-7 — Low, arc.** `?–1900` (birth-unknown) reads as truncated; the living `1974–` form is intended (spec). Files: `layout.ts`.
 
 Order: AUD-1 done; AUD-2 ahead of Task 9/13; AUD-6 gated on a fixture; AUD-3/4/5/7 batched into the arc cleanup. Autosave safety (encode-then-dispatch; print-bytes-in-persisted-state) is folded into Tasks 5/6/8/12 as acceptance criteria above.
+
+## Deferred, tracked (not part of the Person Cards arc)
+
+- **Shell-only dark mode — CONFIRMED (scoped, no pushback), NOT started, deferred until this arc closes.** Sequencing decision: it waits until the Person Cards arc's protected-file work is done (after Task 10). Scope: theme lives in CSS / app-shell only (editor chrome, toolbars, inspector, menus); the poster page keeps its fixed paper palette and `renderPosterSvg` stays theme-unaware, so PDF/SVG export is untouched (the same single-source-of-truth property the arc protects). Optional sub-item: the canvas *backdrop* (not the poster) may darken with the shell — pure CSS, still no renderer change. A dedicated plan/tasks will be written when the arc closes; tracked here so it can't fall off silently.
