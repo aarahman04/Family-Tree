@@ -618,3 +618,36 @@ describe.skipIf(!SAMPLE_EXISTS)("computePosterLayout against the real FTZ sample
     expect(layout.chips.length).toBeGreaterThanOrEqual(notedNodes.length);
   });
 });
+
+describe("poster node fields — living (AUD-3) + birth-unknown year line (AUD-7)", () => {
+  function nodeFor(p: Person): PosterNode {
+    const layout = computePosterLayout(buildTree([p], []), DEFAULT_POSTER_STYLE);
+    return layout.nodes.find((n) => n.personId === p.id)!;
+  }
+
+  it("treats a death event with no parsed year as deceased, not living (AUD-3)", () => {
+    const p = person({ id: "d1", name: "No Year" });
+    p.death = { id: "d1-d", type: "death", date: { month: 6 } }; // month only, no year
+    expect(nodeFor(p).living).toBe(false);
+  });
+
+  it("treats a person with no death event as living (AUD-3)", () => {
+    expect(nodeFor(person({ id: "l1", birthYear: 1990 })).living).toBe(true);
+  });
+
+  it("treats a death event with a parsed year as deceased (AUD-3 control)", () => {
+    expect(nodeFor(person({ id: "x1", birthYear: 1900, deathYear: 1970 })).living).toBe(false);
+  });
+
+  it("renders 'd. YYYY' for a birth-unknown person instead of a truncated '?–' (AUD-7)", () => {
+    expect(nodeFor(person({ id: "b1", deathYear: 1900 })).yearLine).toBe("d. 1900");
+  });
+
+  it("keeps the trailing-dash open-ended form when only birth is known (AUD-7 sibling)", () => {
+    expect(nodeFor(person({ id: "b2", birthYear: 1974 })).yearLine).toBe("1974–");
+  });
+
+  it("keeps the full range when both years are known (AUD-7 control)", () => {
+    expect(nodeFor(person({ id: "b3", birthYear: 1974, deathYear: 2022 })).yearLine).toBe("1974–2022");
+  });
+});

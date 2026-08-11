@@ -29,7 +29,7 @@ export interface PosterNode {
   noteLine?: string;
   rtl: boolean;
   gender: "male" | "female" | "unknown";
-  /** True when no death year is recorded. Derived, does not affect geometry. */
+  /** True when no death event is recorded. Derived, does not affect geometry. */
   living?: boolean;
 }
 

@@ -169,7 +169,11 @@ function yearLineFor(person: Person | undefined): string | undefined {
   const birth = person?.birth?.date?.year;
   const death = person?.death?.date?.year;
   if (birth === undefined && death === undefined) return undefined;
-  return `${birth ?? "?"}–${death ?? ""}`;
+  // Birth unknown but death known: "d. 1900" rather than "?–1900", which reads as a truncated
+  // range (AUD-7). The sibling "1974–" (birth known, still-living/open-ended) is the intended
+  // genealogy convention for an open end, so it keeps the trailing-dash form.
+  if (birth === undefined) return `d. ${death}`;
+  return `${birth}–${death ?? ""}`;
 }
 
 interface ChipInfo {
@@ -382,7 +386,10 @@ export function computePosterLayout(
       name: displayNameOf(person),
       nameLines: box.lines,
       yearLine: yearLineFor(person),
-      living: !person?.death?.date?.year,
+      // Living iff there is NO death event at all. Keying on the parsed year alone (AUD-3) wrongly
+      // flagged a death recorded with only a month/day (or place) as living; presence of the death
+      // event is the deceased signal — matching how insights.ts already derives it.
+      living: person?.death === undefined,
       noteLine: box.noteLine,
       rtl: box.rtl,
       gender: person?.gender ?? "unknown",
