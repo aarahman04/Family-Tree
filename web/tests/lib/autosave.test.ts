@@ -31,4 +31,21 @@ describe("autosave", () => {
     localStorage.setItem("familyTree.autosave.v1", "{ not json");
     expect(loadSavedSession()).toBeUndefined();
   });
+
+  it("persists thumb only — strips print bytes on save, keeps thumb (thumb-only persistence)", () => {
+    const withPhoto: FamilyTree = {
+      ...tree,
+      persons: { a: { ...tree.persons.a!, photo: { thumb: "THUMB", print: "PRINT", alt: "A" } } },
+    };
+    saveSession({ tree: withPhoto, fileName: "Family.ged" });
+
+    // Round-trip: reload from storage and confirm print is gone, thumb (+alt) survived.
+    const loaded = loadSavedSession();
+    expect(loaded?.tree.persons.a?.photo?.thumb).toBe("THUMB");
+    expect(loaded?.tree.persons.a?.photo?.print).toBeUndefined();
+    expect(loaded?.tree.persons.a?.photo?.alt).toBe("A");
+
+    // The in-memory tree is NOT mutated — print stays available for export this session.
+    expect(withPhoto.persons.a?.photo?.print).toBe("PRINT");
+  });
 });
