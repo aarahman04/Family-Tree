@@ -42,17 +42,28 @@ function textLine(
   return `<text x="${num(x)}" y="${num(y)}" font-family="${escapeXml(fontFamily)}" font-size="${num(fontSize)}" fill="${fill}" text-anchor="middle" dominant-baseline="middle"${dir}${w}${i}>${escapeXml(text)}</text>`;
 }
 
-/** A small Mars (♂) / Venus (♀) glyph in the top-left corner of a box, so gender reads at a
+/** A small Mars (♂) / Venus (♀) glyph in the top corner of a box, so gender reads at a
  * glance -- clearer than a color stripe, and it survives grayscale printing. Drawn from vector
- * primitives (no glyph-font dependency) so it stays crisp in the SVG, PDF and in-app preview. */
-function genderIcon(gender: "male" | "female", boxX: number, boxY: number, style: PosterStyleOptions): string {
+ * primitives (no glyph-font dependency) so it stays crisp in the SVG, PDF and in-app preview.
+ * For an RTL (e.g. Arabic) name the glyph mirrors to the TRAILING (right) corner and the male
+ * arrow flips to point up-and-out that way, so it never collides with the right-aligned text
+ * (AUD-4). `boxWidth` locates the trailing corner; `rtl` chooses the side + arrow direction. */
+function genderIcon(
+  gender: "male" | "female",
+  boxX: number,
+  boxY: number,
+  boxWidth: number,
+  style: PosterStyleOptions,
+  rtl: boolean
+): string {
   const color = gender === "male" ? style.maleIndicatorColor : style.femaleIndicatorColor;
   const r = 3.3;
-  const cx = boxX + 9;
+  const cx = rtl ? boxX + boxWidth - 9 : boxX + 9;
   const cy = boxY + 11;
   const stroke = `stroke="${color}" stroke-width="1.3" fill="none" stroke-linecap="round"`;
   const circle = `<circle cx="${num(cx)}" cy="${num(cy)}" r="${num(r)}" ${stroke}/>`;
   if (gender === "female") {
+    // Venus is horizontally symmetric, so only the corner position changes under RTL.
     const sy = cy + r;
     return (
       circle +
@@ -60,15 +71,17 @@ function genderIcon(gender: "male" | "female", boxX: number, boxY: number, style
       `<line x1="${num(cx - 3)}" y1="${num(sy + 3.5)}" x2="${num(cx + 3)}" y2="${num(sy + 3.5)}" ${stroke}/>`
     );
   }
-  // male: an arrow springing from the circle's upper-right toward the top-right corner.
-  const ex = cx + r * 0.7;
+  // male: an arrow springing from the circle's upper-outer edge toward the near top corner.
+  // `s` mirrors the whole arrow horizontally for RTL so it points up-and-away from the text.
+  const s = rtl ? -1 : 1;
+  const ex = cx + s * r * 0.7;
   const ey = cy - r * 0.7;
-  const tx = ex + 5;
+  const tx = ex + s * 5;
   const ty = ey - 5;
   return (
     circle +
     `<line x1="${num(ex)}" y1="${num(ey)}" x2="${num(tx)}" y2="${num(ty)}" ${stroke}/>` +
-    `<line x1="${num(tx)}" y1="${num(ty)}" x2="${num(tx - 4)}" y2="${num(ty)}" ${stroke}/>` +
+    `<line x1="${num(tx)}" y1="${num(ty)}" x2="${num(tx - s * 4)}" y2="${num(ty)}" ${stroke}/>` +
     `<line x1="${num(tx)}" y1="${num(ty)}" x2="${num(tx)}" y2="${num(ty + 4)}" ${stroke}/>`
   );
 }
@@ -87,15 +100,17 @@ function photoClip(id: string, x: number, y: number, side: number, shape: "squar
 }
 
 /** A polished neutral placeholder: subtle gray fill + a simple head-and-shoulders silhouette,
- * clipped to the same shape as real photos. Never an empty white box. */
-function photoPlaceholder(x: number, y: number, side: number, clipAttr: string): string {
+ * clipped to the same shape as real photos. Never an empty white box. The `<title>` names the
+ * person ("No photo of {name}") for screen-reader parity with a real photo's "Photo of {name}"
+ * (AUD-5) — otherwise every placeholder announces the same generic string. */
+function photoPlaceholder(x: number, y: number, side: number, clipAttr: string, name: string): string {
   const cx = x + side / 2;
   const headR = side * 0.17;
   const headCy = y + side * 0.4;
   const shoulderR = side * 0.34;
   const shoulderCy = y + side * 0.95;
   return (
-    `<g ${clipAttr} role="img"><title>No photo available</title>` +
+    `<g ${clipAttr} role="img"><title>No photo of ${escapeXml(name)}</title>` +
     `<rect x="${num(x)}" y="${num(y)}" width="${num(side)}" height="${num(side)}" fill="#e2e8f0"/>` +
     `<circle cx="${num(cx)}" cy="${num(headCy)}" r="${num(headR)}" fill="#cbd5e1"/>` +
     `<circle cx="${num(cx)}" cy="${num(shoulderCy)}" r="${num(shoulderR)}" fill="#cbd5e1"/>` +
@@ -130,13 +145,18 @@ function renderCompactNode(node: PosterNode, offsetX: number, offsetY: number, s
   parts.push(
     `<rect x="${num(x)}" y="${num(y)}" width="${num(node.width)}" height="${num(node.height)}" rx="4" fill="${style.backgroundColor}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
   );
-  // Male/female get a gender glyph; unknown/unspecified keep the plain neutral edge stripe.
+  // Male/female get a gender glyph; unknown/unspecified keep the plain neutral edge stripe. Both
+  // sit on the TRAILING edge for an RTL name (right), matching the text's own alignment (AUD-4).
   if (node.gender === "male" || node.gender === "female") {
-    parts.push(genderIcon(node.gender, x, y, style));
+    parts.push(genderIcon(node.gender, x, y, node.width, style, node.rtl));
   } else {
-    parts.push(`<rect x="${num(x)}" y="${num(y)}" width="4" height="${num(node.height)}" fill="${style.lineColor}"/>`);
+    const stripeX = node.rtl ? x + node.width - 4 : x;
+    parts.push(`<rect x="${num(stripeX)}" y="${num(y)}" width="4" height="${num(node.height)}" fill="${style.lineColor}"/>`);
   }
 
+  // Nudge the (center-anchored) text away from the gender element: right of center for LTR, left
+  // of center for RTL where that element now sits on the right (AUD-4).
+  const textNudge = node.rtl ? -2 : 2;
   const nameLineHeight = style.nameFontSize * 1.25;
   const noteFontSize = style.yearFontSize * 0.82;
   const totalTextHeight =
@@ -150,11 +170,11 @@ function renderCompactNode(node: PosterNode, offsetX: number, offsetY: number, s
   // and renderPhotoCard, but the three differ in x-offset (cx+2 here for the gender stripe, cx
   // there) and in what follows (year/note vs nothing), so a parameterised helper nets negative.
   for (const line of node.nameLines) {
-    parts.push(textLine(cx + 2, lineY, line, style.nameFontSize, style.textColor, style.fontFamily, node.rtl));
+    parts.push(textLine(cx + textNudge, lineY, line, style.nameFontSize, style.textColor, style.fontFamily, node.rtl));
     lineY += nameLineHeight;
   }
   if (node.yearLine) {
-    parts.push(textLine(cx + 2, lineY, node.yearLine, style.yearFontSize, style.textColor, style.fontFamily, false));
+    parts.push(textLine(cx + textNudge, lineY, node.yearLine, style.yearFontSize, style.textColor, style.fontFamily, false));
     lineY += style.yearFontSize * 1.25;
   }
   if (node.noteLine) {
@@ -162,7 +182,7 @@ function renderCompactNode(node: PosterNode, offsetX: number, offsetY: number, s
     // placeholder, always names the real anchor (see poster/boxSizing.ts). Visually
     // distinct (smaller, italic, the chip's own color) so it reads as a cross-reference.
     parts.push(
-      textLine(cx + 2, lineY, node.noteLine, noteFontSize, style.chipBorderColor, style.fontFamily, node.rtl, {
+      textLine(cx + textNudge, lineY, node.noteLine, noteFontSize, style.chipBorderColor, style.fontFamily, node.rtl, {
         italic: true,
       })
     );
@@ -225,7 +245,7 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
       `<image href="${escapeXml(photoHref)}" x="${num(photoX)}" y="${num(photoY)}" width="${num(side)}" height="${num(side)}" preserveAspectRatio="xMidYMid slice" ${clip.attr}><title>Photo of ${escapeXml(node.name)}</title></image>`
     );
   } else {
-    parts.push(photoPlaceholder(photoX, photoY, side, clip.attr));
+    parts.push(photoPlaceholder(photoX, photoY, side, clip.attr, node.name));
   }
 
   // Divider under the photo.
@@ -234,10 +254,11 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
     `<line x1="${num(x)}" y1="${num(dividerY)}" x2="${num(x + node.width)}" y2="${num(dividerY)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
   );
 
-  // Gender glyph in the text region's top-left (reuse existing genderIcon).
+  // Gender glyph in the text region's top corner (reuse existing genderIcon) — trailing edge for
+  // RTL names (AUD-4).
   const textTop = dividerY + CARD_DIVIDER_GAP;
   if (node.gender === "male" || node.gender === "female") {
-    parts.push(genderIcon(node.gender, x, textTop - 2, style));
+    parts.push(genderIcon(node.gender, x, textTop - 2, node.width, style, node.rtl));
   }
 
   // Name + year + optional branch-note, centered in the lower text region. The note height uses
@@ -270,11 +291,16 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
     );
   }
 
-  // Optional living/deceased dot, bottom-right.
+  // Optional living/deceased dot, bottom-right. Distinguished by SHAPE as well as hue so it
+  // survives grayscale printing and colorblindness (AUD-5): living is a solid green disc, deceased
+  // a hollow gray ring. A <title> gives each an accessible/hover label rather than colour alone.
   if (style.showLivingIndicator) {
-    const dotColor = node.living ? "#16a34a" : "#9ca3af";
+    const dcx = num(x + node.width - 8);
+    const dcy = num(cardBottom - 8);
     parts.push(
-      `<circle data-role="living-dot" cx="${num(x + node.width - 8)}" cy="${num(cardBottom - 8)}" r="3.2" fill="${dotColor}"/>`
+      node.living
+        ? `<circle data-role="living-dot" cx="${dcx}" cy="${dcy}" r="3.2" fill="#16a34a"><title>Living</title></circle>`
+        : `<circle data-role="living-dot" cx="${dcx}" cy="${dcy}" r="3.2" fill="none" stroke="#9ca3af" stroke-width="1.4"><title>Deceased</title></circle>`
     );
   }
 

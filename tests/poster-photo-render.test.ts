@@ -65,7 +65,8 @@ describe("renderPosterSvg photo cards", () => {
     const { layout, page, style } = setup({ displayMode: "photoCards" });
     const svg = renderPosterSvg(layout, page, style, new Map());
     expect(svg).not.toContain("<image");
-    expect(svg).toContain("No photo available");
+    // Placeholder <title> names the person for screen-reader parity with a real photo (AUD-5).
+    expect(svg).toContain("No photo of Ahmed Rahman");
   });
 
   it("falls back to the placeholder for an empty href — never fails on a bad photo", () => {
@@ -73,7 +74,7 @@ describe("renderPosterSvg photo cards", () => {
     const id = layout.nodes[0]!.personId;
     const svg = renderPosterSvg(layout, page, style, new Map([[id, ""]]));
     expect(svg).not.toContain("<image");
-    expect(svg).toContain("No photo available");
+    expect(svg).toContain("No photo of ");
   });
 
   it.each(["square", "rounded", "circle"] as PhotoShape[])(
@@ -81,7 +82,7 @@ describe("renderPosterSvg photo cards", () => {
     (photoShape) => {
       const { layout, page, style } = setup({ displayMode: "photoCards", photoShape });
       const svg = renderPosterSvg(layout, page, style, new Map());
-      expect(svg).toContain("No photo available");
+      expect(svg).toContain("No photo of ");
       if (photoShape === "circle") expect(svg).toContain("<circle");
     }
   );
@@ -132,5 +133,67 @@ describe("renderPosterSvg photo cards — branch-note cross-reference (AUD-2)", 
 
   it("photoCards also renders the branch-note (regression: renderPhotoCard dropped it)", () => {
     expect(svgFor("photoCards")).toContain("children shown in");
+  });
+});
+
+describe("renderPosterSvg RTL gender glyph + text nudge (AUD-4)", () => {
+  // The card outline is the rect carrying stroke-width (the page background rect emitted first has
+  // none), so this targets the node box, not the page.
+  const cardCenterX = (svg: string) => {
+    const m = svg.match(/<rect x="([-\d.]+)"[^>]*width="([-\d.]+)"[^>]*stroke-width=/)!;
+    return Number(m[1]) + Number(m[2]) / 2;
+  };
+  // In compact mode the only <circle> is the gender glyph (no photo, no living dot).
+  const glyphCx = (svg: string) => Number(svg.match(/<circle cx="([-\d.]+)"/)![1]);
+  const nameTextX = (svg: string, name: string) =>
+    Number(svg.match(new RegExp(`<text x="([-\\d.]+)"[^>]*>${name}</text>`))![1]);
+
+  function svgFor(name: string) {
+    const tree = buildTree([person("p1", { name, gender: "male" })], []);
+    const style = { ...DEFAULT_POSTER_STYLE }; // compact
+    const layout = computeBalancedPosterLayout(tree, style);
+    const page = computePosterPageSize(layout, style);
+    return renderPosterSvg(layout, page, style);
+  }
+
+  it("keeps the gender glyph on the leading (left) edge for an LTR name", () => {
+    const svg = svgFor("Ahmed");
+    expect(glyphCx(svg)).toBeLessThan(cardCenterX(svg));
+  });
+
+  it("mirrors the gender glyph to the trailing (right) edge for an RTL name", () => {
+    const svg = svgFor("أحمد");
+    expect(glyphCx(svg)).toBeGreaterThan(cardCenterX(svg));
+  });
+
+  it("mirrors the compact text nudge to match the glyph side", () => {
+    const ltr = svgFor("Ahmed");
+    const rtl = svgFor("أحمد");
+    expect(nameTextX(ltr, "Ahmed")).toBeGreaterThan(cardCenterX(ltr)); // nudged right (cx + 2)
+    expect(nameTextX(rtl, "أحمد")).toBeLessThan(cardCenterX(rtl)); // nudged left (cx - 2)
+  });
+});
+
+describe("renderPosterSvg living indicator shape + label (AUD-5)", () => {
+  function svgFor(deceased: boolean) {
+    const p = deceased
+      ? person("p1", { name: "Ahmed", death: { id: "d", type: "death", date: { year: 1900 } } })
+      : person("p1", { name: "Ahmed" });
+    const style = { ...DEFAULT_POSTER_STYLE, displayMode: "photoCards" as const, showLivingIndicator: true };
+    const layout = computeBalancedPosterLayout(buildTree([p], []), style);
+    const page = computePosterPageSize(layout, style);
+    return renderPosterSvg(layout, page, style, new Map());
+  }
+
+  it("labels a living person's dot and fills it (solid disc)", () => {
+    const svg = svgFor(false);
+    expect(svg).toContain("<title>Living</title>");
+    expect(svg).toMatch(/data-role="living-dot"[^>]*fill="#16a34a"/);
+  });
+
+  it("labels a deceased person's dot and draws it hollow (ring — not hue-only)", () => {
+    const svg = svgFor(true);
+    expect(svg).toContain("<title>Deceased</title>");
+    expect(svg).toMatch(/data-role="living-dot"[^>]*fill="none"/);
   });
 });
