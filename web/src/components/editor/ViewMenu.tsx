@@ -3,6 +3,10 @@ import { useCloseOnEscape } from "../../lib/useCloseOnEscape.js";
 
 interface ViewMenuProps {
   focusMode: boolean;
+  /** "Show photos" view toggle. Optional so the menu compiles before EditorPage wires the
+   * state in Task 10; the item only appears once `onToggleShowPhotos` is provided. */
+  showPhotos?: boolean;
+  onToggleShowPhotos?: () => void;
   onFitTree: () => void;
   onFitWidth: () => void;
   onFitHeight: () => void;
@@ -27,6 +31,9 @@ export function ViewMenu(props: ViewMenuProps) {
   };
 
   const items: { label: string; onClick: () => void; checked?: boolean }[] = [
+    ...(props.onToggleShowPhotos
+      ? [{ label: "Show photos", onClick: props.onToggleShowPhotos, checked: props.showPhotos ?? false }]
+      : []),
     { label: "Fit tree", onClick: props.onFitTree },
     { label: "Fit width", onClick: props.onFitWidth },
     { label: "Fit height", onClick: props.onFitHeight },

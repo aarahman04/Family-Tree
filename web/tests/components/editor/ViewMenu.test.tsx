@@ -5,6 +5,7 @@ import { ViewMenu } from "../../../src/components/editor/ViewMenu.js";
 
 function setup(focusMode = false) {
   const handlers = {
+    onToggleShowPhotos: vi.fn(),
     onFitTree: vi.fn(),
     onFitWidth: vi.fn(),
     onFitHeight: vi.fn(),
@@ -13,7 +14,7 @@ function setup(focusMode = false) {
     onToggleFocus: vi.fn(),
     onResetView: vi.fn(),
   };
-  render(<ViewMenu focusMode={focusMode} {...handlers} />);
+  render(<ViewMenu focusMode={focusMode} showPhotos={false} {...handlers} />);
   return handlers;
 }
 
@@ -21,6 +22,8 @@ describe("ViewMenu", () => {
   it("shows all view presets and invokes the matching handler", async () => {
     const h = setup();
     await userEvent.click(screen.getByRole("button", { name: /view/i }));
+
+    expect(screen.getByRole("menuitemcheckbox", { name: /show photos/i })).toBeInTheDocument();
 
     for (const name of [
       /fit tree/i,
