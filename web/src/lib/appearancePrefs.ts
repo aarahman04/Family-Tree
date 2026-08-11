@@ -27,7 +27,8 @@ export function loadAppearancePrefs(): AppearancePrefs {
     return {
       displayMode: parsed.displayMode ?? DEFAULT_APPEARANCE_PREFS.displayMode,
       photoShape: parsed.photoShape ?? DEFAULT_APPEARANCE_PREFS.photoShape,
-      showLivingIndicator: parsed.showLivingIndicator ?? DEFAULT_APPEARANCE_PREFS.showLivingIndicator,
+      showLivingIndicator:
+        parsed.showLivingIndicator ?? DEFAULT_APPEARANCE_PREFS.showLivingIndicator,
     };
   } catch {
     return DEFAULT_APPEARANCE_PREFS;

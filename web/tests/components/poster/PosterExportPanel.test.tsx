@@ -75,7 +75,9 @@ describe("PosterExportPanel", () => {
     // Explicit, non-silent warning naming the affected count.
     expect(screen.getByText(/1 photo/i)).toBeInTheDocument();
     // The thumb must NOT sneak into a high-quality export — those persons get placeholders.
-    expect(document.querySelector("[data-testid='poster-preview']")!.innerHTML).not.toContain(THUMB);
+    expect(document.querySelector("[data-testid='poster-preview']")!.innerHTML).not.toContain(
+      THUMB
+    );
 
     // Switching back to Optimized includes it (at thumb res) and clears the warning.
     await userEvent.click(screen.getByLabelText(/optimized/i));

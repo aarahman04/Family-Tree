@@ -20,7 +20,11 @@ export function isAcceptedPhotoType(type: string): boolean {
 
 /** The largest centered square crop. If a face box is given, center the square on the face
  * center instead, clamped so it never leaves the image. Pure — no canvas, so it is unit-tested. */
-export function computeSquareCrop(width: number, height: number, face?: FaceBox): { sx: number; sy: number; size: number } {
+export function computeSquareCrop(
+  width: number,
+  height: number,
+  face?: FaceBox
+): { sx: number; sy: number; size: number } {
   const size = Math.min(width, height);
   let sx = (width - size) / 2;
   let sy = (height - size) / 2;
@@ -36,7 +40,13 @@ export function computeSquareCrop(width: number, height: number, face?: FaceBox)
 /** Best-effort face box via the experimental FaceDetector (Chromium). Returns undefined when
  * unavailable or on any error, so callers fall back to a center crop. */
 async function detectFace(bitmap: ImageBitmap): Promise<FaceBox | undefined> {
-  const FD = (globalThis as unknown as { FaceDetector?: new () => { detect(src: ImageBitmap): Promise<Array<{ boundingBox: FaceBox }>> } }).FaceDetector;
+  const FD = (
+    globalThis as unknown as {
+      FaceDetector?: new () => {
+        detect(src: ImageBitmap): Promise<Array<{ boundingBox: FaceBox }>>;
+      };
+    }
+  ).FaceDetector;
   if (!FD) return undefined;
   try {
     const faces = await new FD().detect(bitmap);
@@ -46,14 +56,21 @@ async function detectFace(bitmap: ImageBitmap): Promise<FaceBox | undefined> {
   }
 }
 
-async function encodeSquare(bitmap: ImageBitmap, crop: { sx: number; sy: number; size: number }, out: number, quality: number): Promise<string> {
+async function encodeSquare(
+  bitmap: ImageBitmap,
+  crop: { sx: number; sy: number; size: number },
+  out: number,
+  quality: number
+): Promise<string> {
   const canvas = document.createElement("canvas");
   canvas.width = out;
   canvas.height = out;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas 2D context unavailable");
   ctx.drawImage(bitmap, crop.sx, crop.sy, crop.size, crop.size, 0, 0, out, out);
-  const blob: Blob | null = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", quality));
+  const blob: Blob | null = await new Promise((resolve) =>
+    canvas.toBlob(resolve, "image/webp", quality)
+  );
   if (!blob) throw new Error("Image encoding failed");
   return await blobToDataUri(blob);
 }

@@ -365,8 +365,8 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
           quality — their print-resolution version wasn't kept after the last reload, so{" "}
           {missingPrintCount === 1 ? "it" : "they"} will appear as{" "}
           {missingPrintCount === 1 ? "a placeholder" : "placeholders"}. Re-upload{" "}
-          {missingPrintCount === 1 ? "that photo" : "those photos"} in the person inspector to include{" "}
-          {missingPrintCount === 1 ? "it" : "them"} at full quality, or choose{" "}
+          {missingPrintCount === 1 ? "that photo" : "those photos"} in the person inspector to
+          include {missingPrintCount === 1 ? "it" : "them"} at full quality, or choose{" "}
           <strong>Optimized</strong> to include everyone at screen resolution.
         </p>
       )}

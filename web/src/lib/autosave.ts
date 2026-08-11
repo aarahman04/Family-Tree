@@ -27,9 +27,10 @@ function stripPrintForPersistence(tree: FamilyTree): FamilyTree {
   for (const [id, person] of Object.entries(tree.persons)) {
     if (person.photo?.print !== undefined) {
       changed = true;
-      const photo = person.photo.alt !== undefined
-        ? { thumb: person.photo.thumb, alt: person.photo.alt }
-        : { thumb: person.photo.thumb };
+      const photo =
+        person.photo.alt !== undefined
+          ? { thumb: person.photo.thumb, alt: person.photo.alt }
+          : { thumb: person.photo.thumb };
       persons[id] = { ...person, photo };
     } else {
       persons[id] = person;

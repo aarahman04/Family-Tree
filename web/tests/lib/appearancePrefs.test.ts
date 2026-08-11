@@ -14,12 +14,24 @@ describe("appearancePrefs", () => {
   });
 
   it("persists across reload (save then load)", () => {
-    saveAppearancePrefs({ displayMode: "photoCards", photoShape: "circle", showLivingIndicator: true });
-    expect(loadAppearancePrefs()).toEqual({ displayMode: "photoCards", photoShape: "circle", showLivingIndicator: true });
+    saveAppearancePrefs({
+      displayMode: "photoCards",
+      photoShape: "circle",
+      showLivingIndicator: true,
+    });
+    expect(loadAppearancePrefs()).toEqual({
+      displayMode: "photoCards",
+      photoShape: "circle",
+      showLivingIndicator: true,
+    });
   });
 
   it("merges prefs onto the poster style", () => {
-    const style = appearanceToStyle({ displayMode: "photoCards", photoShape: "circle", showLivingIndicator: true });
+    const style = appearanceToStyle({
+      displayMode: "photoCards",
+      photoShape: "circle",
+      showLivingIndicator: true,
+    });
     expect(style.displayMode).toBe("photoCards");
     expect(style.photoShape).toBe("circle");
     expect(style.showLivingIndicator).toBe(true);

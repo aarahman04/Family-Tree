@@ -15,7 +15,12 @@ function tree(): FamilyTree {
     metadata: { sourceFormat: "manual", importedAt: "t" },
     persons: {
       p1: {
-        id: "p1", name: "Ann", gender: "female", notes: [], media: [], famsIds: [],
+        id: "p1",
+        name: "Ann",
+        gender: "female",
+        notes: [],
+        media: [],
+        famsIds: [],
         birth: { id: "b", type: "birth", date: { year: 1950 } },
       },
     },
@@ -24,7 +29,11 @@ function tree(): FamilyTree {
   };
 }
 
-const style = appearanceToStyle({ displayMode: "photoCards", photoShape: "rounded", showLivingIndicator: false });
+const style = appearanceToStyle({
+  displayMode: "photoCards",
+  photoShape: "rounded",
+  showLivingIndicator: false,
+});
 
 describe("layout key stability at the editor seam", () => {
   it("a photo edit keeps the layout key stable (no re-layout)", () => {

@@ -79,7 +79,11 @@ export const EditorCanvas = memo(
     const [pulseId, setPulseId] = useState<UUID | undefined>(undefined);
     // A small floating photo preview: follows the cursor on hover, and shows briefly for a
     // freshly-focused (searched) person. Screen-space coords relative to the viewport.
-    const [hoverPreview, setHoverPreview] = useState<{ personId: UUID; left: number; top: number } | null>(null);
+    const [hoverPreview, setHoverPreview] = useState<{
+      personId: UUID;
+      left: number;
+      top: number;
+    } | null>(null);
     const [focusMode, setFocusModeState] = useState(false);
 
     const setFocusMode = useCallback(

@@ -13,7 +13,11 @@ import { ExportMenu } from "../components/editor/ExportMenu.js";
 import { AddPersonMenu } from "../components/editor/AddPersonMenu.js";
 import { ViewMenu } from "../components/editor/ViewMenu.js";
 import { AppearanceMenu } from "../components/editor/AppearanceMenu.js";
-import { loadAppearancePrefs, saveAppearancePrefs, type AppearancePrefs } from "../lib/appearancePrefs.js";
+import {
+  loadAppearancePrefs,
+  saveAppearancePrefs,
+  type AppearancePrefs,
+} from "../lib/appearancePrefs.js";
 import { ValidationSummary } from "../components/editor/ValidationSummary.js";
 import { InsightsPanel } from "../components/editor/InsightsPanel.js";
 import { InsightsStrip } from "../components/editor/InsightsStrip.js";

@@ -43,7 +43,9 @@ describe("EditorCanvas", () => {
 
   it("shows an empty state for a tree with no people", () => {
     const empty: FamilyTree = { ...tree, persons: {}, families: {} };
-    render(<EditorCanvas tree={empty} appearance={DEFAULT_APPEARANCE_PREFS} onSelectPerson={vi.fn()} />);
+    render(
+      <EditorCanvas tree={empty} appearance={DEFAULT_APPEARANCE_PREFS} onSelectPerson={vi.fn()} />
+    );
     expect(screen.getByText(/no people yet/i)).toBeInTheDocument();
   });
 
@@ -63,7 +65,11 @@ describe("EditorCanvas", () => {
     const { container } = render(
       <EditorCanvas
         tree={withPhoto}
-        appearance={{ displayMode: "photoCards", photoShape: "rounded", showLivingIndicator: false }}
+        appearance={{
+          displayMode: "photoCards",
+          photoShape: "rounded",
+          showLivingIndicator: false,
+        }}
         onSelectPerson={vi.fn()}
       />
     );
@@ -96,7 +102,12 @@ describe("EditorCanvas", () => {
 
   it("focus mode dims people outside the selected person's immediate family", async () => {
     render(
-      <EditorCanvas tree={tree} appearance={DEFAULT_APPEARANCE_PREFS} selectedPersonId="kid" onSelectPerson={vi.fn()} />
+      <EditorCanvas
+        tree={tree}
+        appearance={DEFAULT_APPEARANCE_PREFS}
+        selectedPersonId="kid"
+        onSelectPerson={vi.fn()}
+      />
     );
     expect(screen.queryAllByTestId("focus-dim")).toHaveLength(0);
     await userEvent.click(screen.getByRole("button", { name: /focus mode/i }));

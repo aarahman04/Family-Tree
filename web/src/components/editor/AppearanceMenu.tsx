@@ -43,8 +43,13 @@ export function AppearanceMenu({ prefs, onChange }: AppearanceMenuProps) {
             className="fixed inset-0 z-10 cursor-default"
             onClick={() => setOpen(false)}
           />
-          <div role="menu" className="absolute left-0 z-20 mt-1 w-56 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-            <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Display mode</p>
+          <div
+            role="menu"
+            className="absolute left-0 z-20 mt-1 w-56 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+          >
+            <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Display mode
+            </p>
             {MODES.map((m) => (
               <button
                 key={m.value}
@@ -55,10 +60,16 @@ export function AppearanceMenu({ prefs, onChange }: AppearanceMenuProps) {
                 className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
               >
                 {m.label}
-                {prefs.displayMode === m.value && <span aria-hidden="true" className="text-emerald-600">✓</span>}
+                {prefs.displayMode === m.value && (
+                  <span aria-hidden="true" className="text-emerald-600">
+                    ✓
+                  </span>
+                )}
               </button>
             ))}
-            <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Photo shape</p>
+            <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Photo shape
+            </p>
             {SHAPES.map((s) => (
               <button
                 key={s.value}
@@ -69,7 +80,11 @@ export function AppearanceMenu({ prefs, onChange }: AppearanceMenuProps) {
                 className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
               >
                 {s.label}
-                {prefs.photoShape === s.value && <span aria-hidden="true" className="text-emerald-600">✓</span>}
+                {prefs.photoShape === s.value && (
+                  <span aria-hidden="true" className="text-emerald-600">
+                    ✓
+                  </span>
+                )}
               </button>
             ))}
             <div className="my-1 border-t border-slate-100" />
@@ -77,11 +92,17 @@ export function AppearanceMenu({ prefs, onChange }: AppearanceMenuProps) {
               type="button"
               role="menuitemcheckbox"
               aria-checked={prefs.showLivingIndicator}
-              onClick={() => onChange({ ...prefs, showLivingIndicator: !prefs.showLivingIndicator })}
+              onClick={() =>
+                onChange({ ...prefs, showLivingIndicator: !prefs.showLivingIndicator })
+              }
               className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
             >
               Living indicator
-              {prefs.showLivingIndicator && <span aria-hidden="true" className="text-emerald-600">✓</span>}
+              {prefs.showLivingIndicator && (
+                <span aria-hidden="true" className="text-emerald-600">
+                  ✓
+                </span>
+              )}
             </button>
           </div>
         </>

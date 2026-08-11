@@ -223,7 +223,10 @@ describe("PersonInspector", () => {
     expect(await screen.findByRole("img", { name: /photo of kid/i })).toBeInTheDocument();
     expect(onEditSpy).toHaveBeenCalledOnce();
     const photo = onEditSpy.mock.calls[0]![0](t).persons[kid]!.photo;
-    expect(photo).toEqual({ thumb: "data:image/webp;base64,TT", print: "data:image/webp;base64,PP" });
+    expect(photo).toEqual({
+      thumb: "data:image/webp;base64,TT",
+      print: "data:image/webp;base64,PP",
+    });
   });
 
   it("rejects an unsupported file type (drag-and-drop) without dispatching", async () => {

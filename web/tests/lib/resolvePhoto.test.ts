@@ -3,7 +3,12 @@ import { buildPhotoMap, photoAlt, resolvePhoto } from "../../src/lib/resolvePhot
 import type { FamilyTree, Person } from "../../../models/types.js";
 
 const withPhoto: Person = {
-  id: "p1", name: "Ann", gender: "female", notes: [], media: [], famsIds: [],
+  id: "p1",
+  name: "Ann",
+  gender: "female",
+  notes: [],
+  media: [],
+  famsIds: [],
   photo: { thumb: "T", print: "P" },
 };
 const noPhoto: Person = { id: "p2", name: "Bo", gender: "male", notes: [], media: [], famsIds: [] };
@@ -30,14 +35,20 @@ describe("resolvePhoto", () => {
   });
   it("returns undefined for print when only thumb is present (reloaded, thumb-only persisted)", () => {
     const thumbOnly: Person = {
-      id: "p3", name: "Cy", gender: "male", notes: [], media: [], famsIds: [],
+      id: "p3",
+      name: "Cy",
+      gender: "male",
+      notes: [],
+      media: [],
+      famsIds: [],
       photo: { thumb: "T" }, // no print — never silently falls back to thumb
     };
     expect(resolvePhoto(thumbOnly, "print")).toBeUndefined();
     expect(resolvePhoto(thumbOnly, "thumb")).toBe("T");
     const tree = {
       metadata: { sourceFormat: "manual", importedAt: "t" },
-      persons: { p3: thumbOnly }, families: {},
+      persons: { p3: thumbOnly },
+      families: {},
       validation: { validatedAt: "t", issues: [], isValid: true },
     } as unknown as FamilyTree;
     expect(buildPhotoMap(tree, "print").has("p3")).toBe(false);

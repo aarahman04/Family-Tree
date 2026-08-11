@@ -32,7 +32,13 @@ export function ViewMenu(props: ViewMenuProps) {
 
   const items: { label: string; onClick: () => void; checked?: boolean }[] = [
     ...(props.onToggleShowPhotos
-      ? [{ label: "Show photos", onClick: props.onToggleShowPhotos, checked: props.showPhotos ?? false }]
+      ? [
+          {
+            label: "Show photos",
+            onClick: props.onToggleShowPhotos,
+            checked: props.showPhotos ?? false,
+          },
+        ]
       : []),
     { label: "Fit tree", onClick: props.onFitTree },
     { label: "Fit width", onClick: props.onFitWidth },

@@ -11,7 +11,15 @@ import { applyTheme } from "../../src/lib/theme.js";
 // or dark. If this ever fails, dark mode has leaked into the renderer and export is compromised.
 function tree(): FamilyTree {
   const persons: Record<UUID, Person> = {
-    r: { id: "r", name: "Root", gender: "male", notes: [], media: [], famsIds: ["f"], photo: { thumb: "data:image/webp;base64,TT" } },
+    r: {
+      id: "r",
+      name: "Root",
+      gender: "male",
+      notes: [],
+      media: [],
+      famsIds: ["f"],
+      photo: { thumb: "data:image/webp;base64,TT" },
+    },
     k: { id: "k", name: "Kid", gender: "female", notes: [], media: [], famcId: "f", famsIds: [] },
   };
   const families: Record<UUID, Family> = { f: { id: "f", husbandId: "r", childrenIds: ["k"] } };
@@ -26,7 +34,11 @@ function tree(): FamilyTree {
 describe("dark mode never reaches the poster renderer (export identity)", () => {
   afterEach(() => applyTheme("light"));
 
-  const style = { ...DEFAULT_POSTER_STYLE, displayMode: "photoCards" as const, showLivingIndicator: true };
+  const style = {
+    ...DEFAULT_POSTER_STYLE,
+    displayMode: "photoCards" as const,
+    showLivingIndicator: true,
+  };
   const layout = computeBalancedPosterLayout(tree(), style);
   const page = computePosterPageSize(layout, style);
   const photos = new Map<UUID, string>([["r", "data:image/webp;base64,TT"]]);
