@@ -929,6 +929,8 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 **Post-audit acceptance criterion (per Task 5 decision — thumb-only persisted):** `resolvePhoto(person, "print")` returns `undefined` when `print` is absent — it MUST NOT silently fall back to `thumb`. `buildPhotoMap(tree, "print")` simply omits those persons from the map. The High-quality export path (Task 13) is responsible for detecting the omissions and prompting re-upload / warning explicitly (no silent low-res substitution).
 
+**Model refinement folded into this task:** make `PersonPhoto.print` **optional** (`print?: string`) in `models/types.ts` — a photo reloaded from localStorage under thumb-only persistence legitimately has no `print`. This makes `resolvePhoto("print")` type-sound (`string | undefined`) and lets us test the reloaded case. Add a test: a person with `photo: { thumb: "T" }` (no `print`) → `resolvePhoto(_, "print")` is `undefined` and `buildPhotoMap(_, "print")` omits them. Verify `processImageFile` (Task 5, returns both) and `tests/person-photo-model.test.ts` still pass.
+
 - [ ] **Step 1: Write the failing test**
 
 Create `web/tests/lib/resolvePhoto.test.ts`:
@@ -1420,6 +1422,8 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: `appearanceToStyle` (Task 7), `posterLayoutKey` (Task 4), `buildPhotoMap` (Task 6), `renderPosterSvg` 4-arg form (Task 3), `AppearancePrefs` (Task 7).
 - Produces: `EditorCanvas` gains required prop `appearance: AppearancePrefs`. Behavior: editing a photo does not recompute `layout` (only the SVG string); switching display mode does.
+
+> **HIGHER-SCRUTINY CHECKPOINT (user directive 2026-08-11).** This is the only task that is both Large and protected-file, and three of the four cross-cutting requirements converge here: (1) rewire the layout memo onto `posterLayoutKey`, (2) thumb-only persistence — strip `person.photo.print` before `saveSession` writes localStorage, (3) death-year-invalidates-layout — land the item-3 test proving a death-date edit busts the memo, plus the canvas wiring itself. Treat as its own standalone checkpoint, NOT the normal rhythm: allow it to run long with a clean, thorough review rather than compressing it to stay on pace. Run full root+web gates.
 
 - [ ] **Step 1: Write the failing test** (photo edit must not recompute layout; display-mode switch shows photos)
 
