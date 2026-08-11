@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { parseNodeFtt } from "../parser/index.js";
 import { exportGedcom } from "../gedcom/export.js";
+import { importGedcom } from "../gedcom/import.js";
 import { verifyRoundTrip } from "../gedcom/verify.js";
 import { buildNodeFtt, familyRow, personRow } from "./helpers.js";
-import type { FamilyTree } from "../models/types.js";
+import type { FamilyTree, Person } from "../models/types.js";
 
 function treeFrom(persons: string[], families: string[] = []): FamilyTree {
   return parseNodeFtt(buildNodeFtt(persons, families)).tree;
@@ -99,6 +100,83 @@ describe("exportGedcom — structure", () => {
     expect(noNoteBlock).not.toContain("1 NOTE");
     const report = verifyRoundTrip(tree, ged);
     expect(report.noteCountMismatches).toHaveLength(0);
+  });
+});
+
+describe("exportGedcom — birth/death places & marriage events (round-trip)", () => {
+  /** The importer reads BIRT/DEAT PLAC and FAM MARR (date + place); export must emit them so
+   * a round-trip preserves them (regression: they were silently dropped). */
+  function findByName(tree: FamilyTree, name: string): Person {
+    const p = Object.values(tree.persons).find((x) => x.name === name);
+    if (!p) throw new Error(`No person named ${name}`);
+    return p;
+  }
+
+  it("emits and round-trips birth/death places", () => {
+    const tree = treeFrom([personRow({ id: 1, name: "Dad", gender: 1 })]);
+    const dad = findByName(tree, "Dad");
+    dad.birth = { id: "e-b", type: "birth", date: { year: 1900 }, place: "London, England" };
+    dad.death = { id: "e-d", type: "death", date: { year: 1970 }, place: "Paris, France" };
+
+    const result = exportGedcom(tree);
+    expect(result.rejected).toBe(false);
+    const ged = result.gedcom!;
+    expect(ged).toContain("1 BIRT\n2 DATE 1900\n2 PLAC London, England");
+    expect(ged).toContain("1 DEAT\n2 DATE 1970\n2 PLAC Paris, France");
+
+    const reimported = importGedcom(ged).tree;
+    const dad2 = findByName(reimported, "Dad");
+    expect(dad2.birth?.place).toBe("London, England");
+    expect(dad2.death?.place).toBe("Paris, France");
+  });
+
+  it("emits and round-trips a marriage event (date + place)", () => {
+    const tree = treeFrom(
+      [personRow({ id: 1, name: "Husband", gender: 1 }), personRow({ id: 2, name: "Wife", gender: 2 })],
+      [familyRow({ id: 10, husband: 1, wife: 2 })]
+    );
+    const famId = Object.keys(tree.families)[0]!;
+    tree.families[famId]!.marriage = {
+      id: "e-m",
+      type: "marriage",
+      date: { year: 1925, month: 6, day: 15 },
+      place: "Rome, Italy",
+    };
+
+    const result = exportGedcom(tree);
+    expect(result.rejected).toBe(false);
+    const ged = result.gedcom!;
+    expect(ged).toContain("1 MARR\n2 DATE 15 JUN 1925\n2 PLAC Rome, Italy");
+
+    const marriage = Object.values(importGedcom(ged).tree.families)[0]!.marriage;
+    expect(marriage?.date).toEqual({ year: 1925, month: 6, day: 15 });
+    expect(marriage?.place).toBe("Rome, Italy");
+  });
+
+  it("emits a place-only event without a spurious UNFORMATTABLE_DATE warning", () => {
+    const tree = treeFrom([personRow({ id: 1, name: "Dad", gender: 1 })]);
+    // A place with no date at all — the importer can produce this shape (eventOf allows it).
+    findByName(tree, "Dad").birth = { id: "e-b", type: "birth", place: "Cairo, Egypt" };
+
+    const result = exportGedcom(tree);
+    expect(result.gedcom!).toContain("1 BIRT\n2 PLAC Cairo, Egypt");
+    expect(result.issues.some((i) => i.code === "UNFORMATTABLE_DATE")).toBe(false);
+    expect(findByName(importGedcom(result.gedcom!).tree, "Dad").birth?.place).toBe("Cairo, Egypt");
+  });
+
+  it("warns (does not silently drop) when a marriage date can't be formatted", () => {
+    const tree = treeFrom(
+      [personRow({ id: 1, name: "Husband", gender: 1 }), personRow({ id: 2, name: "Wife", gender: 2 })],
+      [familyRow({ id: 10, husband: 1, wife: 2 })]
+    );
+    const famId = Object.keys(tree.families)[0]!;
+    // Month/day known but no year — GEDCOM DATE can't represent it.
+    tree.families[famId]!.marriage = { id: "e-m", type: "marriage", date: { month: 6, day: 15 } };
+
+    const result = exportGedcom(tree);
+    expect(result.gedcom!).toContain("1 MARR");
+    expect(result.gedcom!).not.toMatch(/1 MARR\n2 DATE/);
+    expect(result.issues.some((i) => i.code === "UNFORMATTABLE_DATE" && i.relatedIds.includes(famId))).toBe(true);
   });
 });
 
