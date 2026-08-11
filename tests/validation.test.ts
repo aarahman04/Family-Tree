@@ -38,6 +38,40 @@ describe("validation engine", () => {
     expect(validation.issues.some((i) => i.code === "CIRCULAR_ANCESTRY")).toBe(true);
   });
 
+  it("detects a cycle that alternates paternal and maternal links", () => {
+    // father(1) = 2 (fam 10 husband), mother(2) = 1 (fam 20 wife). Neither the father-only
+    // nor the mother-only chain closes on itself, so a per-parent walk misses this cycle;
+    // only walking both parents together finds 1 -> father 2 -> mother 1.
+    const text = buildNodeFtt(
+      [
+        personRow({ id: 1, name: "A", famc: 10 }),
+        personRow({ id: 2, name: "B", famc: 20 }),
+      ],
+      [familyRow({ id: 10, husband: 2 }), familyRow({ id: 20, wife: 1 })]
+    );
+    const { validation } = parseNodeFtt(text);
+    expect(validation.issues.some((i) => i.code === "CIRCULAR_ANCESTRY")).toBe(true);
+  });
+
+  it("reports a single-lineage cycle once, not once per member", () => {
+    // father(1)=2, father(2)=3, father(3)=1 — a 3-person cycle. A per-person walk reports it
+    // three times (once from each starting member); it should be reported exactly once.
+    const text = buildNodeFtt(
+      [
+        personRow({ id: 1, name: "A", famc: 10 }),
+        personRow({ id: 2, name: "B", famc: 20 }),
+        personRow({ id: 3, name: "C", famc: 30 }),
+      ],
+      [
+        familyRow({ id: 10, husband: 2 }),
+        familyRow({ id: 20, husband: 3 }),
+        familyRow({ id: 30, husband: 1 }),
+      ]
+    );
+    const { validation } = parseNodeFtt(text);
+    expect(validation.issues.filter((i) => i.code === "CIRCULAR_ANCESTRY")).toHaveLength(1);
+  });
+
   it("flags gender/role mismatch as a warning, not an error", () => {
     const text = buildNodeFtt(
       [personRow({ id: 1, name: "A", gender: 2 }), personRow({ id: 2, name: "B", gender: 2 })],
