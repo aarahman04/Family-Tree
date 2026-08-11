@@ -70,6 +70,30 @@ describe("EditorCanvas", () => {
     expect(container.querySelector("image")).not.toBeNull();
   });
 
+  it("auto-shows a larger preview for the focused person if they have a photo", () => {
+    const withPhoto: FamilyTree = {
+      ...tree,
+      persons: {
+        ...tree.persons,
+        kid: P("kid", {
+          name: "Kid",
+          gender: "female",
+          famcId: "f2",
+          photo: { thumb: "data:image/webp;base64,ZZ", print: "data:image/webp;base64,PP" },
+        }),
+      } as Record<UUID, Person>,
+    };
+    render(
+      <EditorCanvas
+        tree={withPhoto}
+        appearance={DEFAULT_APPEARANCE_PREFS}
+        onSelectPerson={vi.fn()}
+        focusPersonId="kid"
+      />
+    );
+    expect(screen.getByRole("img", { name: /photo of kid/i })).toBeInTheDocument();
+  });
+
   it("focus mode dims people outside the selected person's immediate family", async () => {
     render(
       <EditorCanvas tree={tree} appearance={DEFAULT_APPEARANCE_PREFS} selectedPersonId="kid" onSelectPerson={vi.fn()} />
