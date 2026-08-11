@@ -225,7 +225,9 @@ export const PHOTO_MAX_PT = 88; // pt
  * geometry. Reused verbatim by renderSvg.ts so the reserved slot and the drawn photo match. */
 export function photoAreaHeight(width: number, style: PosterStyleOptions): number {
   if (style.displayMode !== "photoCards") return 0;
-  return Math.min(PHOTO_MAX_PT, width - PHOTO_TOP_PAD * 2);
+  // Math.max(0, …) so the slot can never go negative for a pathologically narrow card. This
+  // does NOT rely on nodeMinWidth (a config value, not a proven invariant) staying ≥ 16.
+  return Math.max(0, Math.min(PHOTO_MAX_PT, width - PHOTO_TOP_PAD * 2));
 }
 ```
 
@@ -278,8 +280,33 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Test: `tests/poster-photo-render.test.ts`
 
 **Interfaces:**
-- Consumes: `photoAreaHeight` + `CARD_DIVIDER_GAP` (Task 2); `PosterStyleOptions.displayMode/photoShape/showLivingIndicator`, `PosterNode.living` (Task 1).
+- Consumes: `photoAreaHeight` + `CARD_DIVIDER_GAP` + `PHOTO_TOP_PAD` (Task 2); `PosterStyleOptions.displayMode/photoShape/showLivingIndicator`, `PosterNode.living` (Task 1).
 - Produces: `renderPosterSvg(layout, page, style, photos?: ReadonlyMap<UUID, string>): string`. Photo cards emit `<image href>` when a href is supplied for that personId, otherwise a styled placeholder; both clipped to `photoShape`.
+
+**Part A — finalize Task 2's sizing contract (do this FIRST, as its own commit `refactor(poster): clamp photo slot + pin compact sizing`). Touches `poster/boxSizing.ts` + `tests/box-sizing-modes.test.ts`.**
+
+- [ ] **A1: Clamp `photoAreaHeight`** so it can never return a negative slot (the `Math.max(0, …)` shown in Task 2's snippet). Add a short `//` comment naming that this does NOT rely on `nodeMinWidth ≥ 16`.
+- [ ] **A2: Tighten the two loose tests** in `tests/box-sizing-modes.test.ts`:
+  - Cap boundary — assert exact values: `expect(photoAreaHeight(104, photoCards)).toBe(88)` and `expect(photoAreaHeight(103, photoCards)).toBe(87)`, and `expect(photoAreaHeight(10, photoCards)).toBe(0)` (clamp).
+  - Minimal delta — use a name long enough to wrap to **2 lines** under `nodeMaxWidth` (e.g. `"Alexander Maximilian Featherstonehaugh Wetherby"`) so NEITHER the compact `nodeMinHeight` floor NOR the minimal `nodeMinHeight*0.6` floor binds, then assert the exact dropped-year delta:
+    ```ts
+    const name = "Alexander Maximilian Featherstonehaugh Wetherby";
+    const c = computePersonBox(name, "1974–2022", undefined, compact);
+    const m = computePersonBox(name, "1974–2022", undefined, minimal);
+    expect(c.lines.length).toBeGreaterThanOrEqual(2); // guard: floors don't bind
+    expect(c.height - m.height).toBeCloseTo(DEFAULT_POSTER_STYLE.yearFontSize * 1.25, 5);
+    ```
+- [ ] **A3: Pin compact output** with a characterization test that locks the EXACT current numeric width and height for a fixed input under the default (compact) style — capture the current values by running the function once and hard-coding them, so any future refactor that changes compact geometry fails loudly:
+    ```ts
+    it("compact box dimensions are pinned (characterization guard)", () => {
+      const box = computePersonBox("Ahmed Rahman", "1974–2022", undefined, compact);
+      // Values captured from the current heuristic measurer — DO NOT recompute to match a
+      // change; a diff here means compact geometry moved and must be justified.
+      expect(box.width).toBeCloseTo(/* CAPTURE the current value */ 0, 3);
+      expect(box.height).toBeCloseTo(/* CAPTURE the current value */ 0, 3);
+    });
+    ```
+  Replace the two `0` placeholders with the actual values you observe (log them once, then hard-code). Commit Part A, run the full suite green, THEN start Part B.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -458,6 +485,13 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
   // Photo (image or placeholder), clipped to the chosen shape. An absent OR empty href always
   // falls back to the placeholder, so a missing/failed photo can never break rendering
   // (refinement 3). The renderer builds strings only and never throws on a photo.
+  //
+  // EQUAL-SIZE SHAPES: the pre-cropped square thumbnail FILLS the full `side`×`side` square for
+  // every photoShape (`slice` = scale-to-fit; square→square, so NO second crop and no aspect
+  // logic here — that lives only in Task 5's ingestion). Only the clip differs. The circle uses
+  // r = side/2 (inscribed); it is intentionally NOT enlarged beyond the square — doing so would
+  // overflow the reserved slot and break the fixed photo footprint. The face therefore renders
+  // at the same scale in all three shapes; the circle just omits the corners.
   const clip = photoClip(`ph-${node.personId}`, photoX, photoY, side, style.photoShape);
   parts.push(clip.def);
   if (photoHref) {
