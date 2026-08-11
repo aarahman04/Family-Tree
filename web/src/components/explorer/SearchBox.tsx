@@ -56,6 +56,14 @@ export function SearchBox({ tree, index, onSelect }: SearchBoxProps) {
           ))}
         </ul>
       )}
+      {query.trim().length > 0 && results.length === 0 && (
+        <div
+          role="status"
+          className="absolute z-10 mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 shadow-lg"
+        >
+          No people match &ldquo;{query.trim()}&rdquo;.
+        </div>
+      )}
     </div>
   );
 }

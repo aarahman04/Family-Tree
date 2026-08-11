@@ -1,5 +1,12 @@
 # Explorer Architecture — Developer Documentation
 
+> **Superseded.** The React Flow + dagre "explorer" described below has been replaced by the
+> full-screen editor built on the poster layout engine. See **`docs/editor-architecture.md`** for
+> the current design. This document is kept only for historical context; the components it
+> references (`FamilyTreeCanvas`, `PersonNode`, `lib/neighborhood.ts`, `@xyflow/react`, `dagre`)
+> no longer exist. The parser / validation / GEDCOM-exporter and `PersonInspector`/`SearchBox`
+> details remain accurate.
+
 Status: Milestone 6 complete. Adds interactive browsing, editing, and visualization on top of the existing parser/validation/GEDCOM-exporter pipeline (`docs/parser-implementation.md`, `docs/gedcom-exporter.md`). Does not redesign or duplicate that pipeline — the explorer is a new layer that reads and writes the same `FamilyTree` model.
 
 ## Package layout

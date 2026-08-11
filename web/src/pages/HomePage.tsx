@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import type { FamilyTree } from "../../../models/types.js";
 import { useTreeImport, ACCEPT_EXTENSIONS } from "../hooks/useTreeImport.js";
 import { UploadArea } from "../components/UploadArea.js";
+import { CreateFamilyTreeWizard } from "../components/CreateFamilyTreeWizard.js";
 import { ConversionProgress } from "../components/ConversionProgress.js";
 import { ErrorPanel } from "../components/ErrorPanel.js";
 import { confirmDiscardIfUnsaved } from "../lib/unsavedEdits.js";
@@ -65,6 +67,7 @@ export function HomePage() {
   const { state, isReplacing, selectFile, reset } = useTreeImport();
   const { setSession, clearSession } = useTreeSession();
   const [saved, setSaved] = useState(() => loadSavedSession());
+  const [mode, setMode] = useState<"import" | "create">("import");
   const loaded = state.stage === "validated";
 
   // Publish the imported tree to the app-level session so the full-screen editor (#/editor)
@@ -97,6 +100,12 @@ export function HomePage() {
   function handleFileSelected(file: File) {
     if (!confirmDiscardIfUnsaved("Replace the current tree and discard any unsaved edits?")) return;
     selectFile(file);
+  }
+  function handleCreated(tree: FamilyTree) {
+    setSession({ tree, fileName: tree.metadata.name || "New tree" });
+    clearSavedSession();
+    setSaved(undefined);
+    window.location.hash = "#/editor";
   }
 
   return (
@@ -143,16 +152,59 @@ export function HomePage() {
         </section>
       )}
 
-      <UploadArea
-        onFileSelected={handleFileSelected}
-        onClear={handleClear}
-        accept={ACCEPT_EXTENSIONS}
-        hint="Supported: GEDCOM (.ged, .gedcom) and Quick Family Tree (.ftz)"
-        currentFile={state.stage === "idle" ? undefined : state.file}
-        disabled={state.stage === "parsing" || isReplacing}
-      />
-
       {!loaded && (
+        <section aria-label="How would you like to start?" className="grid gap-3 sm:grid-cols-2">
+          {(
+            [
+              {
+                id: "import",
+                title: "Import existing tree",
+                blurb: "Upload an FTZ or GEDCOM file.",
+              },
+              {
+                id: "create",
+                title: "Create new family tree",
+                blurb: "Start from scratch and build it in the editor.",
+              },
+            ] as const
+          ).map((opt) => {
+            const selected = mode === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => setMode(opt.id)}
+                className={`rounded-2xl border p-4 text-left transition-all ${
+                  selected
+                    ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200"
+                    : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/40"
+                }`}
+              >
+                <span className="block font-semibold text-slate-900">{opt.title}</span>
+                <span className="mt-1 block text-sm text-slate-600">{opt.blurb}</span>
+              </button>
+            );
+          })}
+        </section>
+      )}
+
+      {(loaded || mode === "import") && (
+        <UploadArea
+          onFileSelected={handleFileSelected}
+          onClear={handleClear}
+          accept={ACCEPT_EXTENSIONS}
+          hint="Supported: GEDCOM (.ged, .gedcom) and Quick Family Tree (.ftz)"
+          currentFile={state.stage === "idle" ? undefined : state.file}
+          disabled={state.stage === "parsing" || isReplacing}
+        />
+      )}
+
+      {!loaded && mode === "create" && (
+        <CreateFamilyTreeWizard onCreated={handleCreated} onCancel={() => setMode("import")} />
+      )}
+
+      {!loaded && mode === "import" && (
         <section aria-labelledby="format-heading">
           <h2
             id="format-heading"
