@@ -732,8 +732,9 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
   - `export function computeSquareCrop(width: number, height: number, face?: FaceBox): { sx: number; sy: number; size: number }`
   - `export async function processImageFile(file: File): Promise<PersonPhoto>` (throws `Error` on unsupported type / oversize)
 
-**Post-audit acceptance criterion (autosave/memory safety — settle explicitly, do not leave implicit):**
-- **Print bytes in persisted state.** `processImageFile` returns a `PersonPhoto` carrying BOTH `thumb` and `print`; stored on `person.photo` it lands in the tree that autosave writes to localStorage (`saveSession`, `EditorPage.tsx`). Because the original is discarded, `print` cannot be regenerated from the 160px `thumb`, so "just keep thumb" isn't free. **Decide and record here** whether autosave persists `print` at all — e.g. (a) persist `thumb` only and treat `print` as in-session-only (a reload requires re-upload to re-export at High quality), vs. (b) persist both with a quota-aware autosave failure path (two 640px WebP URIs/person can exceed the ~5MB localStorage quota on a large tree, and contradict refinement 5). This choice drives Task 6's quality handling and Task 13's export.
+**Post-audit acceptance criteria (autosave/memory safety — DECIDED 2026-08-11):**
+- **Print bytes in persisted state — DECISION: thumb-only persisted.** `processImageFile` still returns a `PersonPhoto` carrying BOTH `thumb` and `print` (Task 5 is unchanged by this decision). The **in-memory session tree keeps both** so export works without re-upload; but the **localStorage persistence layer strips `person.photo.print` before writing** (`saveSession` — wired in Task 10), so autosave stays small and honors refinement 5 (hold thumb, not print, until export). Because the original is discarded, `print` cannot be regenerated after a reload.
+- **No silent low-res fallback.** When `print` is absent after a reload and a **High-quality export** is requested, the app must NOT silently substitute `thumb`. It must either (a) prompt the user to re-upload the affected photos before exporting, or (b) show an explicit warning that the export will use lower-resolution images — the user chooses to proceed or not. Never a silent default. Drives Task 6 (`resolvePhoto("print")` returns `undefined` when absent) and Task 13 (the export-time detection + prompt/warning UI).
 
 - [ ] **Step 1: Write the failing tests** (pure functions + validation only — canvas encode needs a browser, so it is not asserted here)
 
@@ -926,7 +927,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
   - `export function resolvePhoto(person: Person, quality: PhotoQuality): string | undefined`
   - `export function buildPhotoMap(tree: FamilyTree, quality: PhotoQuality): Map<UUID, string>` — the `photos` map passed to `renderPosterSvg`.
 
-**Post-audit acceptance criterion:** `resolvePhoto(person, "print")` must behave correctly under whichever print-bytes-in-persisted-state decision Task 5 records — in particular, if `print` is not persisted, resolving `"print"` on a reloaded person must degrade predictably (documented fallback), not return a broken/empty href.
+**Post-audit acceptance criterion (per Task 5 decision — thumb-only persisted):** `resolvePhoto(person, "print")` returns `undefined` when `print` is absent — it MUST NOT silently fall back to `thumb`. `buildPhotoMap(tree, "print")` simply omits those persons from the map. The High-quality export path (Task 13) is responsible for detecting the omissions and prompting re-upload / warning explicitly (no silent low-res substitution).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1861,6 +1862,8 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: `buildPhotoMap` (Task 6), `renderPosterSvg` 4-arg form (Task 3), `PhotoQuality` (Task 6).
 - Produces: export SVG contains `<image>` data URIs when "Include photos" is on; Optimized embeds `thumb`, High quality embeds `print`; neither present when off.
+
+**Post-audit acceptance criterion (no silent low-res fallback — per Task 5 decision):** because `print` is not persisted to localStorage, after a reload some persons may have `thumb` but no `print`. When "Include photos" + **High quality** is selected, detect persons missing `print` (e.g. `buildPhotoMap(tree, "print")` omits them) and, before exporting, either prompt the user to re-upload those photos OR show an explicit warning that the export will use lower-resolution images for them — the user chooses to proceed. NEVER silently embed `thumb` in a High-quality export. Add a test for the missing-print case.
 
 - [ ] **Step 1: Write the failing test**
 
