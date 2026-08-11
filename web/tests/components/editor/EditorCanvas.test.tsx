@@ -41,7 +41,7 @@ describe("EditorCanvas", () => {
   it("shows an empty state for a tree with no people", () => {
     const empty: FamilyTree = { ...tree, persons: {}, families: {} };
     render(<EditorCanvas tree={empty} onSelectPerson={vi.fn()} />);
-    expect(screen.getByText(/no people to display/i)).toBeInTheDocument();
+    expect(screen.getByText(/no people yet/i)).toBeInTheDocument();
   });
 
   it("focus mode dims people outside the selected person's immediate family", async () => {

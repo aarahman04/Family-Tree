@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FamilyTree, UUID } from "../../../../models/types.js";
 import { addRelative, type RelativeKind } from "../../lib/addRelative.js";
 import { createPerson } from "../../../../editor/operations.js";
+import { useCloseOnEscape } from "../../lib/useCloseOnEscape.js";
 
 interface AddPersonMenuProps {
   tree: FamilyTree;
@@ -24,6 +25,7 @@ export function AddPersonMenu({
   disabled,
 }: AddPersonMenuProps) {
   const [open, setOpen] = useState(false);
+  useCloseOnEscape(open, () => setOpen(false));
 
   function addIndependent() {
     const { tree: next, personId } = createPerson(tree, { name: "New person" });

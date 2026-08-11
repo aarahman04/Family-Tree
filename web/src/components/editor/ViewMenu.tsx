@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useCloseOnEscape } from "../../lib/useCloseOnEscape.js";
 
 interface ViewMenuProps {
   focusMode: boolean;
@@ -18,6 +19,7 @@ interface ViewMenuProps {
  */
 export function ViewMenu(props: ViewMenuProps) {
   const [open, setOpen] = useState(false);
+  useCloseOnEscape(open, () => setOpen(false));
 
   const run = (fn: () => void) => () => {
     fn();

@@ -163,7 +163,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
   return (
     <div className="flex h-full min-h-0 w-full">
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-slate-200 bg-white px-4 py-2">
           {tree.metadata.name && (
             <span
               className="max-w-[10rem] shrink-0 truncate text-sm font-semibold text-slate-800"
