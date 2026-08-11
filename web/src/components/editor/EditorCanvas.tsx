@@ -105,7 +105,13 @@ export const EditorCanvas = memo(
     const layoutKey = useMemo(() => posterLayoutKey(tree, style), [tree, style]);
     const layout = useMemo(
       () => (hasPeople ? computeBalancedPosterLayout(tree, style, measurer) : undefined),
-      // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on layoutKey, not tree/style identity
+      // `tree` and `style` are READ in the body but deliberately EXCLUDED from the deps — this is
+      // the whole memo strategy, not an oversight. Keying on `layoutKey` (a structural signature of
+      // tree+style that ignores photo bytes) means a photo edit makes a new `tree` object with an
+      // equal key, so the expensive layout is REUSED and only the SVG regenerates. Listing tree/style
+      // here would relayout on every photo change and defeat the point. `layoutKey` changes iff
+      // geometry does (name, dates incl. death year, display mode) — see poster/layoutKey.ts.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       [layoutKey, measurer, hasPeople]
     );
     const page = useMemo(
