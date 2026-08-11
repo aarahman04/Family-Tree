@@ -60,6 +60,10 @@ function wrappedLinesFor(
   return { lines, widestLineWidth };
 }
 
+/** LOCKSTEP: every `style` field read below that changes the returned width/height must also
+ * appear in poster/layoutKey.ts (the layout memo key), or a change to it will be served a stale
+ * cached layout. Fields that only affect drawing (photoShape, showLivingIndicator) are read by
+ * the renderer, not here, and are deliberately absent from the key. */
 export function computePersonBox(
   name: string,
   yearText: string | undefined,

@@ -144,6 +144,11 @@ function renderCompactNode(node: PosterNode, offsetX: number, offsetY: number, s
     (node.yearLine ? style.yearFontSize * 1.25 : 0) +
     (node.noteLine ? noteFontSize * 1.25 : 0);
   let lineY = cy - totalTextHeight / 2 + nameLineHeight / 2;
+  // DUPLICATED ON PURPOSE — do NOT extract into a shared helper. This whole compact body is a
+  // byte-for-byte preservation guard for the pre-photos default (pinned in
+  // tests/box-sizing-modes.test.ts); the same name-line loop also appears in renderMinimalNode
+  // and renderPhotoCard, but the three differ in x-offset (cx+2 here for the gender stripe, cx
+  // there) and in what follows (year/note vs nothing), so a parameterised helper nets negative.
   for (const line of node.nameLines) {
     parts.push(textLine(cx + 2, lineY, line, style.nameFontSize, style.textColor, style.fontFamily, node.rtl));
     lineY += nameLineHeight;
@@ -179,6 +184,8 @@ function renderMinimalNode(node: PosterNode, offsetX: number, offsetY: number, s
   const nameLineHeight = style.nameFontSize * 1.25;
   const totalTextHeight = node.nameLines.length * nameLineHeight;
   let lineY = cy - totalTextHeight / 2 + nameLineHeight / 2;
+  // Name-line loop intentionally NOT shared with the other renderers — see the note in
+  // renderCompactNode.
   for (const line of node.nameLines) {
     parts.push(textLine(cx, lineY, line, style.nameFontSize, style.textColor, style.fontFamily, node.rtl));
     lineY += nameLineHeight;
@@ -239,6 +246,8 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
   const totalTextHeight = node.nameLines.length * nameLineHeight + yearH;
   const regionCenter = textTop + (cardBottom - textTop) / 2;
   let lineY = regionCenter - totalTextHeight / 2 + nameLineHeight / 2;
+  // Name-line loop intentionally NOT shared with the other renderers — see the note in
+  // renderCompactNode.
   for (const line of node.nameLines) {
     parts.push(textLine(cx, lineY, line, style.nameFontSize, style.textColor, style.fontFamily, node.rtl));
     lineY += nameLineHeight;

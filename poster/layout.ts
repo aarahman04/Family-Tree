@@ -219,6 +219,9 @@ export function computePosterLayout(
     }
   }
 
+  // The inputs consumed here (person name/year/branch-note + the sizing `style` fields inside
+  // computePersonBox) are exactly what poster/layoutKey.ts must sign so a photo-only edit skips
+  // this pass but a geometry-affecting edit doesn't. Keep the two in lockstep.
   const personBoxes = new Map<UUID, MeasuredBox>();
   for (const person of Object.values(tree.persons)) {
     personBoxes.set(

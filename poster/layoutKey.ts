@@ -2,17 +2,26 @@ import type { FamilyTree } from "../models/types.js";
 import type { PosterStyleOptions } from "./types.js";
 
 /**
- * A compact signature of everything that affects box sizing and node placement — but NOT
- * photo bytes. Two trees that differ only in a `person.photo` produce the same key, so the
- * editor can memoize the (expensive) layout across photo edits and only regenerate the SVG.
- * Display-mode / shape / sizing style changes DO change the key (geometry genuinely changes).
+ * A compact signature of EXACTLY the inputs that affect box sizing and node placement — the
+ * same inputs `computePersonBox` (poster/boxSizing.ts) and the layout pass (poster/layout.ts)
+ * read. Two trees/styles that differ only in something that changes how a node is *drawn* but
+ * not its geometry produce the same key, so the editor can memoize the (expensive) layout and
+ * only regenerate the cheaper SVG.
+ *
+ * Deliberately EXCLUDED because they are render-only, not geometry (verified: `computePersonBox`
+ * never reads them): `person.photo` bytes, `style.photoShape` (the reserved photo slot is a fixed
+ * square regardless of shape), and `style.showLivingIndicator` (the dot draws in-bounds and
+ * reserves no space). `displayMode` IS included — it genuinely changes box sizing.
+ *
+ * INVARIANT: keep this list in lockstep with boxSizing.ts/layout.ts. If you add a field there
+ * that changes a box's size or position, add it here too — otherwise the memo serves a stale
+ * layout on an unrelated-looking edit. tests/layout-key.test.ts guards the pairing in both
+ * directions (geometry field ⇒ in key; render-only field ⇒ not in key).
  */
 export function posterLayoutKey(tree: FamilyTree, style: PosterStyleOptions): string {
   const parts: string[] = [
-    // Sizing- and mode-relevant style only.
+    // Sizing- and mode-relevant style only (see INVARIANT above).
     style.displayMode,
-    style.photoShape,
-    String(style.showLivingIndicator),
     String(style.nameFontSize),
     String(style.yearFontSize),
     String(style.nodeMinWidth),
