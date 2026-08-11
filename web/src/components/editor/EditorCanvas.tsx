@@ -13,13 +13,18 @@ import type { FamilyTree, UUID } from "../../../../models/types.js";
 import { computeBalancedPosterLayout } from "../../../../poster/layoutBalanced.js";
 import { computePosterPageSize } from "../../../../poster/pageSize.js";
 import { renderPosterSvg } from "../../../../poster/renderSvg.js";
-import { DEFAULT_POSTER_STYLE, type PosterNode } from "../../../../poster/types.js";
+import { posterLayoutKey } from "../../../../poster/layoutKey.js";
+import type { PosterNode } from "../../../../poster/types.js";
 import { makeCanvasTextMeasurer } from "../../lib/canvasTextMeasure.js";
 import { hitTestNode } from "../../lib/canvasHitTest.js";
 import { immediateRelatives } from "../../lib/relatives.js";
+import { buildPhotoMap, resolvePhoto, photoAlt } from "../../lib/resolvePhoto.js";
+import { appearanceToStyle, type AppearancePrefs } from "../../lib/appearancePrefs.js";
 
 interface EditorCanvasProps {
   tree: FamilyTree;
+  /** Display mode / photo shape / living indicator — drives the shared poster style. */
+  appearance: AppearancePrefs;
   selectedPersonId?: UUID;
   onSelectPerson: (id: UUID | undefined) => void;
   /** When this changes, the canvas re-centers on that person and briefly pulses them. */
@@ -64,14 +69,21 @@ const MINIMAP_MAX = { w: 160, h: 120 };
 // on the tree, so even a real re-render never regenerates them unless the tree itself changed.
 export const EditorCanvas = memo(
   forwardRef<EditorCanvasHandle, EditorCanvasProps>(function EditorCanvas(
-    { tree, selectedPersonId, onSelectPerson, focusPersonId, onFocusModeChange },
+    { tree, appearance, selectedPersonId, onSelectPerson, focusPersonId, onFocusModeChange },
     ref
   ) {
-    const style = DEFAULT_POSTER_STYLE;
+    const style = useMemo(() => appearanceToStyle(appearance), [appearance]);
     const viewportRef = useRef<HTMLDivElement>(null);
     const [transform, setTransform] = useState<Transform>({ tx: 0, ty: 0, s: 1 });
     const [size, setSize] = useState({ w: 0, h: 0 });
     const [pulseId, setPulseId] = useState<UUID | undefined>(undefined);
+    // A small floating photo preview: follows the cursor on hover, and shows briefly for a
+    // freshly-focused (searched) person. Screen-space coords relative to the viewport.
+    const [hoverPreview, setHoverPreview] = useState<{
+      personId: UUID;
+      left: number;
+      top: number;
+    } | null>(null);
     const [focusMode, setFocusModeState] = useState(false);
 
     const setFocusMode = useCallback(
@@ -94,17 +106,34 @@ export const EditorCanvas = memo(
     );
 
     const measurer = useMemo(() => makeCanvasTextMeasurer(style.fontFamily), [style.fontFamily]);
+    // Memoize layout on the STRUCTURAL signature, not the tree object: a photo edit produces a new
+    // tree but an unchanged key, so it reuses this (expensive) layout and only the SVG regenerates.
+    // A geometry-affecting edit (name, dates incl. death year, display mode) changes the key.
+    const layoutKey = useMemo(() => posterLayoutKey(tree, style), [tree, style]);
     const layout = useMemo(
       () => (hasPeople ? computeBalancedPosterLayout(tree, style, measurer) : undefined),
-      [tree, style, measurer, hasPeople]
+      // `tree` and `style` are READ in the body but deliberately EXCLUDED from the deps — this is
+      // the whole memo strategy, not an oversight. Keying on `layoutKey` (a structural signature of
+      // tree+style that ignores photo bytes) means a photo edit makes a new `tree` object with an
+      // equal key, so the expensive layout is REUSED and only the SVG regenerates. Listing tree/style
+      // here would relayout on every photo change and defeat the point. `layoutKey` changes iff
+      // geometry does (name, dates incl. death year, display mode) — see poster/layoutKey.ts.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [layoutKey, measurer, hasPeople]
     );
     const page = useMemo(
       () => (layout ? computePosterPageSize(layout, style) : undefined),
       [layout, style]
     );
+    // Photos are passed separately from layout (opaque hrefs), so changing them never re-runs
+    // layout. Only built in photoCards mode; thumb quality in the editor (print is export-only).
+    const photos = useMemo(
+      () => (style.displayMode === "photoCards" ? buildPhotoMap(tree, "thumb") : undefined),
+      [tree, style.displayMode]
+    );
     const svg = useMemo(
-      () => (layout && page ? renderPosterSvg(layout, page, style) : ""),
-      [layout, page, style]
+      () => (layout && page ? renderPosterSvg(layout, page, style, photos) : ""),
+      [layout, page, style, photos]
     );
 
     const nodeById = useMemo(() => {
@@ -159,7 +188,20 @@ export const EditorCanvas = memo(
       centerOn(focusPersonId);
       setPulseId(focusPersonId);
       const t = setTimeout(() => setPulseId(undefined), 2500);
-      return () => clearTimeout(t);
+      // Also briefly auto-preview their photo near the center, to help pick them out in a large
+      // tree. The overlay renders nothing if they have no photo. Positioned from the live viewport
+      // rect (a ref, not `size` state) so this effect stays keyed only on the focus target.
+      const rect = viewportRef.current?.getBoundingClientRect();
+      setHoverPreview({
+        personId: focusPersonId,
+        left: (rect ? rect.width / 2 : 0) + 16,
+        top: (rect ? rect.height / 2 : 0) + 16,
+      });
+      const p = setTimeout(() => setHoverPreview(null), 2500);
+      return () => {
+        clearTimeout(t);
+        clearTimeout(p);
+      };
     }, [focusPersonId, centerOn]);
 
     // Wheel zoom toward the cursor. Attached natively (non-passive) so preventDefault works and
@@ -189,6 +231,7 @@ export const EditorCanvas = memo(
     );
     function onPointerDown(e: React.PointerEvent) {
       (e.target as Element).setPointerCapture?.(e.pointerId);
+      setHoverPreview(null); // a drag shouldn't leave a stale hover card floating
       dragRef.current = {
         x: e.clientX,
         y: e.clientY,
@@ -199,7 +242,18 @@ export const EditorCanvas = memo(
     }
     function onPointerMove(e: React.PointerEvent) {
       const d = dragRef.current;
-      if (!d) return;
+      if (!d) {
+        // Not dragging: hover-preview the person under the cursor. Only updates state when the
+        // hovered person changes, so an in-node mouse move doesn't re-render every frame.
+        const id = personAt(e.clientX, e.clientY);
+        setHoverPreview((prev) => {
+          if (!id) return prev === null ? prev : null;
+          if (prev?.personId === id) return prev;
+          const rect = viewportRef.current!.getBoundingClientRect();
+          return { personId: id, left: e.clientX - rect.left + 16, top: e.clientY - rect.top + 16 };
+        });
+        return;
+      }
       const dx = e.clientX - d.x;
       const dy = e.clientY - d.y;
       if (!d.moved && Math.abs(dx) + Math.abs(dy) > 4) d.moved = true;
@@ -321,6 +375,7 @@ export const EditorCanvas = memo(
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
+          onPointerLeave={() => setHoverPreview(null)}
           onDoubleClick={onDoubleClick}
           aria-label="Family tree canvas"
           role="application"
@@ -358,6 +413,23 @@ export const EditorCanvas = memo(
                   />
                 ))}
           </div>
+          {hoverPreview &&
+            (() => {
+              const person = tree.persons[hoverPreview.personId];
+              // Use the 160px thumb, NOT the 640px print: it's sharp at this size and keeps the big
+              // print image out of active editor memory until an export explicitly needs it
+              // (refinement 5). Renders nothing if the person has no photo.
+              const href = person && resolvePhoto(person, "thumb");
+              if (!person || !href) return null;
+              return (
+                <img
+                  src={href}
+                  alt={photoAlt(person)}
+                  className="pointer-events-none absolute z-30 h-40 w-40 rounded-lg border border-slate-300 object-cover shadow-xl"
+                  style={{ left: hoverPreview.left, top: hoverPreview.top }}
+                />
+              );
+            })()}
           {selRect && (
             <div
               aria-hidden="true"

@@ -2,6 +2,7 @@ import type { MouseEvent } from "react";
 import type { Route } from "../router.js";
 import { routeHref } from "../router.js";
 import { confirmDiscardIfUnsaved } from "../lib/unsavedEdits.js";
+import { ThemeToggle } from "./ThemeToggle.js";
 
 const LINKS: { route: Route; label: string }[] = [
   { route: "home", label: "Home" },
@@ -41,26 +42,29 @@ export function Header({ current }: HeaderProps) {
         >
           FTZ → GEDCOM
         </a>
-        <nav aria-label="Main navigation">
-          <ul className="flex gap-4 text-sm">
-            {LINKS.map((link) => (
-              <li key={link.route}>
-                <a
-                  href={routeHref(link.route)}
-                  onClick={(e) => guardNavigation(e, link.route, current)}
-                  aria-current={current === link.route ? "page" : undefined}
-                  className={
-                    current === link.route
-                      ? "font-semibold text-blue-700"
-                      : "text-slate-600 hover:text-slate-900"
-                  }
-                >
-                  {link.label}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <div className="flex items-center gap-4">
+          <nav aria-label="Main navigation">
+            <ul className="flex gap-4 text-sm">
+              {LINKS.map((link) => (
+                <li key={link.route}>
+                  <a
+                    href={routeHref(link.route)}
+                    onClick={(e) => guardNavigation(e, link.route, current)}
+                    aria-current={current === link.route ? "page" : undefined}
+                    className={
+                      current === link.route
+                        ? "font-semibold text-blue-700"
+                        : "text-slate-600 hover:text-slate-900"
+                    }
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );

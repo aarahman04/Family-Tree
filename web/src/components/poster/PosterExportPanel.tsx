@@ -4,8 +4,14 @@ import { computePosterLayout } from "../../../../poster/layout.js";
 import { computeBalancedPosterLayout } from "../../../../poster/layoutBalanced.js";
 import { computePosterPageSize } from "../../../../poster/pageSize.js";
 import { renderPosterSvg } from "../../../../poster/renderSvg.js";
-import { DEFAULT_POSTER_STYLE, type PosterStyleOptions } from "../../../../poster/types.js";
+import {
+  DEFAULT_POSTER_STYLE,
+  type DisplayMode,
+  type PhotoShape,
+  type PosterStyleOptions,
+} from "../../../../poster/types.js";
 import { makeCanvasTextMeasurer } from "../../lib/canvasTextMeasure.js";
+import { buildPhotoMap, type PhotoQuality } from "../../lib/resolvePhoto.js";
 import { posterSvgToPdfBlob, posterSvgToSvgBlob } from "../../lib/posterExport.js";
 
 interface PosterExportPanelProps {
@@ -43,6 +49,9 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
   const [zoomPercent, setZoomPercent] = useState(10);
   const [pdfStage, setPdfStage] = useState<"idle" | "generating" | "error">("idle");
   const [pdfError, setPdfError] = useState<string | undefined>(undefined);
+  const [includePhotos, setIncludePhotos] = useState(false);
+  const [exportShape, setExportShape] = useState<PhotoShape>("rounded");
+  const [quality, setQuality] = useState<PhotoQuality>("thumb");
   const previewRef = useRef<HTMLDivElement>(null);
 
   // A canvas.measureText-backed measurer gives pixel-accurate box sizing against the actual
@@ -51,15 +60,41 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
   // layout algorithm; only the measurement precision differs.
   const measurer = useMemo(() => makeCanvasTextMeasurer(style.fontFamily), [style.fontFamily]);
 
+  // Photo choices fold into the style the export actually renders with, so the single `svg`
+  // below drives BOTH the on-screen preview and the SVG/PDF downloads (export↔editor↔PDF
+  // consistency, refinement 4). `exportStyle` shares `style.fontFamily`, so `measurer` stays valid.
+  const exportStyle = useMemo<PosterStyleOptions>(
+    () => ({
+      ...style,
+      displayMode: (includePhotos ? "photoCards" : "compact") as DisplayMode,
+      photoShape: exportShape,
+    }),
+    [style, includePhotos, exportShape]
+  );
+  const photos = useMemo(
+    () => (includePhotos ? buildPhotoMap(tree, quality) : undefined),
+    [tree, includePhotos, quality]
+  );
+  // Persons whose photo has a thumb but no print (print isn't persisted — Task 5). A High-quality
+  // export omits them (they'd render as placeholders) rather than silently upscaling the thumb.
+  const missingPrintCount = useMemo(
+    () => Object.values(tree.persons).filter((p) => p.photo?.thumb && !p.photo.print).length,
+    [tree]
+  );
+  const warnMissingPrint = includePhotos && quality === "print" && missingPrintCount > 0;
+
   const layout = useMemo(
     () =>
       layoutMode === "balanced"
-        ? computeBalancedPosterLayout(tree, style, measurer)
-        : computePosterLayout(tree, style, measurer),
-    [tree, style, measurer, layoutMode]
+        ? computeBalancedPosterLayout(tree, exportStyle, measurer)
+        : computePosterLayout(tree, exportStyle, measurer),
+    [tree, exportStyle, measurer, layoutMode]
   );
-  const page = useMemo(() => computePosterPageSize(layout, style), [layout, style]);
-  const svg = useMemo(() => renderPosterSvg(layout, page, style), [layout, page, style]);
+  const page = useMemo(() => computePosterPageSize(layout, exportStyle), [layout, exportStyle]);
+  const svg = useMemo(
+    () => renderPosterSvg(layout, page, exportStyle, photos),
+    [layout, page, exportStyle, photos]
+  );
 
   function updateStyle<K extends keyof PosterStyleOptions>(key: K, value: PosterStyleOptions[K]) {
     setStyle((prev) => ({ ...prev, [key]: value }));
@@ -269,8 +304,72 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
               className="h-8 rounded border border-slate-300"
             />
           </label>
+
+          <div className="col-span-2 flex flex-col gap-2 border-t border-slate-200 pt-3">
+            <label className="flex items-center gap-2 text-xs font-medium text-slate-700">
+              <input
+                type="checkbox"
+                checked={includePhotos}
+                onChange={(e) => setIncludePhotos(e.target.checked)}
+              />
+              Include photos
+            </label>
+            {includePhotos && (
+              <div className="flex flex-col gap-2 pl-1">
+                <div className="flex items-center gap-3 text-xs text-slate-600">
+                  <span>Shape:</span>
+                  {(["square", "rounded", "circle"] as PhotoShape[]).map((s) => (
+                    <label key={s} className="flex items-center gap-1 capitalize">
+                      <input
+                        type="radio"
+                        name="export-shape"
+                        checked={exportShape === s}
+                        onChange={() => setExportShape(s)}
+                      />
+                      {s}
+                    </label>
+                  ))}
+                </div>
+                <div className="flex items-center gap-3 text-xs text-slate-600">
+                  <label className="flex items-center gap-1">
+                    <input
+                      type="radio"
+                      name="export-quality"
+                      checked={quality === "thumb"}
+                      onChange={() => setQuality("thumb")}
+                    />
+                    Optimized (smaller file)
+                  </label>
+                  <label className="flex items-center gap-1">
+                    <input
+                      type="radio"
+                      name="export-quality"
+                      checked={quality === "print"}
+                      onChange={() => setQuality("print")}
+                    />
+                    High quality (print)
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </details>
+
+      {warnMissingPrint && (
+        <p
+          role="alert"
+          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+        >
+          {missingPrintCount} photo{missingPrintCount === 1 ? "" : "s"} can't be exported at high
+          quality — their print-resolution version wasn't kept after the last reload, so{" "}
+          {missingPrintCount === 1 ? "it" : "they"} will appear as{" "}
+          {missingPrintCount === 1 ? "a placeholder" : "placeholders"}. Re-upload{" "}
+          {missingPrintCount === 1 ? "that photo" : "those photos"} in the person inspector to
+          include {missingPrintCount === 1 ? "it" : "them"} at full quality, or choose{" "}
+          <strong>Optimized</strong> to include everyone at screen resolution.
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <label htmlFor="poster-zoom" className="text-xs text-slate-600">
@@ -315,6 +414,7 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
               transform: `scale(${scale})`,
               transformOrigin: "top left",
             }}
+            data-testid="poster-preview"
             // The renderer's own output -- see poster/renderSvg.ts's escapeXml -- not
             // arbitrary user HTML, so this mirrors the trust boundary already accepted for
             // exported GEDCOM/SVG downloads elsewhere in the app.

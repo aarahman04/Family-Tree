@@ -30,7 +30,7 @@ function writeIndi(writer: GedcomWriter, xrefs: XrefAllocator, person: Person, i
     const date = formatGedcomDate(person.birth.date);
     if (date) {
       writer.line(2, "DATE", date);
-    } else {
+    } else if (person.birth.date) {
       issues.push({
         severity: "warning",
         code: "UNFORMATTABLE_DATE",
@@ -38,6 +38,7 @@ function writeIndi(writer: GedcomWriter, xrefs: XrefAllocator, person: Person, i
         relatedIds: [person.id],
       });
     }
+    if (person.birth.place) writer.line(2, "PLAC", escapeGedcomValue(person.birth.place));
   }
 
   if (person.death) {
@@ -45,7 +46,7 @@ function writeIndi(writer: GedcomWriter, xrefs: XrefAllocator, person: Person, i
     const date = formatGedcomDate(person.death.date);
     if (date) {
       writer.line(2, "DATE", date);
-    } else {
+    } else if (person.death.date) {
       issues.push({
         severity: "warning",
         code: "UNFORMATTABLE_DATE",
@@ -53,6 +54,7 @@ function writeIndi(writer: GedcomWriter, xrefs: XrefAllocator, person: Person, i
         relatedIds: [person.id],
       });
     }
+    if (person.death.place) writer.line(2, "PLAC", escapeGedcomValue(person.death.place));
   }
 
   if (person.famcId) {
@@ -73,7 +75,7 @@ function writeIndi(writer: GedcomWriter, xrefs: XrefAllocator, person: Person, i
   }
 }
 
-function writeFam(writer: GedcomWriter, xrefs: XrefAllocator, tree: FamilyTree, familyId: string): void {
+function writeFam(writer: GedcomWriter, xrefs: XrefAllocator, tree: FamilyTree, familyId: string, issues: ValidationIssue[]): void {
   const family = tree.families[familyId]!;
   const xref = xrefs.familyXref.get(familyId)!;
   writer.lineWithXref(0, xref, "FAM");
@@ -89,6 +91,22 @@ function writeFam(writer: GedcomWriter, xrefs: XrefAllocator, tree: FamilyTree, 
   for (const childId of family.childrenIds) {
     const childXref = xrefs.personXref.get(childId);
     if (childXref) writer.line(1, "CHIL", childXref);
+  }
+
+  if (family.marriage) {
+    writer.line(1, "MARR");
+    const date = formatGedcomDate(family.marriage.date);
+    if (date) {
+      writer.line(2, "DATE", date);
+    } else if (family.marriage.date) {
+      issues.push({
+        severity: "warning",
+        code: "UNFORMATTABLE_DATE",
+        message: `Family's marriage date could not be formatted for GEDCOM (month/day known without a year) and was omitted; the MARR event itself was still recorded.`,
+        relatedIds: [familyId],
+      });
+    }
+    if (family.marriage.place) writer.line(2, "PLAC", escapeGedcomValue(family.marriage.place));
   }
 
   if (family.ftzId !== undefined) {
@@ -163,7 +181,7 @@ export function exportGedcom(tree: FamilyTree, options: ExportOptions = {}): Exp
     writeIndi(writer, xrefs, tree.persons[personId]!, issues);
   }
   for (const familyId of [...xrefs.familyXref.keys()]) {
-    writeFam(writer, xrefs, tree, familyId);
+    writeFam(writer, xrefs, tree, familyId, issues);
   }
 
   writer.line(0, "TRLR");

@@ -1,4 +1,4 @@
-import type { DatePart, Family, FamilyTree, Gender, Person, UUID } from "../models/types.js";
+import type { DatePart, Family, FamilyTree, Gender, Person, PersonPhoto, UUID } from "../models/types.js";
 import { generateId } from "../lib/uuid.js";
 import { EditorError } from "./errors.js";
 import { isAncestor, pruneEmptyFamily, withFamily, withPerson } from "./helpers.js";
@@ -42,6 +42,13 @@ export function updatePersonFields(tree: FamilyTree, personId: UUID, edits: Pers
     }
     return updated;
   });
+}
+
+/** Sets or clears a person's photo. Total and synchronous — callers pass a fully-built
+ * PersonPhoto (the WebP encode completes before dispatch) or `undefined` to remove it, so the
+ * tree never holds a partial/half-encoded photo for an autosave snapshot to capture. */
+export function setPersonPhoto(tree: FamilyTree, personId: UUID, photo: PersonPhoto | undefined): FamilyTree {
+  return withPerson(tree, personId, (p) => ({ ...p, photo }));
 }
 
 export function createPerson(

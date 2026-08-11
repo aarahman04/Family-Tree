@@ -14,6 +14,25 @@ const PADDING_Y = 6;
 const LINE_HEIGHT_RATIO = 1.25;
 const NOTE_FONT_RATIO = 0.82; // the "children shown in X's branch" note is smaller than the name
 
+/** Gap between the photo and the text block on a photo card. */
+export const CARD_DIVIDER_GAP = 6; // pt
+/** Space above the photo, inside the card's top edge. */
+export const PHOTO_TOP_PAD = 8; // pt
+/** A photo never exceeds this square side, so cards stay compact and names readable even on
+ * wide boxes — the photo scales down for narrow cards but is capped here (refinement 2). */
+export const PHOTO_MAX_PT = 88; // pt
+
+/** The square photo side for a card of the given width: capped at PHOTO_MAX_PT, shrinking
+ * proportionally for narrow cards, and 0 unless in photoCards mode. Depends only on style +
+ * width — never on whether a person has a photo — so adding/removing a photo never changes
+ * geometry. Reused verbatim by renderSvg.ts so the reserved slot and the drawn photo match. */
+export function photoAreaHeight(width: number, style: PosterStyleOptions): number {
+  if (style.displayMode !== "photoCards") return 0;
+  // Clamped to 0: does NOT rely on nodeMinWidth staying >= 16 (PHOTO_TOP_PAD * 2) to avoid a
+  // negative slot -- a narrow custom width still yields a valid (zero) photo area.
+  return Math.max(0, Math.min(PHOTO_MAX_PT, width - PHOTO_TOP_PAD * 2));
+}
+
 export interface MeasuredBox {
   width: number;
   height: number;
@@ -41,6 +60,10 @@ function wrappedLinesFor(
   return { lines, widestLineWidth };
 }
 
+/** LOCKSTEP: every `style` field read below that changes the returned width/height must also
+ * appear in poster/layoutKey.ts (the layout memo key), or a change to it will be served a stale
+ * cached layout. Fields that only affect drawing (photoShape, showLivingIndicator) are read by
+ * the renderer, not here, and are deliberately absent from the key. */
 export function computePersonBox(
   name: string,
   yearText: string | undefined,
@@ -58,12 +81,19 @@ export function computePersonBox(
   const width = Math.max(style.nodeMinWidth, widestLineWidth, noteWidth);
 
   const nameLineHeight = style.nameFontSize * LINE_HEIGHT_RATIO;
-  const yearLineHeight = yearText ? style.yearFontSize * LINE_HEIGHT_RATIO : 0;
+  const showYear = style.displayMode !== "minimal" && !!yearText;
+  const yearLineHeight = showYear ? style.yearFontSize * LINE_HEIGHT_RATIO : 0;
   const noteLineHeight = noteLine ? noteFontSize * LINE_HEIGHT_RATIO : 0;
-  const height = Math.max(
-    style.nodeMinHeight,
-    PADDING_Y * 2 + lines.length * nameLineHeight + yearLineHeight + noteLineHeight
-  );
+  const textHeight = PADDING_Y * 2 + lines.length * nameLineHeight + yearLineHeight + noteLineHeight;
+
+  let height: number;
+  if (style.displayMode === "photoCards") {
+    height = PHOTO_TOP_PAD + photoAreaHeight(width, style) + CARD_DIVIDER_GAP + Math.max(style.nodeMinHeight * 0.7, textHeight);
+  } else if (style.displayMode === "minimal") {
+    height = Math.max(style.nodeMinHeight * 0.6, textHeight);
+  } else {
+    height = Math.max(style.nodeMinHeight, textHeight);
+  }
 
   return { width, height, lines, noteLine, rtl };
 }

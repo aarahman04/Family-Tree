@@ -1,7 +1,5 @@
-import type { FamilyTree, ValidationIssue } from "../models/types.js";
+import type { FamilyTree, UUID, ValidationIssue } from "../models/types.js";
 import { fatherOf, motherOf } from "../parser/relationships.js";
-
-const MAX_ANCESTRY_WALK = 2000;
 
 /**
  * Graph-level integrity checks. Pure functions over a fully-built FamilyTree — reusable
@@ -90,25 +88,53 @@ export function runIntegrityChecks(tree: FamilyTree): ValidationIssue[] {
     }
   }
 
-  // Circular ancestry: bounded walk up father/mother chains from every person.
+  // Circular ancestry: a person who is their own ancestor. Detected with a three-colour DFS
+  // up BOTH parent links at once (father AND mother) so a cycle that alternates paternal and
+  // maternal lineage is caught — a per-parent walk would miss it. Each distinct cycle is
+  // reported once (keyed on its member set), not once per member or per starting person.
+  const parentsOf = (id: UUID): UUID[] => {
+    const out: UUID[] = [];
+    const f = fatherOf(tree, id);
+    if (f !== undefined) out.push(f);
+    const m = motherOf(tree, id);
+    if (m !== undefined) out.push(m);
+    return out;
+  };
+  const color = new Map<UUID, 1 | 2>(); // 1 = on the current DFS path (grey), 2 = done (black)
+  const reportedCycles = new Set<string>();
   for (const person of Object.values(tree.persons)) {
-    for (const parentFn of [fatherOf, motherOf]) {
-      const chain = new Set<string>([person.id]);
-      let current = parentFn(tree, person.id);
-      let steps = 0;
-      while (current !== undefined && steps < MAX_ANCESTRY_WALK) {
-        if (chain.has(current)) {
-          issues.push({
-            severity: "error",
-            code: "CIRCULAR_ANCESTRY",
-            message: `Circular ancestry detected: person is their own ancestor.`,
-            relatedIds: [person.id, current],
-          });
-          break;
+    if (color.get(person.id)) continue; // already grey/black from an earlier root
+    const path: UUID[] = [person.id];
+    const stack: { parents: UUID[]; idx: number }[] = [{ parents: parentsOf(person.id), idx: 0 }];
+    color.set(person.id, 1);
+    while (stack.length > 0) {
+      const frame = stack[stack.length - 1]!;
+      if (frame.idx < frame.parents.length) {
+        const next = frame.parents[frame.idx++]!;
+        const c = color.get(next);
+        if (c === 1) {
+          // Back-edge to a node on the current path: the cycle is that path suffix.
+          const cycle = path.slice(path.indexOf(next));
+          const key = [...cycle].sort().join("|");
+          if (!reportedCycles.has(key)) {
+            reportedCycles.add(key);
+            issues.push({
+              severity: "error",
+              code: "CIRCULAR_ANCESTRY",
+              message: `Circular ancestry detected: person is their own ancestor.`,
+              relatedIds: cycle,
+            });
+          }
+        } else if (c === undefined) {
+          color.set(next, 1);
+          path.push(next);
+          stack.push({ parents: parentsOf(next), idx: 0 });
         }
-        chain.add(current);
-        current = parentFn(tree, current);
-        steps += 1;
+        // c === 2 (black): fully explored already, no cycle through it.
+      } else {
+        color.set(path[path.length - 1]!, 2);
+        path.pop();
+        stack.pop();
       }
     }
   }
