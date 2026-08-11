@@ -88,7 +88,7 @@ export interface PersonPhoto {
   /** ~160px WebP data URI — the image the renderer embeds by default. */
   thumb: string;
   /** ~640px WebP data URI — used by the "High quality" export option. */
-  print: string;
+  print?: string; // absent after a thumb-only-persisted reload (see Task 5 decision)
   /** Optional caption; UI defaults it to "Photo of {name}". */
   alt?: string;
 }
