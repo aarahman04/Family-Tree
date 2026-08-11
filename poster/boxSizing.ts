@@ -28,7 +28,9 @@ export const PHOTO_MAX_PT = 88; // pt
  * geometry. Reused verbatim by renderSvg.ts so the reserved slot and the drawn photo match. */
 export function photoAreaHeight(width: number, style: PosterStyleOptions): number {
   if (style.displayMode !== "photoCards") return 0;
-  return Math.min(PHOTO_MAX_PT, width - PHOTO_TOP_PAD * 2);
+  // Clamped to 0: does NOT rely on nodeMinWidth staying >= 16 (PHOTO_TOP_PAD * 2) to avoid a
+  // negative slot -- a narrow custom width still yields a valid (zero) photo area.
+  return Math.max(0, Math.min(PHOTO_MAX_PT, width - PHOTO_TOP_PAD * 2));
 }
 
 export interface MeasuredBox {

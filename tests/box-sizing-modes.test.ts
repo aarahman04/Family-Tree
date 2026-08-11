@@ -30,4 +30,26 @@ describe("computePersonBox display modes", () => {
     const compactBox = computePersonBox("Ahmed Rahman", "1974–2022", undefined, compact);
     expect(withYear.height).toBeLessThan(compactBox.height);
   });
+
+  it("photoAreaHeight is capped and clamped to a non-negative value at the boundary", () => {
+    expect(photoAreaHeight(104, photoCards)).toBe(88);
+    expect(photoAreaHeight(103, photoCards)).toBe(87);
+    expect(photoAreaHeight(10, photoCards)).toBe(0); // clamp: would otherwise go negative
+  });
+
+  it("dropping the year line changes height by exactly one year-line's worth (no floor binding)", () => {
+    const name = "Alexander Maximilian Featherstonehaugh Wetherby";
+    const c = computePersonBox(name, "1974–2022", undefined, compact);
+    const m = computePersonBox(name, "1974–2022", undefined, minimal);
+    expect(c.lines.length).toBeGreaterThanOrEqual(2); // guard: floors don't bind
+    expect(c.height - m.height).toBeCloseTo(DEFAULT_POSTER_STYLE.yearFontSize * 1.25, 5);
+  });
+
+  it("compact box dimensions are pinned (characterization guard)", () => {
+    const box = computePersonBox("Ahmed Rahman", "1974–2022", undefined, compact);
+    // Values captured from the current heuristic measurer — DO NOT recompute to match a
+    // change; a diff here means compact geometry moved and must be justified.
+    expect(box.width).toBeCloseTo(100, 3);
+    expect(box.height).toBeCloseTo(40, 3);
+  });
 });
