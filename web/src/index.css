@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Class-based dark variant (Tailwind v4): `dark:` utilities activate when <html> carries the
+   `dark` class, which the theme toggle sets — so a manual choice overrides the OS setting.
+   See web/src/lib/theme.ts. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   color-scheme: light;
 }
