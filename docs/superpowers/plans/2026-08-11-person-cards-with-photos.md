@@ -13,6 +13,11 @@
 - **Backwards compatibility:** `displayMode` defaults to `"compact"` and `renderPosterSvg`'s new `photos` param is optional. With these defaults, `computePersonBox` and `renderPosterSvg` MUST produce byte-for-byte identical output to today. Every existing test in `tests/` and `web/tests/` must stay green without modification.
 - **No layout-engine changes:** `poster/layout.ts` node *placement* and `poster/layoutBalanced.ts` are not modified except to populate the new derived `PosterNode.living` field. Positioning math is untouched.
 - **Renderer stays storage-agnostic:** `renderPosterSvg` receives only opaque href strings — no knowledge of data URIs, blobs, or files. Only `web/src/lib/resolvePhoto.ts` knows photos are data URIs today.
+- **A photo never breaks rendering (refinement 3):** the renderer must never throw because of a photo. An absent OR empty href renders the placeholder. Corrupt/undecodable/unsupported files are rejected during processing (Task 5) so they are never stored, and the inspector falls back to the placeholder with an error message.
+- **Photo size is capped (refinement 2):** the photo is a square capped at `PHOTO_MAX_PT` (~88pt ≈ 88–96px at export scale), centered at the top of the card — never full card width. It scales down for narrow cards. This keeps names readable, cards compact, and leaves vertical room for a future Detailed mode.
+- **Year line (refinement 1):** every mode that shows a year uses the existing `yearLineFor()` — `1974–` living, `1974–2022` deceased, existing behavior when unknown. No second formatter. **Minimal** shows the name only (no year) by design; the living/deceased dot is the extra visual cue on photo cards.
+- **Memory (refinement 5):** the editor/preview build only the `thumb` (160px) photo map and the hover preview uses the `thumb`; the `print` (640px) map is built **only** when an export explicitly requests High quality, and is not retained afterward.
+- **Export consistency (refinement 4):** editor, SVG, and PDF all render from the single `renderPosterSvg` string, so a given `(displayMode, photoShape, photos)` looks identical across all three surfaces. The final verification asserts this.
 - **No new npm dependencies.** Image processing uses the browser Canvas API only.
 - **ESM import paths:** this repo imports with explicit `.js` extensions (e.g. `../../models/types.js`) even from `.ts`/`.tsx`. Match that in every new/edited import.
 - **Photo formats accepted:** `image/png`, `image/jpeg`, `image/webp`. Encoded output: WebP, two sizes — `thumb` 160px, `print` 640px.
@@ -152,8 +157,8 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: `PosterStyleOptions.displayMode` (Task 1).
 - Produces:
-  - `export const CARD_DIVIDER_GAP = 6`
-  - `export function photoAreaHeight(width: number, style: PosterStyleOptions): number` — returns `width` when `displayMode === "photoCards"`, else `0`. This is the single source of truth for the square photo slot, reused by the renderer (Task 3).
+  - `export const CARD_DIVIDER_GAP = 6`, `export const PHOTO_TOP_PAD = 8`, `export const PHOTO_MAX_PT = 88`
+  - `export function photoAreaHeight(width: number, style: PosterStyleOptions): number` — returns the **capped** square photo side (`min(PHOTO_MAX_PT, width - PHOTO_TOP_PAD*2)`) when `displayMode === "photoCards"`, else `0`. Single source of truth for the square photo slot, reused verbatim by the renderer (Task 3) so the reserved space and the drawn photo always match.
   - `computePersonBox(...)` unchanged signature; behavior branches by mode.
 
 - [ ] **Step 1: Write the failing test**
@@ -177,12 +182,15 @@ describe("computePersonBox display modes", () => {
     expect(photoAreaHeight(box.width, compact)).toBe(0);
   });
 
-  it("photoCards reserves a square photo slot equal to the card width", () => {
+  it("photoCards reserves a capped square photo slot (not full card width)", () => {
     const box = computePersonBox("Ahmed Rahman", "1974–2022", undefined, photoCards);
     const compactBox = computePersonBox("Ahmed Rahman", "1974–2022", undefined, compact);
-    expect(photoAreaHeight(box.width, photoCards)).toBe(box.width);
-    // Photo card is taller than the compact card by (photo slot + divider gap).
-    expect(box.height).toBeGreaterThan(compactBox.height + box.width - 1);
+    const side = photoAreaHeight(box.width, photoCards);
+    expect(side).toBeGreaterThan(0);
+    expect(side).toBeLessThanOrEqual(88); // PHOTO_MAX_PT — never full width
+    // Photo card is taller than compact, but the photo does not dominate (capped, not full width).
+    expect(box.height).toBeGreaterThan(compactBox.height);
+    expect(box.height).toBeLessThan(compactBox.height + box.width);
   });
 
   it("minimal omits the year line height (shorter than compact)", () => {
@@ -203,14 +211,21 @@ Expected: FAIL — `photoAreaHeight` is not exported.
 In `poster/boxSizing.ts`, add after the existing top-of-file constants (`NOTE_FONT_RATIO`):
 
 ```ts
-/** Vertical gap between the photo slot and the text block on a photo card. */
+/** Gap between the photo and the text block on a photo card. */
 export const CARD_DIVIDER_GAP = 6; // pt
+/** Space above the photo, inside the card's top edge. */
+export const PHOTO_TOP_PAD = 8; // pt
+/** A photo never exceeds this square side, so cards stay compact and names readable even on
+ * wide boxes — the photo scales down for narrow cards but is capped here (refinement 2). */
+export const PHOTO_MAX_PT = 88; // pt
 
-/** The reserved square photo slot height for a card of the given width. Zero unless in
- * photoCards mode. Depends only on style + width — never on whether a person has a photo —
- * so adding/removing a photo never changes geometry. Reused verbatim by renderSvg.ts. */
+/** The square photo side for a card of the given width: capped at PHOTO_MAX_PT, shrinking
+ * proportionally for narrow cards, and 0 unless in photoCards mode. Depends only on style +
+ * width — never on whether a person has a photo — so adding/removing a photo never changes
+ * geometry. Reused verbatim by renderSvg.ts so the reserved slot and the drawn photo match. */
 export function photoAreaHeight(width: number, style: PosterStyleOptions): number {
-  return style.displayMode === "photoCards" ? width : 0;
+  if (style.displayMode !== "photoCards") return 0;
+  return Math.min(PHOTO_MAX_PT, width - PHOTO_TOP_PAD * 2);
 }
 ```
 
@@ -224,7 +239,7 @@ Replace the height computation block in `computePersonBox` (the `const height = 
 
   let height: number;
   if (style.displayMode === "photoCards") {
-    height = photoAreaHeight(width, style) + CARD_DIVIDER_GAP + Math.max(style.nodeMinHeight, textHeight);
+    height = PHOTO_TOP_PAD + photoAreaHeight(width, style) + CARD_DIVIDER_GAP + Math.max(style.nodeMinHeight * 0.7, textHeight);
   } else if (style.displayMode === "minimal") {
     height = Math.max(style.nodeMinHeight * 0.6, textHeight);
   } else {
@@ -311,6 +326,14 @@ describe("renderPosterSvg photo cards", () => {
     expect(svg).toContain("No photo available");
   });
 
+  it("falls back to the placeholder for an empty href — never fails on a bad photo", () => {
+    const { layout, page, style } = setup({ displayMode: "photoCards" });
+    const id = layout.nodes[0].personId;
+    const svg = renderPosterSvg(layout, page, style, new Map([[id, ""]]));
+    expect(svg).not.toContain("<image");
+    expect(svg).toContain("No photo available");
+  });
+
   it.each(["square", "rounded", "circle"] as PhotoShape[])(
     "placeholder renders for photoShape=%s",
     (photoShape) => {
@@ -354,7 +377,7 @@ In `poster/renderSvg.ts`:
 1. Import the shared slot helpers at the top:
 
 ```ts
-import { photoAreaHeight, CARD_DIVIDER_GAP } from "./boxSizing.js";
+import { photoAreaHeight, CARD_DIVIDER_GAP, PHOTO_TOP_PAD } from "./boxSizing.js";
 ```
 
 2. Add helpers above `renderNode`:
@@ -390,12 +413,16 @@ function photoPlaceholder(x: number, y: number, side: number, clipAttr: string, 
   );
 }
 
-/** Reserved extension point for future optional card elements (detailed mode, occupation,
- * country, verification badge, notes indicator, document/photo count). Returns nothing today
- * so the card layout can grow without a redesign. */
+// ─── CARD EXTENSION POINT (refinement 6) ───────────────────────────────────────
+/** Future optional card elements render here, BELOW the name/year block, without any change
+ * to the photo/name geometry above. Intended for the future "detailed" mode:
+ *   • Occupation   • Country   • Verification badge   • Notes indicator   • Document count
+ * Return additional SVG strings when implementing them. Intentionally a no-op today — this is
+ * the single, documented place to grow the card so nothing above needs a redesign. */
 function renderCardExtras(_node: PosterNode, _style: PosterStyleOptions): string {
   return "";
 }
+// ────────────────────────────────────────────────────────────────────────────────
 ```
 
 3. Refactor `renderNode`. Keep the **compact** path byte-for-byte identical (move the current body into a `compact` branch). New shape:
@@ -417,7 +444,10 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
   const cx = offsetX + node.x;
   const cyTop = offsetY + node.y - node.height / 2;
   const x = cx - node.width / 2;
-  const side = photoAreaHeight(node.width, style); // === node.width
+  const side = photoAreaHeight(node.width, style); // capped square side (refinement 2)
+  const photoX = cx - side / 2;                    // centered horizontally, not full-bleed
+  const photoY = cyTop + PHOTO_TOP_PAD;
+  const cardBottom = cyTop + node.height;
   const parts: string[] = [];
 
   // Card outline.
@@ -425,19 +455,21 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
     `<rect x="${num(x)}" y="${num(cyTop)}" width="${num(node.width)}" height="${num(node.height)}" rx="6" fill="${style.backgroundColor}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
   );
 
-  // Photo slot (image or placeholder), clipped to shape.
-  const clip = photoClip(`ph-${node.personId}`, x, cyTop, side, style.photoShape);
+  // Photo (image or placeholder), clipped to the chosen shape. An absent OR empty href always
+  // falls back to the placeholder, so a missing/failed photo can never break rendering
+  // (refinement 3). The renderer builds strings only and never throws on a photo.
+  const clip = photoClip(`ph-${node.personId}`, photoX, photoY, side, style.photoShape);
   parts.push(clip.def);
   if (photoHref) {
     parts.push(
-      `<image href="${escapeXml(photoHref)}" x="${num(x)}" y="${num(cyTop)}" width="${num(side)}" height="${num(side)}" preserveAspectRatio="xMidYMid slice" ${clip.attr}><title>Photo of ${escapeXml(node.name)}</title></image>`
+      `<image href="${escapeXml(photoHref)}" x="${num(photoX)}" y="${num(photoY)}" width="${num(side)}" height="${num(side)}" preserveAspectRatio="xMidYMid slice" ${clip.attr}><title>Photo of ${escapeXml(node.name)}</title></image>`
     );
   } else {
-    parts.push(photoPlaceholder(x, cyTop, side, clip.attr, node.name));
+    parts.push(photoPlaceholder(photoX, photoY, side, clip.attr, node.name));
   }
 
   // Divider under the photo.
-  const dividerY = cyTop + side;
+  const dividerY = photoY + side + PHOTO_TOP_PAD / 2;
   parts.push(
     `<line x1="${num(x)}" y1="${num(dividerY)}" x2="${num(x + node.width)}" y2="${num(dividerY)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
   );
@@ -452,7 +484,7 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
   const nameLineHeight = style.nameFontSize * 1.25;
   const yearH = node.yearLine ? style.yearFontSize * 1.25 : 0;
   const totalTextHeight = node.nameLines.length * nameLineHeight + yearH;
-  const regionCenter = textTop + (node.height - side - CARD_DIVIDER_GAP) / 2;
+  const regionCenter = textTop + (cardBottom - textTop) / 2;
   let lineY = regionCenter - totalTextHeight / 2 + nameLineHeight / 2;
   for (const line of node.nameLines) {
     parts.push(textLine(cx, lineY, line, style.nameFontSize, style.textColor, style.fontFamily, node.rtl));
@@ -466,7 +498,7 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
   if (style.showLivingIndicator) {
     const dotColor = node.living ? "#16a34a" : "#9ca3af";
     parts.push(
-      `<circle data-role="living-dot" cx="${num(x + node.width - 8)}" cy="${num(cyTop + node.height - 8)}" r="3.2" fill="${dotColor}"/>`
+      `<circle data-role="living-dot" cx="${num(x + node.width - 8)}" cy="${num(cardBottom - 8)}" r="3.2" fill="${dotColor}"/>`
     );
   }
 
@@ -707,6 +739,19 @@ describe("processImageFile validation", () => {
     const file = new File(["x"], "a.gif", { type: "image/gif" });
     await expect(processImageFile(file)).rejects.toThrow(/unsupported/i);
   });
+
+  it("rejects a corrupt/undecodable image (caller falls back to placeholder)", async () => {
+    // jsdom has no createImageBitmap; stub it to reject, simulating a corrupt file.
+    const g = globalThis as unknown as { createImageBitmap?: unknown };
+    const prev = g.createImageBitmap;
+    g.createImageBitmap = () => Promise.reject(new Error("decode failed"));
+    try {
+      const file = new File(["not-a-real-png"], "a.png", { type: "image/png" });
+      await expect(processImageFile(file)).rejects.toThrow();
+    } finally {
+      g.createImageBitmap = prev;
+    }
+  });
 });
 ```
 
@@ -790,7 +835,10 @@ function blobToDataUri(blob: Blob): Promise<string> {
 }
 
 /** Validate → decode → square-crop (face-centered if possible) → encode two WebP sizes.
- * The original is never retained. Throws on unsupported type or oversize input. */
+ * The original is never retained. Throws on unsupported type, oversize input, OR a
+ * corrupt/undecodable image (createImageBitmap rejects). Callers (the inspector) catch and
+ * fall back to the placeholder, so a bad file is never stored and never reaches the renderer
+ * (refinement 3). */
 export async function processImageFile(file: File): Promise<PersonPhoto> {
   if (!isAcceptedPhotoType(file.type)) {
     throw new Error("Unsupported image type — please use PNG, JPEG, or WebP.");
@@ -1579,7 +1627,10 @@ import { resolvePhoto, photoAlt } from "../../lib/resolvePhoto.js";
 ```tsx
         {hoverPreview && (() => {
           const person = tree.persons[hoverPreview.personId];
-          const href = person && resolvePhoto(person, "print");
+          // Use the 160px thumb, not the 640px print, for the on-hover preview — 160px is sharp
+          // at this display size and keeps the big print image out of active memory until an
+          // export explicitly needs it (refinement 5).
+          const href = person && resolvePhoto(person, "thumb");
           if (!href) return null;
           return (
             <img
@@ -1898,6 +1949,8 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - [ ] `npm test --workspace web` — all green.
 - [ ] `npm run typecheck && npm run typecheck --workspace web` — clean.
 - [ ] `npm run lint --workspace web` — clean (fix any eslint-a11y findings on new JSX).
+- [ ] **Export consistency (refinement 4):** confirm the invariant holds by construction — `PosterExportPanel` uses one `svg` value for BOTH its on-screen preview and the SVG/PDF downloads, `posterExport.ts` builds the PDF from that exact SVG string, and `EditorCanvas` calls the same `renderPosterSvg`. So for a given `(displayMode, photoShape, photos)`, editor preview, SVG, and PDF are identical. Spot-check manually: export SVG in photoCards mode and confirm the on-screen card matches the downloaded file.
+- [ ] **Memory (refinement 5):** confirm the editor path calls `buildPhotoMap(tree, "thumb")` only, the hover preview uses `"thumb"`, and `"print"` is built solely inside `PosterExportPanel` when High quality is selected.
 - [ ] Manual smoke (optional, via the `run` skill): open the editor, toggle Show photos, upload a photo in the inspector, confirm the card updates without the tree reflowing, export an SVG with and without photos and confirm size difference.
 
 ## Requirements → task traceability
@@ -1913,6 +1966,11 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Hover preview + search auto-preview → Task 11.
 - Export with/without photos + quality → Task 13.
 - Living indicator → Tasks 1 (living field), 3 (dot), 9 (toggle).
-- Future-proofing (detailed mode + extra elements) → Task 3 (`renderCardExtras` hook).
+- Future-proofing (detailed mode + extra elements) → Task 3 (`renderCardExtras` extension point).
 - Future storage flexibility (renderer decoupled from data URIs) → Tasks 3, 6 (Global Constraints).
+- Year display uses `yearLineFor()` in all year-showing modes; minimal is name-only (refinement 1) → Global Constraints, Tasks 2/3.
+- Photo capped square, centered, not full width (refinement 2) → Task 2 (`photoAreaHeight`), Task 3 (`renderPhotoCard`).
+- Graceful fallback — a photo never breaks rendering/export (refinement 3) → Task 3 (empty-href → placeholder), Task 5 (reject corrupt/unsupported), Task 12 (inspector catches → placeholder).
+- Export/editor/PDF consistency (refinement 4) → Global Constraints + Final verification (single `renderPosterSvg` string).
+- Memory — thumb until export needs print (refinement 5) → Tasks 6, 10 (thumb map), 11 (thumb hover), 13 (print only on High quality).
 - Tests (the five explicitly requested) → Task 2/3 (compact↔photoCards consistency; placeholder per shape), Task 4/10 (photo change no re-layout), Task 7 (prefs persist), Task 13 (quality selects thumb vs print).
