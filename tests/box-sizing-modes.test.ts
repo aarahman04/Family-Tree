@@ -49,7 +49,20 @@ describe("computePersonBox display modes", () => {
     const box = computePersonBox("Ahmed Rahman", "1974–2022", undefined, compact);
     // Values captured from the current heuristic measurer — DO NOT recompute to match a
     // change; a diff here means compact geometry moved and must be justified.
+    // NOTE: this case is floor-bound (width hits nodeMinWidth=100, height hits
+    // nodeMinHeight=40), so it only pins the floor constants, not the measurer's line
+    // geometry -- see the case below for that.
     expect(box.width).toBeCloseTo(100, 3);
     expect(box.height).toBeCloseTo(40, 3);
+  });
+
+  it("compact box dimensions are pinned for a name that exceeds both floors (characterization guard)", () => {
+    const name = "Alexander Maximilian Featherstonehaugh Wetherby";
+    const box = computePersonBox(name, "1974–2022", undefined, compact);
+    // Width (165.42) and height (50.125) both clear nodeMinWidth/nodeMinHeight, so unlike the
+    // floor-bound case above, this pins the heuristic measurer's actual line-width/line-height
+    // math -- a regression there that stays under the floors would slip past the other test.
+    expect(box.width).toBeCloseTo(165.42, 3);
+    expect(box.height).toBeCloseTo(50.125, 3);
   });
 });

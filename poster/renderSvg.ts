@@ -222,7 +222,7 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
   }
 
   // Divider under the photo.
-  const dividerY = photoY + side + PHOTO_TOP_PAD / 2;
+  const dividerY = photoY + side;
   parts.push(
     `<line x1="${num(x)}" y1="${num(dividerY)}" x2="${num(x + node.width)}" y2="${num(dividerY)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
   );
