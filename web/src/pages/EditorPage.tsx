@@ -8,9 +8,11 @@ import { useExport } from "../hooks/useExport.js";
 import { useTreeEditor } from "../state/useTreeEditor.js";
 import { useTreeSession, type TreeSession } from "../state/treeSession.js";
 import { deletePerson } from "../../../editor/operations.js";
-import { EditorCanvas } from "../components/editor/EditorCanvas.js";
+import { EditorCanvas, type EditorCanvasHandle } from "../components/editor/EditorCanvas.js";
 import { ExportMenu } from "../components/editor/ExportMenu.js";
 import { AddPersonMenu } from "../components/editor/AddPersonMenu.js";
+import { ViewMenu } from "../components/editor/ViewMenu.js";
+import { ValidationSummary } from "../components/editor/ValidationSummary.js";
 import { InsightsPanel } from "../components/editor/InsightsPanel.js";
 import { InsightsStrip } from "../components/editor/InsightsStrip.js";
 import { QuickActions } from "../components/editor/QuickActions.js";
@@ -58,8 +60,10 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
   );
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
+  const [focusMode, setFocusMode] = useState(false);
   const searchWrapRef = useRef<HTMLDivElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const canvasRef = useRef<EditorCanvasHandle>(null);
 
   const searchIndex = useMemo(() => buildSearchIndex(tree), [tree]);
   const insights = useMemo(() => computeTreeInsights(tree), [tree]);
@@ -179,6 +183,16 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
               onSelect={goTo}
               disabled={isExporting}
             />
+            <ViewMenu
+              focusMode={focusMode}
+              onFitTree={() => canvasRef.current?.fitTree()}
+              onFitWidth={() => canvasRef.current?.fitWidth()}
+              onFitHeight={() => canvasRef.current?.fitHeight()}
+              onPosterScale={() => canvasRef.current?.posterScale()}
+              onCenterSelection={() => canvasRef.current?.centerSelection()}
+              onToggleFocus={() => canvasRef.current?.toggleFocus()}
+              onResetView={() => canvasRef.current?.resetView()}
+            />
             <button
               type="button"
               onClick={undo}
@@ -198,7 +212,15 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
               ↷ Redo
             </button>
           </div>
-          <p className="ml-auto text-xs text-slate-600" role="status">
+          {editCount > 0 && (
+            <span
+              className="ml-auto inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
+              title="You have unsaved edits. They're autosaved locally, but leaving will prompt a warning."
+            >
+              <span aria-hidden="true">●</span> Unsaved changes
+            </span>
+          )}
+          <p className={`text-xs text-slate-600 ${editCount > 0 ? "" : "ml-auto"}`} role="status">
             <span className="font-medium text-slate-900">{Object.keys(tree.persons).length}</span>{" "}
             people,{" "}
             <span className="font-medium text-slate-900">{Object.keys(tree.families).length}</span>{" "}
@@ -229,16 +251,19 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
         <InsightsStrip insights={insights} />
         <div className="min-h-0 flex-1">
           <EditorCanvas
+            ref={canvasRef}
             tree={tree}
             selectedPersonId={selectedPersonId}
             onSelectPerson={setSelectedPersonId}
             focusPersonId={focusPersonId}
+            onFocusModeChange={setFocusMode}
           />
         </div>
       </div>
 
       {sidebarOpen && (
         <aside className="flex w-96 shrink-0 flex-col gap-3 overflow-y-auto border-l border-slate-200 bg-slate-50 p-3">
+          <ValidationSummary issues={tree.validation.issues} onSelect={goTo} />
           {selectedPersonId && tree.persons[selectedPersonId] ? (
             <>
               <div className="rounded-lg border border-slate-200 bg-white">

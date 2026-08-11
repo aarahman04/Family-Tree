@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { FamilyTree, UUID } from "../../../../models/types.js";
 import { computeBalancedPosterLayout } from "../../../../poster/layoutBalanced.js";
 import { computePosterPageSize } from "../../../../poster/pageSize.js";
@@ -14,6 +23,21 @@ interface EditorCanvasProps {
   onSelectPerson: (id: UUID | undefined) => void;
   /** When this changes, the canvas re-centers on that person and briefly pulses them. */
   focusPersonId?: UUID;
+  /** Notified whenever focus mode toggles, so the toolbar's View menu can reflect its state. */
+  onFocusModeChange?: (focusMode: boolean) => void;
+}
+
+/** Imperative view actions the toolbar's View menu drives — keeps the toolbar decoupled from
+ * the rendering internals. All of these only mutate the pan/zoom transform; none recompute the
+ * layout or regenerate the SVG. */
+export interface EditorCanvasHandle {
+  fitTree(): void;
+  fitWidth(): void;
+  fitHeight(): void;
+  posterScale(): void;
+  centerSelection(): void;
+  resetView(): void;
+  toggleFocus(): void;
 }
 
 interface Transform {
@@ -34,18 +58,24 @@ const MINIMAP_MAX = { w: 160, h: 120 };
  * The heavy work (layout, SVG string) is memoized on the tree; panning, zooming, selecting and
  * pulsing never regenerate it.
  */
-export function EditorCanvas({
-  tree,
-  selectedPersonId,
-  onSelectPerson,
-  focusPersonId,
-}: EditorCanvasProps) {
+export const EditorCanvas = forwardRef<EditorCanvasHandle, EditorCanvasProps>(function EditorCanvas(
+  { tree, selectedPersonId, onSelectPerson, focusPersonId, onFocusModeChange },
+  ref
+) {
   const style = DEFAULT_POSTER_STYLE;
   const viewportRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState<Transform>({ tx: 0, ty: 0, s: 1 });
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [pulseId, setPulseId] = useState<UUID | undefined>(undefined);
-  const [focusMode, setFocusMode] = useState(false);
+  const [focusMode, setFocusModeState] = useState(false);
+
+  const setFocusMode = useCallback(
+    (next: boolean) => {
+      setFocusModeState(next);
+      onFocusModeChange?.(next);
+    },
+    [onFocusModeChange]
+  );
 
   const hasPeople = Object.keys(tree.persons).length > 0;
 
@@ -200,6 +230,37 @@ export function EditorCanvas({
     else fitToView();
   }
 
+  // View presets — transform-only, so they never recompute the layout or regenerate the SVG.
+  function fitWidth() {
+    if (!page || size.w === 0) return;
+    const s = clampScale((size.w / page.widthPt) * 0.95);
+    setTransform({ s, tx: (size.w - page.widthPt * s) / 2, ty: 16 });
+  }
+  function fitHeight() {
+    if (!page || size.h === 0) return;
+    const s = clampScale((size.h / page.heightPt) * 0.95);
+    setTransform({ s, tx: 16, ty: (size.h - page.heightPt * s) / 2 });
+  }
+  function posterScale() {
+    // Natural poster dimensions (1pt -> 1px); start at the top-left and pan across with the
+    // existing viewport — no browser scrollbars, no second rendering path.
+    setTransform({ s: 1, tx: 16, ty: 16 });
+  }
+  function resetView() {
+    setFocusMode(false);
+    fitToView();
+  }
+
+  useImperativeHandle(ref, () => ({
+    fitTree: fitToView,
+    fitWidth,
+    fitHeight,
+    posterScale,
+    centerSelection,
+    resetView,
+    toggleFocus: () => setFocusMode(!focusMode),
+  }));
+
   function overlayRect(personId: UUID) {
     const n = nodeById.get(personId);
     if (!n) return undefined;
@@ -346,7 +407,7 @@ export function EditorCanvas({
           type="button"
           aria-label="Focus mode"
           aria-pressed={focusMode}
-          onClick={() => setFocusMode((v) => !v)}
+          onClick={() => setFocusMode(!focusMode)}
           className={`h-8 w-8 rounded text-sm hover:bg-slate-100 ${
             focusMode ? "bg-emerald-100 text-emerald-700" : "text-slate-700"
           }`}
@@ -364,4 +425,4 @@ export function EditorCanvas({
       </div>
     </div>
   );
-}
+});

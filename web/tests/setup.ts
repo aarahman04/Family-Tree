@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { afterEach, expect, vi } from "vitest";
+import { afterEach, beforeEach, expect, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
 import { toHaveNoViolations } from "jest-axe";
 import { MockWorker } from "./mocks/mockWorker.js";
@@ -7,13 +7,12 @@ import { setHasUnsavedEdits } from "../src/lib/unsavedEdits.js";
 
 expect.extend(toHaveNoViolations);
 
-// Not running in vitest "globals" mode, so @testing-library/react's automatic afterEach
-// cleanup isn't registered implicitly — without this, DOM from one test leaks into the next.
-// Also reset the module-level/global editor state that persists across files in a shared worker
-// (the hash-router location, the autosave localStorage, and the unsaved-edits flag) so tests are
-// order-independent — otherwise an edit in one file leaks into another's fresh render.
-afterEach(() => {
-  cleanup();
+// Reset the module-level/global editor state that persists across files in a shared worker (the
+// hash-router location, the autosave localStorage, and the unsaved-edits flag) so tests are
+// order-independent — otherwise an edit in one file leaks into another's fresh render. Done both
+// before AND after each test: `before` guarantees a clean start regardless of what any prior
+// file left, `after` tidies up this test's own mutations.
+function resetGlobalEditorState() {
   window.location.hash = "";
   try {
     localStorage.clear();
@@ -21,6 +20,17 @@ afterEach(() => {
     // ignore
   }
   setHasUnsavedEdits(false);
+}
+
+beforeEach(() => {
+  resetGlobalEditorState();
+});
+
+// Not running in vitest "globals" mode, so @testing-library/react's automatic afterEach
+// cleanup isn't registered implicitly — without this, DOM from one test leaks into the next.
+afterEach(() => {
+  cleanup();
+  resetGlobalEditorState();
 });
 
 // jsdom has no real Worker implementation — see mocks/mockWorker.ts for why this is a
