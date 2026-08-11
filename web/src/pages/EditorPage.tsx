@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FamilyTree, UUID } from "../../../models/types.js";
 import { buildSearchIndex } from "../lib/search.js";
 import { computeTreeInsights } from "../lib/insights.js";
@@ -7,8 +7,10 @@ import { setHasUnsavedEdits } from "../lib/unsavedEdits.js";
 import { useExport } from "../hooks/useExport.js";
 import { useTreeEditor } from "../state/useTreeEditor.js";
 import { useTreeSession, type TreeSession } from "../state/treeSession.js";
+import { deletePerson } from "../../../editor/operations.js";
 import { EditorCanvas } from "../components/editor/EditorCanvas.js";
 import { ExportMenu } from "../components/editor/ExportMenu.js";
+import { AddPersonMenu } from "../components/editor/AddPersonMenu.js";
 import { InsightsPanel } from "../components/editor/InsightsPanel.js";
 import { InsightsStrip } from "../components/editor/InsightsStrip.js";
 import { QuickActions } from "../components/editor/QuickActions.js";
@@ -55,7 +57,9 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
     resolveDefaultFocus(session.tree)
   );
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [toast, setToast] = useState<string | null>(null);
   const searchWrapRef = useRef<HTMLDivElement>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const searchIndex = useMemo(() => buildSearchIndex(tree), [tree]);
   const insights = useMemo(() => computeTreeInsights(tree), [tree]);
@@ -86,9 +90,33 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [editCount]);
 
+  function goTo(id: UUID) {
+    setFocusPersonId(id);
+    setSelectedPersonId(id);
+  }
+
+  // Delete is immediate + undoable — no confirm dialog, just a temporary "Person deleted · Undo"
+  // toast (per the design). Deletion goes through the normal edit() path, so undo/redo work.
+  const handleDeletePerson = useCallback(
+    (id: UUID) => {
+      edit((t) => deletePerson(t, id));
+      setSelectedPersonId((cur) => (cur === id ? undefined : cur));
+      setToast("Person deleted");
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+      toastTimer.current = setTimeout(() => setToast(null), 6000);
+    },
+    [edit]
+  );
+  function handleUndoDelete() {
+    undo();
+    setToast(null);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+  }
+  useEffect(() => () => void (toastTimer.current && clearTimeout(toastTimer.current)), []);
+
   // Keyboard shortcuts: Ctrl/Cmd+F focus search, Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z redo,
-  // Esc clear selection. Editor-wide shortcuts are ignored while typing in a field (so the
-  // field's own undo/find still work), except Escape, which just blurs the field.
+  // Delete removes the selected person, Esc clears selection. Editor-wide shortcuts are ignored
+  // while typing in a field (so the field's own undo/find still work), except Escape (blur).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const el = e.target as HTMLElement | null;
@@ -117,16 +145,16 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
         }
         return;
       }
+      if (e.key === "Delete" && selectedPersonId && !isExporting) {
+        e.preventDefault();
+        handleDeletePerson(selectedPersonId);
+        return;
+      }
       if (e.key === "Escape") setSelectedPersonId(undefined);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [canUndo, canRedo, isExporting, undo, redo]);
-
-  function goTo(id: UUID) {
-    setFocusPersonId(id);
-    setSelectedPersonId(id);
-  }
+  }, [canUndo, canRedo, isExporting, undo, redo, selectedPersonId, handleDeletePerson]);
 
   return (
     <div className="flex h-full min-h-0 w-full">
@@ -144,6 +172,13 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
             <SearchBox tree={tree} index={searchIndex} onSelect={goTo} />
           </div>
           <div className="flex items-center gap-2">
+            <AddPersonMenu
+              tree={tree}
+              selectedPersonId={selectedPersonId}
+              onEdit={edit}
+              onSelect={goTo}
+              disabled={isExporting}
+            />
             <button
               type="button"
               onClick={undo}
@@ -224,6 +259,14 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
                 onSelect={goTo}
                 disabled={isExporting}
               />
+              <button
+                type="button"
+                disabled={isExporting}
+                onClick={() => handleDeletePerson(selectedPersonId)}
+                className="rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Delete person
+              </button>
             </>
           ) : (
             <p className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
@@ -240,6 +283,22 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
             resetExport={resetExport}
           />
         </aside>
+      )}
+
+      {toast && (
+        <div
+          role="status"
+          className="fixed bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-lg bg-slate-900 px-4 py-2.5 text-sm text-white shadow-lg"
+        >
+          <span>{toast}</span>
+          <button
+            type="button"
+            onClick={handleUndoDelete}
+            className="font-semibold text-emerald-300 hover:text-emerald-200"
+          >
+            Undo
+          </button>
+        </div>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import type { DatePart, FamilyTree, Gender, Person, UUID } from "../models/types.js";
+import type { DatePart, Family, FamilyTree, Gender, Person, UUID } from "../models/types.js";
 import { generateId } from "../lib/uuid.js";
 import { EditorError } from "./errors.js";
 import { isAncestor, pruneEmptyFamily, withFamily, withPerson } from "./helpers.js";
@@ -261,4 +261,45 @@ export function removeChildFromFamily(tree: FamilyTree, familyId: UUID, childId:
   }));
   next = withPerson(next, childId, (p) => (p.famcId === familyId ? { ...p, famcId: undefined } : p));
   return pruneEmptyFamily(next, familyId);
+}
+
+/**
+ * Removes a person entirely, keeping the tree internally consistent: they are detached from
+ * every family (as spouse or child), families left with no members are pruned, and each
+ * remaining person's `famsIds`/`famcId` are re-derived from the surviving families (the
+ * authoritative source). Everyone else keeps all their other relationships. Undoable via the
+ * normal history like any other edit.
+ */
+export function deletePerson(tree: FamilyTree, personId: UUID): FamilyTree {
+  if (!tree.persons[personId]) throw new EditorError(`Person ${personId} does not exist.`);
+
+  // Copy people minus the deleted one; clear links so we can re-derive them cleanly below.
+  const persons: Record<UUID, Person> = {};
+  for (const [id, p] of Object.entries(tree.persons)) {
+    if (id !== personId) persons[id] = { ...p, famsIds: [], famcId: undefined };
+  }
+
+  // Detach from every family; drop families that become empty.
+  const families: Record<UUID, Family> = {};
+  for (const fam of Object.values(tree.families)) {
+    const husbandId = fam.husbandId === personId ? undefined : fam.husbandId;
+    const wifeId = fam.wifeId === personId ? undefined : fam.wifeId;
+    const childrenIds = fam.childrenIds.filter((id) => id !== personId);
+    if (!husbandId && !wifeId && childrenIds.length === 0) continue;
+    families[fam.id] = { ...fam, husbandId, wifeId, childrenIds };
+  }
+
+  // Re-derive person <-> family references from the surviving families.
+  for (const fam of Object.values(families)) {
+    const husband = fam.husbandId ? persons[fam.husbandId] : undefined;
+    if (husband) husband.famsIds.push(fam.id);
+    const wife = fam.wifeId ? persons[fam.wifeId] : undefined;
+    if (wife) wife.famsIds.push(fam.id);
+    for (const childId of fam.childrenIds) {
+      const child = persons[childId];
+      if (child) child.famcId = fam.id;
+    }
+  }
+
+  return { ...tree, persons, families };
 }

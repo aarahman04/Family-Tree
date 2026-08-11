@@ -1,13 +1,5 @@
 import type { FamilyTree, UUID } from "../../../../models/types.js";
-import {
-  addChildToPerson,
-  addSpouse,
-  createPerson,
-  setFather,
-  setMother,
-} from "../../../../editor/operations.js";
-
-type Relative = "father" | "mother" | "spouse" | "child";
+import { addRelative, type RelativeKind } from "../../lib/addRelative.js";
 
 interface QuickActionsProps {
   tree: FamilyTree;
@@ -18,24 +10,18 @@ interface QuickActionsProps {
 }
 
 /**
- * One-click "add a relative" buttons for the selected person. Each creates a new person named
- * "New person" (which the user immediately renames in the inspector, since the new person is
- * auto-selected) and links them via the existing editor operations — no bespoke tree mutation.
+ * One-click "add a relative" buttons for the selected person. Each creates a "New person"
+ * (auto-selected for immediate renaming) linked in the chosen role via the shared addRelative
+ * helper — the same helper the toolbar's Add-Person menu uses, so there's no duplicated logic.
  */
 export function QuickActions({ tree, personId, onEdit, onSelect, disabled }: QuickActionsProps) {
-  function add(kind: Relative) {
-    const gender = kind === "father" ? "male" : kind === "mother" ? "female" : undefined;
-    const { tree: withNew, personId: newId } = createPerson(tree, { name: "New person", gender });
-    let next: FamilyTree;
-    if (kind === "father") next = setFather(withNew, personId, newId);
-    else if (kind === "mother") next = setMother(withNew, personId, newId);
-    else if (kind === "spouse") next = addSpouse(withNew, personId, newId);
-    else next = addChildToPerson(withNew, personId, newId);
+  function add(kind: RelativeKind) {
+    const { tree: next, personId: newId } = addRelative(tree, personId, kind);
     onEdit(() => next);
     onSelect(newId);
   }
 
-  const buttons: { kind: Relative; label: string }[] = [
+  const buttons: { kind: RelativeKind; label: string }[] = [
     { kind: "father", label: "+ Father" },
     { kind: "mother", label: "+ Mother" },
     { kind: "spouse", label: "+ Spouse" },
