@@ -240,10 +240,14 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
     parts.push(genderIcon(node.gender, x, textTop - 2, style));
   }
 
-  // Name + year, centered in the lower text region.
+  // Name + year + optional branch-note, centered in the lower text region. The note height uses
+  // the SAME font math computePersonBox reserves (yearFontSize * 0.82 * 1.25), so drawing it here
+  // fits exactly the space already budgeted — verified against boxSizing.ts's noteLineHeight.
   const nameLineHeight = style.nameFontSize * 1.25;
+  const noteFontSize = style.yearFontSize * 0.82; // == NOTE_FONT_RATIO in boxSizing.ts
   const yearH = node.yearLine ? style.yearFontSize * 1.25 : 0;
-  const totalTextHeight = node.nameLines.length * nameLineHeight + yearH;
+  const noteH = node.noteLine ? noteFontSize * 1.25 : 0;
+  const totalTextHeight = node.nameLines.length * nameLineHeight + yearH + noteH;
   const regionCenter = textTop + (cardBottom - textTop) / 2;
   let lineY = regionCenter - totalTextHeight / 2 + nameLineHeight / 2;
   // Name-line loop intentionally NOT shared with the other renderers — see the note in
@@ -254,6 +258,16 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
   }
   if (node.yearLine) {
     parts.push(textLine(cx, lineY, node.yearLine, style.yearFontSize, style.textColor, style.fontFamily, false));
+    lineY += style.yearFontSize * 1.25;
+  }
+  if (node.noteLine) {
+    // The cross-reference to where this person's descendants are shown — same treatment as the
+    // compact renderer (smaller, italic, chip color). Dropping it silently loses data in export.
+    parts.push(
+      textLine(cx, lineY, node.noteLine, noteFontSize, style.chipBorderColor, style.fontFamily, node.rtl, {
+        italic: true,
+      })
+    );
   }
 
   // Optional living/deceased dot, bottom-right.

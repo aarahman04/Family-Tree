@@ -95,3 +95,42 @@ describe("renderPosterSvg photo cards", () => {
     expect(svgOff).not.toContain('data-role="living-dot"');
   });
 });
+
+describe("renderPosterSvg photo cards — branch-note cross-reference (AUD-2)", () => {
+  // Shared ancestor couple -> two branches -> a cousin in each -> cousins marry. The non-anchor
+  // spouse's own box carries a "children shown in <anchor>'s branch" note (poster/layout.ts).
+  function cousinMarriageTree(): FamilyTree {
+    return buildTree(
+      [
+        person("ancestorM", { gender: "male" }),
+        person("ancestorF", { gender: "female" }),
+        person("branchA", { famcId: "fRoot" }),
+        person("branchB", { famcId: "fRoot" }),
+        person("cousinA", { famcId: "fA", name: "Cousin A" }),
+        person("cousinB", { famcId: "fB", name: "Cousin B" }),
+      ],
+      [
+        family("fRoot", "ancestorM", "ancestorF", ["branchA", "branchB"]),
+        family("fA", "branchA", undefined, ["cousinA"]),
+        family("fB", "branchB", undefined, ["cousinB"]),
+        family("fMarriage", "cousinA", "cousinB", []),
+      ]
+    );
+  }
+
+  function svgFor(displayMode: "compact" | "photoCards"): string {
+    const tree = cousinMarriageTree();
+    const style = { ...DEFAULT_POSTER_STYLE, displayMode };
+    const layout = computeBalancedPosterLayout(tree, style);
+    const page = computePosterPageSize(layout, style);
+    return renderPosterSvg(layout, page, style);
+  }
+
+  it("compact renders the branch-note (control — proves the topology produces one)", () => {
+    expect(svgFor("compact")).toContain("children shown in");
+  });
+
+  it("photoCards also renders the branch-note (regression: renderPhotoCard dropped it)", () => {
+    expect(svgFor("photoCards")).toContain("children shown in");
+  });
+});
