@@ -9,6 +9,8 @@
  * large the tree is.
  */
 
+import type { UUID } from "../models/types.js";
+import { photoAreaHeight, CARD_DIVIDER_GAP, PHOTO_TOP_PAD } from "./boxSizing.js";
 import type { PosterChip, PosterLayout, PosterNode, PosterPageSize, PosterStyleOptions } from "./types.js";
 
 function escapeXml(text: string): string {
@@ -71,7 +73,54 @@ function genderIcon(gender: "male" | "female", boxX: number, boxY: number, style
   );
 }
 
-function renderNode(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions): string {
+/** Clip-path def + the attribute to apply it, for a square/rounded/circle photo slot at
+ * (x,y) sized `side`×`side`. Returns {def, attr}; `id` must be unique per node. */
+function photoClip(id: string, x: number, y: number, side: number, shape: "square" | "rounded" | "circle"): { def: string; attr: string } {
+  let inner: string;
+  if (shape === "circle") {
+    inner = `<circle cx="${num(x + side / 2)}" cy="${num(y + side / 2)}" r="${num(side / 2)}"/>`;
+  } else {
+    const rx = shape === "rounded" ? Math.min(10, side * 0.12) : 0;
+    inner = `<rect x="${num(x)}" y="${num(y)}" width="${num(side)}" height="${num(side)}" rx="${num(rx)}"/>`;
+  }
+  return { def: `<clipPath id="${id}">${inner}</clipPath>`, attr: `clip-path="url(#${id})"` };
+}
+
+/** A polished neutral placeholder: subtle gray fill + a simple head-and-shoulders silhouette,
+ * clipped to the same shape as real photos. Never an empty white box. */
+function photoPlaceholder(x: number, y: number, side: number, clipAttr: string, name: string): string {
+  const cx = x + side / 2;
+  const headR = side * 0.17;
+  const headCy = y + side * 0.4;
+  const shoulderR = side * 0.34;
+  const shoulderCy = y + side * 0.95;
+  return (
+    `<g ${clipAttr} role="img"><title>No photo available</title>` +
+    `<rect x="${num(x)}" y="${num(y)}" width="${num(side)}" height="${num(side)}" fill="#e2e8f0"/>` +
+    `<circle cx="${num(cx)}" cy="${num(headCy)}" r="${num(headR)}" fill="#cbd5e1"/>` +
+    `<circle cx="${num(cx)}" cy="${num(shoulderCy)}" r="${num(shoulderR)}" fill="#cbd5e1"/>` +
+    `</g>`
+  );
+}
+
+// ─── CARD EXTENSION POINT (refinement 6) ───────────────────────────────────────
+/** Future optional card elements render here, BELOW the name/year block, without any change
+ * to the photo/name geometry above. Intended for the future "detailed" mode:
+ *   • Occupation   • Country   • Verification badge   • Notes indicator   • Document count
+ * Return additional SVG strings when implementing them. Intentionally a no-op today — this is
+ * the single, documented place to grow the card so nothing above needs a redesign. */
+function renderCardExtras(_node: PosterNode, _style: PosterStyleOptions): string {
+  return "";
+}
+// ────────────────────────────────────────────────────────────────────────────────
+
+function renderNode(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions, photoHref?: string): string {
+  if (style.displayMode === "photoCards") return renderPhotoCard(node, offsetX, offsetY, style, photoHref);
+  if (style.displayMode === "minimal") return renderMinimalNode(node, offsetX, offsetY, style);
+  return renderCompactNode(node, offsetX, offsetY, style); // the original renderNode body, unchanged
+}
+
+function renderCompactNode(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions): string {
   const cx = offsetX + node.x;
   const cy = offsetY + node.y;
   const x = cx - node.width / 2;
@@ -116,6 +165,100 @@ function renderNode(node: PosterNode, offsetX: number, offsetY: number, style: P
   return parts.join("");
 }
 
+function renderMinimalNode(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions): string {
+  const cx = offsetX + node.x;
+  const cy = offsetY + node.y;
+  const x = cx - node.width / 2;
+  const y = cy - node.height / 2;
+
+  const parts: string[] = [];
+  parts.push(
+    `<rect x="${num(x)}" y="${num(y)}" width="${num(node.width)}" height="${num(node.height)}" rx="4" fill="${style.backgroundColor}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
+  );
+
+  const nameLineHeight = style.nameFontSize * 1.25;
+  const totalTextHeight = node.nameLines.length * nameLineHeight;
+  let lineY = cy - totalTextHeight / 2 + nameLineHeight / 2;
+  for (const line of node.nameLines) {
+    parts.push(textLine(cx, lineY, line, style.nameFontSize, style.textColor, style.fontFamily, node.rtl));
+    lineY += nameLineHeight;
+  }
+  return parts.join("");
+}
+
+function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions, photoHref?: string): string {
+  const cx = offsetX + node.x;
+  const cyTop = offsetY + node.y - node.height / 2;
+  const x = cx - node.width / 2;
+  const side = photoAreaHeight(node.width, style); // capped square side (refinement 2)
+  const photoX = cx - side / 2;                    // centered horizontally, not full-bleed
+  const photoY = cyTop + PHOTO_TOP_PAD;
+  const cardBottom = cyTop + node.height;
+  const parts: string[] = [];
+
+  // Card outline.
+  parts.push(
+    `<rect x="${num(x)}" y="${num(cyTop)}" width="${num(node.width)}" height="${num(node.height)}" rx="6" fill="${style.backgroundColor}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
+  );
+
+  // Photo (image or placeholder), clipped to the chosen shape. An absent OR empty href always
+  // falls back to the placeholder, so a missing/failed photo can never break rendering
+  // (refinement 3). The renderer builds strings only and never throws on a photo.
+  //
+  // EQUAL-SIZE SHAPES: the pre-cropped square thumbnail FILLS the full `side`×`side` square for
+  // every photoShape (`slice` = scale-to-fit; square→square, so NO second crop and no aspect
+  // logic here — that lives only in Task 5's ingestion). Only the clip differs. The circle uses
+  // r = side/2 (inscribed); it is intentionally NOT enlarged beyond the square — doing so would
+  // overflow the reserved slot and break the fixed photo footprint. The face therefore renders
+  // at the same scale in all three shapes; the circle just omits the corners.
+  const clip = photoClip(`ph-${node.personId}`, photoX, photoY, side, style.photoShape);
+  parts.push(clip.def);
+  if (photoHref) {
+    parts.push(
+      `<image href="${escapeXml(photoHref)}" x="${num(photoX)}" y="${num(photoY)}" width="${num(side)}" height="${num(side)}" preserveAspectRatio="xMidYMid slice" ${clip.attr}><title>Photo of ${escapeXml(node.name)}</title></image>`
+    );
+  } else {
+    parts.push(photoPlaceholder(photoX, photoY, side, clip.attr, node.name));
+  }
+
+  // Divider under the photo.
+  const dividerY = photoY + side + PHOTO_TOP_PAD / 2;
+  parts.push(
+    `<line x1="${num(x)}" y1="${num(dividerY)}" x2="${num(x + node.width)}" y2="${num(dividerY)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
+  );
+
+  // Gender glyph in the text region's top-left (reuse existing genderIcon).
+  const textTop = dividerY + CARD_DIVIDER_GAP;
+  if (node.gender === "male" || node.gender === "female") {
+    parts.push(genderIcon(node.gender, x, textTop - 2, style));
+  }
+
+  // Name + year, centered in the lower text region.
+  const nameLineHeight = style.nameFontSize * 1.25;
+  const yearH = node.yearLine ? style.yearFontSize * 1.25 : 0;
+  const totalTextHeight = node.nameLines.length * nameLineHeight + yearH;
+  const regionCenter = textTop + (cardBottom - textTop) / 2;
+  let lineY = regionCenter - totalTextHeight / 2 + nameLineHeight / 2;
+  for (const line of node.nameLines) {
+    parts.push(textLine(cx, lineY, line, style.nameFontSize, style.textColor, style.fontFamily, node.rtl));
+    lineY += nameLineHeight;
+  }
+  if (node.yearLine) {
+    parts.push(textLine(cx, lineY, node.yearLine, style.yearFontSize, style.textColor, style.fontFamily, false));
+  }
+
+  // Optional living/deceased dot, bottom-right.
+  if (style.showLivingIndicator) {
+    const dotColor = node.living ? "#16a34a" : "#9ca3af";
+    parts.push(
+      `<circle data-role="living-dot" cx="${num(x + node.width - 8)}" cy="${num(cardBottom - 8)}" r="3.2" fill="${dotColor}"/>`
+    );
+  }
+
+  parts.push(renderCardExtras(node, style));
+  return parts.join("");
+}
+
 function renderChip(chip: PosterChip, offsetX: number, offsetY: number, style: PosterStyleOptions): string {
   const cx = offsetX + chip.x;
   const cy = offsetY + chip.y;
@@ -136,7 +279,12 @@ function renderChip(chip: PosterChip, offsetX: number, offsetY: number, style: P
   return parts.join("");
 }
 
-export function renderPosterSvg(layout: PosterLayout, page: PosterPageSize, style: PosterStyleOptions): string {
+export function renderPosterSvg(
+  layout: PosterLayout,
+  page: PosterPageSize,
+  style: PosterStyleOptions,
+  photos?: ReadonlyMap<UUID, string>,
+): string {
   const offsetX = style.marginPt;
   const offsetY = style.marginPt;
 
@@ -229,7 +377,7 @@ export function renderPosterSvg(layout: PosterLayout, page: PosterPageSize, styl
   }
 
   for (const node of layout.nodes) {
-    svgParts.push(renderNode(node, offsetX, offsetY, style));
+    svgParts.push(renderNode(node, offsetX, offsetY, style, photos?.get(node.personId)));
   }
 
   svgParts.push(`</svg>`);

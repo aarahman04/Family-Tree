@@ -379,6 +379,7 @@ export function computePosterLayout(
       name: displayNameOf(person),
       nameLines: box.lines,
       yearLine: yearLineFor(person),
+      living: !person?.death?.date?.year,
       noteLine: box.noteLine,
       rtl: box.rtl,
       gender: person?.gender ?? "unknown",
