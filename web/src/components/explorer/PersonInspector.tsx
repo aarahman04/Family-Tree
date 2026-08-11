@@ -14,9 +14,12 @@ import {
   removeSpouse,
   setFather,
   setMother,
+  setPersonPhoto,
   updatePersonFields,
 } from "../../../../editor/operations.js";
 import { getRelationships } from "../../../../parser/relationships.js";
+import { isAcceptedPhotoType, processImageFile } from "../../lib/photo.js";
+import { photoAlt, resolvePhoto } from "../../lib/resolvePhoto.js";
 import type { SearchIndex } from "../../lib/search.js";
 import { PersonPicker } from "./PersonPicker.js";
 
@@ -113,7 +116,10 @@ export function PersonInspector({
   const person = tree.persons[personId];
   const [draft, setDraft] = useState<Draft>(() => draftFromPerson(tree, personId));
   const [picker, setPicker] = useState<PickerTarget | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   // Tracks unsaved typing so external tree changes (undo/redo, a relationship edit made
   // while this person stays selected) don't get silently overwritten by a resync, but the
   // form also doesn't go stale and show pre-undo data. A ref (not state) so the update is
@@ -163,6 +169,27 @@ export function PersonInspector({
       })
     );
     dirtyRef.current = false;
+  }
+
+  // Encode-then-dispatch: `processImageFile` is awaited to completion BEFORE `onEdit` fires, so
+  // the tree only ever holds the old photo or the finished new one — never a half-encoded frame
+  // an autosave could snapshot. Progress lives in component state (`photoBusy`), not in the tree.
+  async function handlePhotoFile(file: File | undefined) {
+    if (!file) return;
+    if (!isAcceptedPhotoType(file.type)) {
+      setPhotoError("Please choose a PNG, JPEG, or WebP image.");
+      return;
+    }
+    setPhotoBusy(true);
+    setPhotoError(null);
+    try {
+      const photo = await processImageFile(file);
+      onEdit((t) => setPersonPhoto(t, personId, photo));
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : "Could not process that image.");
+    } finally {
+      setPhotoBusy(false);
+    }
   }
 
   function pickPerson(pickedId: UUID) {
@@ -263,6 +290,69 @@ export function PersonInspector({
           <dt>Original FTZ ID</dt>
           <dd className="font-mono">{person.ftzId ?? "—"}</dd>
         </dl>
+
+        <section
+          className="flex flex-col gap-2 border-t border-slate-200 pt-3"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            void handlePhotoFile(e.dataTransfer.files?.[0]);
+          }}
+        >
+          <h3 className="text-sm font-semibold text-slate-800">Photo</h3>
+          <div className="flex items-center gap-3">
+            {resolvePhoto(person, "thumb") ? (
+              <img
+                src={resolvePhoto(person, "thumb")}
+                alt={photoAlt(person)}
+                className="h-16 w-16 rounded-md border border-slate-200 object-cover"
+              />
+            ) : (
+              <div
+                role="img"
+                aria-label="No photo available"
+                className="flex h-16 w-16 items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-100 text-slate-400"
+              >
+                <span aria-hidden="true">👤</span>
+              </div>
+            )}
+            <div className="flex flex-col items-start gap-1 text-xs">
+              <label className="cursor-pointer rounded border border-slate-300 px-2 py-1 text-slate-700 hover:bg-slate-50">
+                {person.photo ? "Replace" : "Upload"} photo
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  disabled={photoBusy}
+                  className="sr-only"
+                  onChange={(e) => void handlePhotoFile(e.target.files?.[0])}
+                />
+              </label>
+              {person.photo && (
+                <button
+                  type="button"
+                  disabled={photoBusy}
+                  onClick={() => {
+                    onEdit((t) => setPersonPhoto(t, personId, undefined));
+                    // Keep keyboard focus in the section instead of letting it fall to <body>
+                    // when this button unmounts; the upload input is always mounted.
+                    fileInputRef.current?.focus();
+                  }}
+                  className="rounded px-2 py-1 text-red-600 hover:bg-red-50"
+                >
+                  Remove photo
+                </button>
+              )}
+              <span className="text-slate-400">or drag an image here</span>
+            </div>
+          </div>
+          {photoBusy && <p className="text-xs text-slate-500">Processing image…</p>}
+          {photoError && (
+            <p role="alert" className="text-xs text-red-700">
+              {photoError}
+            </p>
+          )}
+        </section>
 
         <form
           onSubmit={(e) => {

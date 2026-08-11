@@ -1,11 +1,20 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { useState } from "react";
 import userEvent from "@testing-library/user-event";
 import { PersonInspector } from "../../../src/components/explorer/PersonInspector.js";
 import { buildSearchIndex } from "../../../src/lib/search.js";
+import { processImageFile } from "../../../src/lib/photo.js";
 import { parseNodeFtt } from "../../../../parser/index.js";
 import { buildNodeFtt, familyRow, personRow } from "../../../../tests/helpers.js";
 import type { FamilyTree } from "../../../../models/types.js";
+
+// Mock only the canvas-dependent encoder; keep isAcceptedPhotoType (pure) real so the
+// unsupported-type path exercises the actual predicate.
+vi.mock("../../../src/lib/photo.js", async (importActual) => ({
+  ...(await importActual<typeof import("../../../src/lib/photo.js")>()),
+  processImageFile: vi.fn(),
+}));
 
 function tree(): FamilyTree {
   return parseNodeFtt(
@@ -24,7 +33,53 @@ function idOf(t: FamilyTree, name: string): string {
   return Object.values(t.persons).find((p) => p.name === name)!.id;
 }
 
+function treeWithKidPhoto(): FamilyTree {
+  const t = tree();
+  const kid = idOf(t, "Kid");
+  return {
+    ...t,
+    persons: {
+      ...t.persons,
+      [kid]: { ...t.persons[kid]!, photo: { thumb: "data:image/webp;base64,TT", alt: "A face" } },
+    },
+  };
+}
+
+/**
+ * Renders the inspector with real state so a dispatched `onEdit` actually re-renders the panel
+ * (the plain-`vi.fn` renders above can't show post-edit UI like the photo preview). `onEditSpy`
+ * observes each mutate for call-timing/argument assertions.
+ */
+function Host({
+  initial,
+  personId,
+  onEditSpy,
+}: {
+  initial: FamilyTree;
+  personId: string;
+  onEditSpy?: (mutate: (t: FamilyTree) => FamilyTree) => void;
+}) {
+  const [t, setT] = useState(initial);
+  return (
+    <PersonInspector
+      tree={t}
+      personId={personId}
+      searchIndex={buildSearchIndex(t)}
+      onNavigate={vi.fn()}
+      onEdit={(mutate) => {
+        onEditSpy?.(mutate);
+        setT((cur) => mutate(cur));
+      }}
+      onClose={vi.fn()}
+    />
+  );
+}
+
 describe("PersonInspector", () => {
+  beforeEach(() => {
+    vi.mocked(processImageFile).mockReset();
+  });
+
   it("shows name, IDs, parents, and notes", () => {
     const t = tree();
     const kid = idOf(t, "Kid");
@@ -140,6 +195,95 @@ describe("PersonInspector", () => {
     // inspector this is) stays recorded as the remaining parent in the family.
     expect(result.persons[dad]!.famsIds).toHaveLength(1);
     expect(result.persons[mom]!.famsIds).toHaveLength(0);
+  });
+
+  it("dispatches the photo only after encoding resolves, showing a busy state meanwhile", async () => {
+    let resolveEncode!: (photo: { thumb: string; print: string }) => void;
+    vi.mocked(processImageFile).mockImplementation(
+      () => new Promise((res) => (resolveEncode = res))
+    );
+    const t = tree();
+    const kid = idOf(t, "Kid");
+    const onEditSpy = vi.fn();
+    render(<Host initial={t} personId={kid} onEditSpy={onEditSpy} />);
+
+    const input = screen.getByLabelText(/upload photo/i);
+    await userEvent.upload(input, new File(["x"], "a.png", { type: "image/png" }));
+
+    // Encode in flight: nothing written to the tree yet, and the control reflects it.
+    expect(onEditSpy).not.toHaveBeenCalled();
+    expect(screen.getByText(/processing image/i)).toBeInTheDocument();
+    expect(input).toBeDisabled();
+
+    await act(async () => {
+      resolveEncode({ thumb: "data:image/webp;base64,TT", print: "data:image/webp;base64,PP" });
+    });
+
+    // Now — and only now — the edit is dispatched and the preview appears.
+    expect(await screen.findByRole("img", { name: /photo of kid/i })).toBeInTheDocument();
+    expect(onEditSpy).toHaveBeenCalledOnce();
+    const photo = onEditSpy.mock.calls[0]![0](t).persons[kid]!.photo;
+    expect(photo).toEqual({ thumb: "data:image/webp;base64,TT", print: "data:image/webp;base64,PP" });
+  });
+
+  it("rejects an unsupported file type (drag-and-drop) without dispatching", async () => {
+    const t = tree();
+    const kid = idOf(t, "Kid");
+    const onEditSpy = vi.fn();
+    render(<Host initial={t} personId={kid} onEditSpy={onEditSpy} />);
+
+    const section = screen.getByRole("heading", { name: "Photo" }).closest("section")!;
+    fireEvent.drop(section, {
+      dataTransfer: { files: [new File(["x"], "notes.txt", { type: "text/plain" })] },
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/png, jpeg, or webp/i);
+    expect(onEditSpy).not.toHaveBeenCalled();
+    expect(processImageFile).not.toHaveBeenCalled();
+  });
+
+  it("surfaces an error and does not dispatch when decoding fails", async () => {
+    vi.mocked(processImageFile).mockRejectedValueOnce(new Error("Image encoding failed"));
+    const t = tree();
+    const kid = idOf(t, "Kid");
+    const onEditSpy = vi.fn();
+    render(<Host initial={t} personId={kid} onEditSpy={onEditSpy} />);
+
+    await userEvent.upload(
+      screen.getByLabelText(/upload photo/i),
+      new File(["x"], "a.png", { type: "image/png" })
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/image encoding failed/i);
+    expect(onEditSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText(/processing image/i)).not.toBeInTheDocument();
+  });
+
+  it("removes an existing photo and restores focus to the upload control", async () => {
+    const t = treeWithKidPhoto();
+    const kid = idOf(t, "Kid");
+    const onEditSpy = vi.fn();
+    render(<Host initial={t} personId={kid} onEditSpy={onEditSpy} />);
+
+    // The stored alt is used for the preview.
+    expect(screen.getByRole("img", { name: "A face" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /remove photo/i }));
+
+    expect(onEditSpy).toHaveBeenCalledOnce();
+    expect(onEditSpy.mock.calls[0]![0](t).persons[kid]!.photo).toBeUndefined();
+    // Placeholder replaces the preview, and focus lands on the (still-mounted) upload input
+    // rather than being lost to <body>.
+    expect(screen.getByRole("img", { name: /no photo/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/upload photo/i)).toHaveFocus();
+  });
+
+  it("the upload control is keyboard-focusable", () => {
+    const t = tree();
+    const kid = idOf(t, "Kid");
+    render(<Host initial={t} personId={kid} />);
+    const input = screen.getByLabelText(/upload photo/i);
+    input.focus();
+    expect(input).toHaveFocus();
   });
 
   it("shows validation warnings related to this person", () => {
