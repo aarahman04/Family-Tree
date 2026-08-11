@@ -84,6 +84,15 @@ export interface NoteEntry {
 
 export type Gender = "male" | "female" | "unknown";
 
+export interface PersonPhoto {
+  /** ~160px WebP data URI — the image the renderer embeds by default. */
+  thumb: string;
+  /** ~640px WebP data URI — used by the "High quality" export option. */
+  print: string;
+  /** Optional caption; UI defaults it to "Photo of {name}". */
+  alt?: string;
+}
+
 export interface Person {
   id: UUID;
   ftzId?: FtzId;
@@ -94,6 +103,7 @@ export interface Person {
   death?: Event;
   notes: NoteEntry[];
   media: MediaRef[];
+  photo?: PersonPhoto;
   famcId?: UUID;
   famsIds: UUID[];
   layout?: { x: number; y: number };

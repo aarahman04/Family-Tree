@@ -8,6 +8,9 @@
 
 import type { UUID } from "../models/types.js";
 
+export type DisplayMode = "minimal" | "compact" | "photoCards";
+export type PhotoShape = "square" | "rounded" | "circle";
+
 export interface PosterNode {
   personId: UUID;
   generation: number;
@@ -26,6 +29,8 @@ export interface PosterNode {
   noteLine?: string;
   rtl: boolean;
   gender: "male" | "female" | "unknown";
+  /** True when no death year is recorded. Derived, does not affect geometry. */
+  living?: boolean;
 }
 
 /**
@@ -113,6 +118,12 @@ export interface PosterStyleOptions {
   backgroundColor: string;
   maleIndicatorColor: string;
   femaleIndicatorColor: string;
+  /** Card style. "compact" reproduces the original box exactly. */
+  displayMode: DisplayMode;
+  /** Clip shape applied to photos and photo placeholders. */
+  photoShape: PhotoShape;
+  /** Show a small living/deceased status dot on photo cards. */
+  showLivingIndicator: boolean;
 }
 
 export const DEFAULT_POSTER_STYLE: PosterStyleOptions = {
@@ -133,6 +144,9 @@ export const DEFAULT_POSTER_STYLE: PosterStyleOptions = {
   backgroundColor: "#ffffff",
   maleIndicatorColor: "#2b6cb0",
   femaleIndicatorColor: "#b83280",
+  displayMode: "compact",
+  photoShape: "rounded",
+  showLivingIndicator: false,
 };
 
 /** PDF page geometry is capped at 14,400pt (200in) per side by the PDF format itself --
