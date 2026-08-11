@@ -12,6 +12,8 @@ import { EditorCanvas, type EditorCanvasHandle } from "../components/editor/Edit
 import { ExportMenu } from "../components/editor/ExportMenu.js";
 import { AddPersonMenu } from "../components/editor/AddPersonMenu.js";
 import { ViewMenu } from "../components/editor/ViewMenu.js";
+import { AppearanceMenu } from "../components/editor/AppearanceMenu.js";
+import { loadAppearancePrefs, saveAppearancePrefs, type AppearancePrefs } from "../lib/appearancePrefs.js";
 import { ValidationSummary } from "../components/editor/ValidationSummary.js";
 import { InsightsPanel } from "../components/editor/InsightsPanel.js";
 import { InsightsStrip } from "../components/editor/InsightsStrip.js";
@@ -61,6 +63,20 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
   const [focusMode, setFocusMode] = useState(false);
+  // Appearance is a per-user view preference, persisted separately from the tree (refinement 5).
+  const [appearance, setAppearance] = useState<AppearancePrefs>(() => loadAppearancePrefs());
+  const updateAppearance = useCallback((next: AppearancePrefs) => {
+    setAppearance(next);
+    saveAppearancePrefs(next);
+  }, []);
+  const toggleShowPhotos = useCallback(
+    () =>
+      updateAppearance({
+        ...appearance,
+        displayMode: appearance.displayMode === "photoCards" ? "compact" : "photoCards",
+      }),
+    [appearance, updateAppearance]
+  );
   const searchWrapRef = useRef<HTMLDivElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const canvasRef = useRef<EditorCanvasHandle>(null);
@@ -185,6 +201,8 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
             />
             <ViewMenu
               focusMode={focusMode}
+              showPhotos={appearance.displayMode === "photoCards"}
+              onToggleShowPhotos={toggleShowPhotos}
               onFitTree={() => canvasRef.current?.fitTree()}
               onFitWidth={() => canvasRef.current?.fitWidth()}
               onFitHeight={() => canvasRef.current?.fitHeight()}
@@ -193,6 +211,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
               onToggleFocus={() => canvasRef.current?.toggleFocus()}
               onResetView={() => canvasRef.current?.resetView()}
             />
+            <AppearanceMenu prefs={appearance} onChange={updateAppearance} />
             <button
               type="button"
               onClick={undo}
@@ -253,6 +272,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
           <EditorCanvas
             ref={canvasRef}
             tree={tree}
+            appearance={appearance}
             selectedPersonId={selectedPersonId}
             onSelectPerson={setSelectedPersonId}
             focusPersonId={focusPersonId}

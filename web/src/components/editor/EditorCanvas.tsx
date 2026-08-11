@@ -13,13 +13,18 @@ import type { FamilyTree, UUID } from "../../../../models/types.js";
 import { computeBalancedPosterLayout } from "../../../../poster/layoutBalanced.js";
 import { computePosterPageSize } from "../../../../poster/pageSize.js";
 import { renderPosterSvg } from "../../../../poster/renderSvg.js";
-import { DEFAULT_POSTER_STYLE, type PosterNode } from "../../../../poster/types.js";
+import { posterLayoutKey } from "../../../../poster/layoutKey.js";
+import type { PosterNode } from "../../../../poster/types.js";
 import { makeCanvasTextMeasurer } from "../../lib/canvasTextMeasure.js";
 import { hitTestNode } from "../../lib/canvasHitTest.js";
 import { immediateRelatives } from "../../lib/relatives.js";
+import { buildPhotoMap } from "../../lib/resolvePhoto.js";
+import { appearanceToStyle, type AppearancePrefs } from "../../lib/appearancePrefs.js";
 
 interface EditorCanvasProps {
   tree: FamilyTree;
+  /** Display mode / photo shape / living indicator — drives the shared poster style. */
+  appearance: AppearancePrefs;
   selectedPersonId?: UUID;
   onSelectPerson: (id: UUID | undefined) => void;
   /** When this changes, the canvas re-centers on that person and briefly pulses them. */
@@ -64,10 +69,10 @@ const MINIMAP_MAX = { w: 160, h: 120 };
 // on the tree, so even a real re-render never regenerates them unless the tree itself changed.
 export const EditorCanvas = memo(
   forwardRef<EditorCanvasHandle, EditorCanvasProps>(function EditorCanvas(
-    { tree, selectedPersonId, onSelectPerson, focusPersonId, onFocusModeChange },
+    { tree, appearance, selectedPersonId, onSelectPerson, focusPersonId, onFocusModeChange },
     ref
   ) {
-    const style = DEFAULT_POSTER_STYLE;
+    const style = useMemo(() => appearanceToStyle(appearance), [appearance]);
     const viewportRef = useRef<HTMLDivElement>(null);
     const [transform, setTransform] = useState<Transform>({ tx: 0, ty: 0, s: 1 });
     const [size, setSize] = useState({ w: 0, h: 0 });
@@ -94,17 +99,28 @@ export const EditorCanvas = memo(
     );
 
     const measurer = useMemo(() => makeCanvasTextMeasurer(style.fontFamily), [style.fontFamily]);
+    // Memoize layout on the STRUCTURAL signature, not the tree object: a photo edit produces a new
+    // tree but an unchanged key, so it reuses this (expensive) layout and only the SVG regenerates.
+    // A geometry-affecting edit (name, dates incl. death year, display mode) changes the key.
+    const layoutKey = useMemo(() => posterLayoutKey(tree, style), [tree, style]);
     const layout = useMemo(
       () => (hasPeople ? computeBalancedPosterLayout(tree, style, measurer) : undefined),
-      [tree, style, measurer, hasPeople]
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on layoutKey, not tree/style identity
+      [layoutKey, measurer, hasPeople]
     );
     const page = useMemo(
       () => (layout ? computePosterPageSize(layout, style) : undefined),
       [layout, style]
     );
+    // Photos are passed separately from layout (opaque hrefs), so changing them never re-runs
+    // layout. Only built in photoCards mode; thumb quality in the editor (print is export-only).
+    const photos = useMemo(
+      () => (style.displayMode === "photoCards" ? buildPhotoMap(tree, "thumb") : undefined),
+      [tree, style.displayMode]
+    );
     const svg = useMemo(
-      () => (layout && page ? renderPosterSvg(layout, page, style) : ""),
-      [layout, page, style]
+      () => (layout && page ? renderPosterSvg(layout, page, style, photos) : ""),
+      [layout, page, style, photos]
     );
 
     const nodeById = useMemo(() => {
