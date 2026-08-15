@@ -24,6 +24,7 @@ import { InsightsStrip } from "../components/editor/InsightsStrip.js";
 import { QuickActions } from "../components/editor/QuickActions.js";
 import { PersonInspector } from "../components/explorer/PersonInspector.js";
 import { SearchBox } from "../components/explorer/SearchBox.js";
+import { shouldSidebarStartOpen } from "../lib/sidebarLayout.js";
 
 /** Prefers the FTZ header's anchor person as the initial view, falling back deterministically. */
 function resolveDefaultFocus(tree: FamilyTree): UUID | undefined {
@@ -64,7 +65,12 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
   const [focusPersonId, setFocusPersonId] = useState<UUID | undefined>(() =>
     resolveDefaultFocus(session.tree)
   );
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Seed the panel's open state from viewport width (E1): on phones/tablets the fixed 384px panel
+  // would crush the canvas, so it starts closed there. One-time seed — the toolbar toggle owns it
+  // thereafter (see shouldSidebarStartOpen).
+  const [sidebarOpen, setSidebarOpen] = useState(() =>
+    shouldSidebarStartOpen(typeof window === "undefined" ? 0 : window.innerWidth)
+  );
   const [toast, setToast] = useState<string | null>(null);
   const [focusMode, setFocusMode] = useState(false);
   // Appearance is a per-user view preference, persisted separately from the tree (refinement 5).
