@@ -244,14 +244,18 @@ export function PersonInspector({
       className="flex h-full flex-col gap-4 overflow-y-auto p-4"
     >
       <div className="flex items-start justify-between">
-        <h2 ref={headingRef} tabIndex={-1} className="text-lg font-semibold text-slate-900">
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className="text-lg font-semibold text-slate-900 dark:text-slate-100"
+        >
           {person.name.trim() || "(no name)"}
         </h2>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close inspector"
-          className="text-slate-400 hover:text-slate-700"
+          className="inline-flex min-h-6 min-w-6 items-center justify-center text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
         >
           ✕
         </button>
@@ -260,7 +264,7 @@ export function PersonInspector({
       {disabled && (
         <p
           role="status"
-          className="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600"
+          className="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
         >
           This panel is paused while your export is being generated — it'll only take a moment.
         </p>
@@ -272,7 +276,7 @@ export function PersonInspector({
           descendant form controls regardless of nesting depth. */}
       <fieldset disabled={disabled} className="contents">
         {warnings.length > 0 && (
-          <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
+          <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
             <p className="font-medium">Validation warnings for this person</p>
             <ul className="mt-1 list-disc space-y-0.5 pl-4">
               {warnings.map((w, i) => (
@@ -282,7 +286,7 @@ export function PersonInspector({
           </div>
         )}
 
-        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-500">
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
           <dt>Internal ID</dt>
           <dd className="truncate font-mono" title={person.id}>
             {person.id}
@@ -292,32 +296,32 @@ export function PersonInspector({
         </dl>
 
         <section
-          className="flex flex-col gap-2 border-t border-slate-200 pt-3"
+          className="flex flex-col gap-2 border-t border-slate-200 pt-3 dark:border-slate-800"
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault();
             void handlePhotoFile(e.dataTransfer.files?.[0]);
           }}
         >
-          <h3 className="text-sm font-semibold text-slate-800">Photo</h3>
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Photo</h3>
           <div className="flex items-center gap-3">
             {resolvePhoto(person, "thumb") ? (
               <img
                 src={resolvePhoto(person, "thumb")}
                 alt={photoAlt(person)}
-                className="h-16 w-16 rounded-md border border-slate-200 object-cover"
+                className="h-16 w-16 rounded-md border border-slate-200 object-cover dark:border-slate-700"
               />
             ) : (
               <div
                 role="img"
                 aria-label="No photo available"
-                className="flex h-16 w-16 items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-100 text-slate-400"
+                className="flex h-16 w-16 items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-100 text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-500"
               >
                 <span aria-hidden="true">👤</span>
               </div>
             )}
             <div className="flex flex-col items-start gap-1 text-xs">
-              <label className="cursor-pointer rounded border border-slate-300 px-2 py-1 text-slate-700 hover:bg-slate-50">
+              <label className="inline-flex cursor-pointer items-center rounded border border-slate-300 px-2 py-1 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800 [@media(pointer:coarse)]:min-h-11">
                 {person.photo ? "Replace" : "Upload"} photo
                 <input
                   ref={fileInputRef}
@@ -338,17 +342,19 @@ export function PersonInspector({
                     // when this button unmounts; the upload input is always mounted.
                     fileInputRef.current?.focus();
                   }}
-                  className="rounded px-2 py-1 text-red-600 hover:bg-red-50"
+                  className="inline-flex items-center rounded px-2 py-1 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40 [@media(pointer:coarse)]:min-h-11"
                 >
                   Remove photo
                 </button>
               )}
-              <span className="text-slate-400">or drag an image here</span>
+              <span className="text-slate-400 dark:text-slate-500">or drag an image here</span>
             </div>
           </div>
-          {photoBusy && <p className="text-xs text-slate-500">Processing image…</p>}
+          {photoBusy && (
+            <p className="text-xs text-slate-500 dark:text-slate-400">Processing image…</p>
+          )}
           {photoError && (
-            <p role="alert" className="text-xs text-red-700">
+            <p role="alert" className="text-xs text-red-700 dark:text-red-400">
               {photoError}
             </p>
           )}
@@ -359,36 +365,36 @@ export function PersonInspector({
             e.preventDefault();
             saveDraft();
           }}
-          className="flex flex-col gap-3 border-t border-slate-200 pt-3"
+          className="flex flex-col gap-3 border-t border-slate-200 pt-3 dark:border-slate-800"
         >
-          <h3 className="text-sm font-semibold text-slate-800">Edit</h3>
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Edit</h3>
 
-          <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
+          <label className="flex flex-col gap-1 text-xs font-medium text-slate-700 dark:text-slate-300">
             Name
             <input
               type="text"
               value={draft.name}
               onChange={(e) => updateDraft({ name: e.target.value })}
-              className="rounded border border-slate-300 px-2 py-1 text-sm font-normal"
+              className="rounded border border-slate-300 px-2 py-1 text-sm font-normal dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
+          <label className="flex flex-col gap-1 text-xs font-medium text-slate-700 dark:text-slate-300">
             Nickname
             <input
               type="text"
               value={draft.nickname}
               onChange={(e) => updateDraft({ nickname: e.target.value })}
-              className="rounded border border-slate-300 px-2 py-1 text-sm font-normal"
+              className="rounded border border-slate-300 px-2 py-1 text-sm font-normal dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
+          <label className="flex flex-col gap-1 text-xs font-medium text-slate-700 dark:text-slate-300">
             Gender
             <select
               value={draft.gender}
               onChange={(e) => updateDraft({ gender: e.target.value as Gender })}
-              className="rounded border border-slate-300 px-2 py-1 text-sm font-normal"
+              className="rounded border border-slate-300 px-2 py-1 text-sm font-normal dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
             >
               <option value="unknown">Unknown</option>
               <option value="male">Male</option>
@@ -397,7 +403,9 @@ export function PersonInspector({
           </label>
 
           <fieldset className="flex flex-col gap-1">
-            <legend className="text-xs font-medium text-slate-700">Birth date</legend>
+            <legend className="text-xs font-medium text-slate-700 dark:text-slate-300">
+              Birth date
+            </legend>
             <div className="flex gap-1">
               <input
                 type="number"
@@ -405,7 +413,7 @@ export function PersonInspector({
                 value={draft.birthYear}
                 onChange={(e) => updateDraft({ birthYear: e.target.value })}
                 aria-label="Birth year"
-                className="w-1/3 rounded border border-slate-300 px-2 py-1 text-sm"
+                className="w-1/3 rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
               />
               <input
                 type="number"
@@ -413,7 +421,7 @@ export function PersonInspector({
                 value={draft.birthMonth}
                 onChange={(e) => updateDraft({ birthMonth: e.target.value })}
                 aria-label="Birth month"
-                className="w-1/3 rounded border border-slate-300 px-2 py-1 text-sm"
+                className="w-1/3 rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
               />
               <input
                 type="number"
@@ -421,13 +429,15 @@ export function PersonInspector({
                 value={draft.birthDay}
                 onChange={(e) => updateDraft({ birthDay: e.target.value })}
                 aria-label="Birth day"
-                className="w-1/3 rounded border border-slate-300 px-2 py-1 text-sm"
+                className="w-1/3 rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
               />
             </div>
           </fieldset>
 
           <fieldset className="flex flex-col gap-1">
-            <legend className="text-xs font-medium text-slate-700">Death date</legend>
+            <legend className="text-xs font-medium text-slate-700 dark:text-slate-300">
+              Death date
+            </legend>
             <div className="flex gap-1">
               <input
                 type="number"
@@ -435,7 +445,7 @@ export function PersonInspector({
                 value={draft.deathYear}
                 onChange={(e) => updateDraft({ deathYear: e.target.value })}
                 aria-label="Death year"
-                className="w-1/3 rounded border border-slate-300 px-2 py-1 text-sm"
+                className="w-1/3 rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
               />
               <input
                 type="number"
@@ -443,7 +453,7 @@ export function PersonInspector({
                 value={draft.deathMonth}
                 onChange={(e) => updateDraft({ deathMonth: e.target.value })}
                 aria-label="Death month"
-                className="w-1/3 rounded border border-slate-300 px-2 py-1 text-sm"
+                className="w-1/3 rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
               />
               <input
                 type="number"
@@ -451,18 +461,18 @@ export function PersonInspector({
                 value={draft.deathDay}
                 onChange={(e) => updateDraft({ deathDay: e.target.value })}
                 aria-label="Death day"
-                className="w-1/3 rounded border border-slate-300 px-2 py-1 text-sm"
+                className="w-1/3 rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
               />
             </div>
           </fieldset>
 
-          <label className="flex flex-col gap-1 text-xs font-medium text-slate-700">
+          <label className="flex flex-col gap-1 text-xs font-medium text-slate-700 dark:text-slate-300">
             Notes (one per line)
             <textarea
               value={draft.notes}
               onChange={(e) => updateDraft({ notes: e.target.value })}
               rows={3}
-              className="rounded border border-slate-300 px-2 py-1 text-sm font-normal"
+              className="rounded border border-slate-300 px-2 py-1 text-sm font-normal dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
             />
           </label>
 
@@ -474,19 +484,19 @@ export function PersonInspector({
           </button>
         </form>
 
-        <section className="flex flex-col gap-2 border-t border-slate-200 pt-3">
-          <h3 className="text-sm font-semibold text-slate-800">Parents</h3>
+        <section className="flex flex-col gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Parents</h3>
           {(["father", "mother"] as const).map((role) => {
             const relId = role === "father" ? rel.father : rel.mother;
             return (
               <div key={role} className="flex items-center justify-between text-sm">
-                <span className="capitalize text-slate-500">{role}:</span>
+                <span className="capitalize text-slate-500 dark:text-slate-400">{role}:</span>
                 {relId ? (
                   <span className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => onNavigate(relId)}
-                      className="text-blue-700 underline"
+                      className="min-w-0 truncate text-left text-blue-700 underline dark:text-blue-400"
                     >
                       {tree.persons[relId]?.name.trim() || "(no name)"}
                     </button>
@@ -499,7 +509,7 @@ export function PersonInspector({
                             : setMother(t, personId, undefined)
                         )
                       }
-                      className="text-xs text-red-600 hover:underline"
+                      className="inline-flex shrink-0 items-center text-xs text-red-600 hover:underline dark:text-red-400 [@media(pointer:coarse)]:min-h-11"
                     >
                       Remove
                     </button>
@@ -508,7 +518,7 @@ export function PersonInspector({
                   <button
                     type="button"
                     onClick={() => setPicker({ kind: role })}
-                    className="text-xs text-blue-700 hover:underline"
+                    className="inline-flex shrink-0 items-center text-xs text-blue-700 hover:underline dark:text-blue-400 [@media(pointer:coarse)]:min-h-11"
                   >
                     Assign {role}
                   </button>
@@ -529,18 +539,20 @@ export function PersonInspector({
           ) : null}
         </section>
 
-        <section className="flex flex-col gap-2 border-t border-slate-200 pt-3">
+        <section className="flex flex-col gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-800">Spouses</h3>
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Spouses</h3>
             <button
               type="button"
               onClick={() => setPicker({ kind: "spouse" })}
-              className="text-xs text-blue-700 hover:underline"
+              className="inline-flex shrink-0 items-center text-xs text-blue-700 hover:underline dark:text-blue-400 [@media(pointer:coarse)]:min-h-11"
             >
               + Add spouse
             </button>
           </div>
-          {rel.spouses.length === 0 && <p className="text-xs text-slate-500">None recorded.</p>}
+          {rel.spouses.length === 0 && (
+            <p className="text-xs text-slate-500 dark:text-slate-400">None recorded.</p>
+          )}
           <ul className="flex flex-col gap-1">
             {/* dedupe: a self-marriage in the source data produces the same id twice in rel.spouses */}
             {[...new Set(rel.spouses)].map((spouseId) => (
@@ -548,14 +560,14 @@ export function PersonInspector({
                 <button
                   type="button"
                   onClick={() => onNavigate(spouseId)}
-                  className="text-blue-700 underline"
+                  className="min-w-0 truncate text-left text-blue-700 underline dark:text-blue-400"
                 >
                   {tree.persons[spouseId]?.name.trim() || "(no name)"}
                 </button>
                 <button
                   type="button"
                   onClick={() => onEdit((t) => removeSpouse(t, personId, spouseId))}
-                  className="text-xs text-red-600 hover:underline"
+                  className="inline-flex shrink-0 items-center text-xs text-red-600 hover:underline dark:text-red-400 [@media(pointer:coarse)]:min-h-11"
                 >
                   Remove
                 </button>
@@ -575,18 +587,20 @@ export function PersonInspector({
           )}
         </section>
 
-        <section className="flex flex-col gap-2 border-t border-slate-200 pt-3">
+        <section className="flex flex-col gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-800">Children</h3>
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Children</h3>
             <button
               type="button"
               onClick={startAddChild}
-              className="text-xs text-blue-700 hover:underline"
+              className="inline-flex shrink-0 items-center text-xs text-blue-700 hover:underline dark:text-blue-400 [@media(pointer:coarse)]:min-h-11"
             >
               + Add child
             </button>
           </div>
-          {rel.children.length === 0 && <p className="text-xs text-slate-500">None recorded.</p>}
+          {rel.children.length === 0 && (
+            <p className="text-xs text-slate-500 dark:text-slate-400">None recorded.</p>
+          )}
           <ul className="flex flex-col gap-1">
             {rel.children.map((childId) => {
               const child = tree.persons[childId];
@@ -595,7 +609,7 @@ export function PersonInspector({
                   <button
                     type="button"
                     onClick={() => onNavigate(childId)}
-                    className="text-blue-700 underline"
+                    className="min-w-0 truncate text-left text-blue-700 underline dark:text-blue-400"
                   >
                     {child?.name.trim() || "(no name)"}
                   </button>
@@ -605,7 +619,7 @@ export function PersonInspector({
                       onClick={() =>
                         onEdit((t) => removeChildFromFamily(t, child.famcId!, childId))
                       }
-                      className="text-xs text-red-600 hover:underline"
+                      className="inline-flex shrink-0 items-center text-xs text-red-600 hover:underline dark:text-red-400 [@media(pointer:coarse)]:min-h-11"
                     >
                       Remove
                     </button>
@@ -616,8 +630,8 @@ export function PersonInspector({
           </ul>
 
           {picker?.kind === "choose-family-for-child" && (
-            <div className="rounded-md border border-slate-300 bg-white p-3 text-sm">
-              <p className="mb-2 text-xs font-medium text-slate-700">
+            <div className="rounded-md border border-slate-300 bg-white p-3 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
+              <p className="mb-2 text-xs font-medium text-slate-700 dark:text-slate-300">
                 Add child with which spouse?
               </p>
               <ul className="flex flex-col gap-1">
@@ -631,7 +645,7 @@ export function PersonInspector({
                       <button
                         type="button"
                         onClick={() => setPicker({ kind: "child", familyId: famId })}
-                        className="w-full rounded px-2 py-1 text-left hover:bg-slate-100"
+                        className="w-full rounded px-2 py-1 text-left hover:bg-slate-100 dark:hover:bg-slate-700 [@media(pointer:coarse)]:min-h-11"
                       >
                         {spouseName?.trim() || "(no spouse recorded)"}
                       </button>
@@ -642,7 +656,7 @@ export function PersonInspector({
               <button
                 type="button"
                 onClick={() => setPicker(null)}
-                className="mt-2 text-xs text-slate-500 hover:underline"
+                className="mt-2 inline-flex items-center text-xs text-slate-500 hover:underline dark:text-slate-400 [@media(pointer:coarse)]:min-h-11"
               >
                 Cancel
               </button>
@@ -662,15 +676,15 @@ export function PersonInspector({
         </section>
 
         {rel.siblings.length > 0 && (
-          <section className="flex flex-col gap-2 border-t border-slate-200 pt-3">
-            <h3 className="text-sm font-semibold text-slate-800">Siblings</h3>
+          <section className="flex flex-col gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Siblings</h3>
             <ul className="flex flex-wrap gap-2">
               {rel.siblings.map((sibId) => (
                 <li key={sibId}>
                   <button
                     type="button"
                     onClick={() => onNavigate(sibId)}
-                    className="rounded-full bg-slate-100 px-2 py-1 text-xs text-blue-700 hover:bg-slate-200"
+                    className="inline-flex items-center rounded-full bg-slate-100 px-2 py-1 text-xs text-blue-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-blue-400 dark:hover:bg-slate-700 [@media(pointer:coarse)]:min-h-11"
                   >
                     {tree.persons[sibId]?.name.trim() || "(no name)"}
                   </button>
@@ -685,8 +699,10 @@ export function PersonInspector({
           rel.grandparents.maternalGrandfather ||
           rel.grandparents.maternalGrandmother ||
           rel.grandchildren.length > 0) && (
-          <section className="flex flex-col gap-2 border-t border-slate-200 pt-3">
-            <h3 className="text-sm font-semibold text-slate-800">Extended family</h3>
+          <section className="flex flex-col gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+              Extended family
+            </h3>
             <ul className="flex flex-wrap gap-2">
               {[
                 ["Paternal grandfather", rel.grandparents.paternalGrandfather],
@@ -701,7 +717,7 @@ export function PersonInspector({
                       type="button"
                       onClick={() => onNavigate(id)}
                       title={labelText}
-                      className="rounded-full bg-slate-100 px-2 py-1 text-xs text-blue-700 hover:bg-slate-200"
+                      className="inline-flex items-center rounded-full bg-slate-100 px-2 py-1 text-xs text-blue-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-blue-400 dark:hover:bg-slate-700 [@media(pointer:coarse)]:min-h-11"
                     >
                       {tree.persons[id]?.name.trim() || "(no name)"}
                     </button>

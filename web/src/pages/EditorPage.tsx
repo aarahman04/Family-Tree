@@ -303,7 +303,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
           <ValidationSummary issues={tree.validation.issues} onSelect={goTo} />
           {selectedPersonId && tree.persons[selectedPersonId] ? (
             <>
-              <div className="rounded-lg border border-slate-200 bg-white">
+              <div className="rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
                 <PersonInspector
                   tree={tree}
                   personId={selectedPersonId}
