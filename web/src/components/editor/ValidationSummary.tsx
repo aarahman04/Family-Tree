@@ -18,8 +18,8 @@ export function ValidationSummary({ issues, onSelect }: ValidationSummaryProps) 
   const warnings = issues.filter((i) => i.severity === "warning");
 
   return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3">
-      <h3 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+    <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900 dark:bg-amber-950/40">
+      <h3 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
         <span aria-hidden="true">⚠</span>
         {errors.length > 0 && `${errors.length} error${errors.length === 1 ? "" : "s"}`}
         {errors.length > 0 && warnings.length > 0 && " · "}
@@ -35,7 +35,7 @@ export function ValidationSummary({ issues, onSelect }: ValidationSummaryProps) 
                 className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${dot}`}
                 aria-hidden="true"
               />
-              <span className="text-slate-700">{issue.message}</span>
+              <span className="text-slate-700 dark:text-slate-300">{issue.message}</span>
             </>
           );
           return (
@@ -44,7 +44,7 @@ export function ValidationSummary({ issues, onSelect }: ValidationSummaryProps) 
                 <button
                   type="button"
                   onClick={() => onSelect(target)}
-                  className="flex w-full items-start gap-2 rounded px-1 py-0.5 text-left text-xs hover:bg-amber-100"
+                  className="flex w-full items-start gap-2 rounded px-1 py-0.5 text-left text-xs hover:bg-amber-100 dark:hover:bg-amber-900/40"
                 >
                   {body}
                 </button>

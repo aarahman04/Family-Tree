@@ -37,3 +37,33 @@ utilities. No semantic-token refactor (out of scope for shell-only).
 ## Out of scope
 Any `poster/` change; the two backlogged AUD-5 items; a semantic-token refactor; AUD-6; AUD-8
 (ViewMenu `menuitemcheckbox` misuse — behavioral a11y, deferred out of the styling phase).
+
+## Step 2 execution — combined styling + dark pass (2026-08-15)
+
+Merged phase: desktop styling bugs, mobile responsiveness, and dark-mode Step 2, done surface by
+surface. Shipped so far: V1 (render-identity guard extended to viewport), global batch (token
+vocab in `docs/dark-mode-tokens.md` + AA gate `theme-contrast.test.ts` + FOUC pre-hydration +
+Layout/Header/Footer), emerald CTA AA fix, E1 (sidebar seeds from viewport width).
+
+### Deferred INTO the menu/picker batch (moved out of the EditorPage-chrome checkpoint)
+Discovered while implementing E2: the toolbar can't become a horizontal-scroll strip without
+touching the Add/View/Appearance menu components (measured at 390px — the 3 menus are 233px and
+can't be pinned within the 358px usable width; and an `overflow-x-auto` strip clips their
+`absolute` dropdowns, confirmed empirically by screenshot). So E2/E3 have a hard dependency on the
+menu components and move to that batch. **The menu/picker batch is therefore NO LONGER a routine
+`dark:` sweep — it now carries a real structural decision + a layout change. Treat it as its own
+standalone checkpoint, and bring the chosen approach back for review BEFORE building (same gate as
+C1 and E1).**
+
+- **E2 — toolbar horizontal scroll.** Once it lands, the priority order is: **tree name, search,
+  and the panel toggle stay pinned/always-visible; undo/redo and status go in the scrollable
+  region.** The menus' pinned-vs-scrollable behavior is the open structural decision (portal/fixed
+  dropdowns, icon-collapse on mobile, or a combined "Tools" menu) — pick one and get sign-off first.
+- **E3 — status `ml-auto`.** The auto-margin misbehaves once the toolbar row wraps; it's only
+  meaningful relative to E2's final layout, so it rides with E2.
+
+### EditorPage-chrome checkpoint as actually shipped
+E4 (dark treatment) + E5 (empty state) only — on the current (wrapping) toolbar structure. The 3
+menu triggers, SearchBox, PersonInspector (own checkpoint), and ExportMenu/PosterExportPanel (own
+checkpoint) stay light in dark mode as accepted intermediates until their checkpoints; nothing
+ships mid-pass.
