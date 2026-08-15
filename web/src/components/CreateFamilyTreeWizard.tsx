@@ -8,8 +8,8 @@ interface CreateFamilyTreeWizardProps {
 }
 
 const inputClass =
-  "w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500";
-const labelClass = "block text-sm font-medium text-slate-700";
+  "w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400";
+const labelClass = "block text-sm font-medium text-slate-700 dark:text-slate-300";
 
 /**
  * Two-step "start a tree from scratch" flow. Produces a normal manual FamilyTree via
@@ -44,21 +44,26 @@ export function CreateFamilyTreeWizard({ onCreated, onCancel }: CreateFamilyTree
 
   return (
     <section
-      className="rounded-2xl border border-slate-200 bg-white p-6"
+      className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900"
       aria-labelledby="wizard-heading"
     >
       <div className="mb-4 flex items-center justify-between">
-        <h2 id="wizard-heading" className="text-lg font-semibold text-slate-900">
+        <h2
+          id="wizard-heading"
+          className="text-lg font-semibold text-slate-900 dark:text-slate-100"
+        >
           Create a new family tree
         </h2>
-        <span className="text-xs font-medium text-slate-500">Step {step} of 2</span>
+        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+          Step {step} of 2
+        </span>
       </div>
 
       {step === 1 ? (
         <div className="flex flex-col gap-4">
           <div>
             <label htmlFor="tree-name" className={labelClass}>
-              Tree name <span className="text-red-500">*</span>
+              Tree name <span className="text-red-500 dark:text-red-400">*</span>
             </label>
             <input
               id="tree-name"
@@ -70,7 +75,7 @@ export function CreateFamilyTreeWizard({ onCreated, onCancel }: CreateFamilyTree
           </div>
           <div>
             <label htmlFor="tree-desc" className={labelClass}>
-              Description <span className="text-slate-400">(optional)</span>
+              Description <span className="text-slate-400 dark:text-slate-500">(optional)</span>
             </label>
             <textarea
               id="tree-desc"
@@ -84,7 +89,7 @@ export function CreateFamilyTreeWizard({ onCreated, onCancel }: CreateFamilyTree
             <button
               type="button"
               onClick={onCancel}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               Cancel
             </button>
@@ -92,7 +97,7 @@ export function CreateFamilyTreeWizard({ onCreated, onCancel }: CreateFamilyTree
               type="button"
               disabled={!canContinue}
               onClick={() => setStep(2)}
-              className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300 dark:bg-emerald-500 dark:text-slate-950 dark:hover:bg-emerald-400 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
             >
               Next: first person →
             </button>
@@ -100,7 +105,7 @@ export function CreateFamilyTreeWizard({ onCreated, onCancel }: CreateFamilyTree
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
             Add the first person — the root of your tree. You can add everyone else in the editor.
           </p>
           <div className="grid grid-cols-2 gap-3">
@@ -169,13 +174,13 @@ export function CreateFamilyTreeWizard({ onCreated, onCancel }: CreateFamilyTree
               />
             </div>
           </div>
-          <label className="flex items-center gap-2 text-sm text-slate-700">
+          <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
             <input type="checkbox" checked={living} onChange={(e) => setLiving(e.target.checked)} />
             Living
           </label>
           <div>
             <label htmlFor="notes" className={labelClass}>
-              Notes <span className="text-slate-400">(optional)</span>
+              Notes <span className="text-slate-400 dark:text-slate-500">(optional)</span>
             </label>
             <textarea
               id="notes"
@@ -189,7 +194,7 @@ export function CreateFamilyTreeWizard({ onCreated, onCancel }: CreateFamilyTree
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               ← Back
             </button>
@@ -197,7 +202,7 @@ export function CreateFamilyTreeWizard({ onCreated, onCancel }: CreateFamilyTree
               type="button"
               disabled={!canCreate}
               onClick={handleCreate}
-              className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300 dark:bg-emerald-500 dark:text-slate-950 dark:hover:bg-emerald-400 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
             >
               Create tree
             </button>

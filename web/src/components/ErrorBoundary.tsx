@@ -74,8 +74,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         className="mx-auto flex max-w-lg flex-col gap-4 px-4 py-16 text-center"
         role="alert"
       >
-        <h1 className="text-xl font-bold text-slate-900">Something went wrong</h1>
-        <p className="text-slate-600">
+        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+          Something went wrong
+        </h1>
+        <p className="text-slate-600 dark:text-slate-400">
           The application ran into an unexpected error and can't safely continue from here. Your
           original file was never modified by this — it never is — but any unsaved edits in this
           browser session could not be recovered.
@@ -87,7 +89,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         >
           Return to upload screen
         </button>
-        <details className="mt-2 text-left text-xs text-slate-500">
+        <details className="mt-2 text-left text-xs text-slate-500 dark:text-slate-400">
           <summary className="cursor-pointer">Technical details</summary>
           <pre className="mt-1 overflow-x-auto whitespace-pre-wrap">{error.message}</pre>
         </details>

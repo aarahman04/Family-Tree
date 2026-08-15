@@ -11,11 +11,11 @@ export function TechnicalDetails({
   children,
 }: TechnicalDetailsProps) {
   return (
-    <details className="mt-3 rounded-md border border-slate-200 bg-slate-50 text-sm">
-      <summary className="cursor-pointer select-none px-3 py-2 font-medium text-slate-700 hover:text-slate-900">
+    <details className="mt-3 rounded-md border border-slate-200 bg-slate-50 text-sm dark:border-slate-700 dark:bg-slate-800">
+      <summary className="cursor-pointer select-none px-3 py-2 font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100">
         {summary}
       </summary>
-      <div className="border-t border-slate-200 px-3 py-2 font-mono text-xs whitespace-pre-wrap break-words text-slate-600">
+      <div className="border-t border-slate-200 px-3 py-2 font-mono text-xs whitespace-pre-wrap break-words text-slate-600 dark:border-slate-700 dark:text-slate-400">
         {children}
       </div>
     </details>

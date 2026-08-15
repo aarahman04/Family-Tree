@@ -14,10 +14,10 @@ export function ErrorPanel({ userMessage, technicalDetails, onTryAgain }: ErrorP
     <div
       ref={ref}
       tabIndex={-1}
-      className="flex flex-col gap-4 rounded-lg border border-red-200 bg-red-50 p-5"
+      className="flex flex-col gap-4 rounded-lg border border-red-200 bg-red-50 p-5 dark:border-red-900 dark:bg-red-950/40"
       role="alert"
     >
-      <p className="flex items-start gap-2 text-sm font-medium text-red-800">
+      <p className="flex items-start gap-2 text-sm font-medium text-red-800 dark:text-red-300">
         <span aria-hidden="true">✗</span>
         <span>{userMessage}</span>
       </p>
@@ -27,7 +27,7 @@ export function ErrorPanel({ userMessage, technicalDetails, onTryAgain }: ErrorP
       <button
         type="button"
         onClick={onTryAgain}
-        className="w-fit rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+        className="w-fit rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-slate-900 dark:text-red-300 dark:hover:bg-red-950/40"
       >
         Try another file
       </button>

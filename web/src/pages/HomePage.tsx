@@ -111,13 +111,13 @@ export function HomePage() {
   return (
     <div className="flex flex-col gap-8">
       <section className="text-center">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">
           <span aria-hidden="true">🌳</span> Private &amp; free — nothing ever leaves your device
         </span>
-        <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+        <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl dark:text-slate-100">
           Turn your family tree into a poster you can print
         </h1>
-        <p className="mx-auto mt-3 max-w-2xl text-slate-600">
+        <p className="mx-auto mt-3 max-w-2xl text-slate-600 dark:text-slate-400">
           Drop in your family file and get a clean, print-ready poster of the whole tree — every
           person, every generation, laid out beautifully. Works with the two most common formats,
           and everything happens right here in your browser.
@@ -125,10 +125,12 @@ export function HomePage() {
       </section>
 
       {!loaded && saved && (
-        <section className="flex flex-col items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center sm:flex-row sm:justify-between sm:text-left">
+        <section className="flex flex-col items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center sm:flex-row sm:justify-between sm:text-left dark:border-amber-900 dark:bg-amber-950/40">
           <div>
-            <p className="font-semibold text-slate-800">Restore previous editing session?</p>
-            <p className="text-sm text-slate-600">
+            <p className="font-semibold text-slate-800 dark:text-slate-100">
+              Restore previous editing session?
+            </p>
+            <p className="text-sm text-slate-600 dark:text-slate-400">
               We found unsaved edits to <span className="font-medium">{saved.fileName}</span> from
               your last visit.
             </p>
@@ -137,14 +139,14 @@ export function HomePage() {
             <button
               type="button"
               onClick={handleRestore}
-              className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+              className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 dark:bg-emerald-500 dark:text-slate-950 dark:hover:bg-emerald-400"
             >
               Restore
             </button>
             <button
               type="button"
               onClick={handleDiscardSaved}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               Discard
             </button>
@@ -177,12 +179,16 @@ export function HomePage() {
                 onClick={() => setMode(opt.id)}
                 className={`rounded-2xl border p-4 text-left transition-all ${
                   selected
-                    ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200"
-                    : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/40"
+                    ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200 dark:border-emerald-500 dark:bg-emerald-500/10 dark:ring-emerald-500/30"
+                    : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/40 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/30"
                 }`}
               >
-                <span className="block font-semibold text-slate-900">{opt.title}</span>
-                <span className="mt-1 block text-sm text-slate-600">{opt.blurb}</span>
+                <span className="block font-semibold text-slate-900 dark:text-slate-100">
+                  {opt.title}
+                </span>
+                <span className="mt-1 block text-sm text-slate-600 dark:text-slate-400">
+                  {opt.blurb}
+                </span>
               </button>
             );
           })}
@@ -208,7 +214,7 @@ export function HomePage() {
         <section aria-labelledby="format-heading">
           <h2
             id="format-heading"
-            className="mb-3 text-center text-sm font-semibold uppercase tracking-wide text-slate-500"
+            className="mb-3 text-center text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
           >
             Two file formats, both welcome here
           </h2>
@@ -216,19 +222,21 @@ export function HomePage() {
             {FORMATS.map((f) => (
               <div
                 key={f.title}
-                className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left"
+                className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left dark:border-slate-800 dark:bg-slate-900"
               >
-                <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300">
                   {f.icon}
                 </span>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-900">{f.title}</span>
-                    <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-500">
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">
+                      {f.title}
+                    </span>
+                    <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                       {f.tagline}
                     </span>
                   </div>
-                  <p className="mt-1 text-sm text-slate-600">{f.blurb}</p>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{f.blurb}</p>
                 </div>
               </div>
             ))}
@@ -239,17 +247,17 @@ export function HomePage() {
       {(state.stage === "parsing" || isReplacing) && <ConversionProgress stage="parsing" />}
 
       {state.stage === "validated" && (
-        <section className="flex flex-col items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-6 text-center">
-          <p className="text-base font-semibold text-slate-800">
+        <section className="flex flex-col items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-6 text-center dark:border-emerald-900 dark:bg-emerald-950/30">
+          <p className="text-base font-semibold text-slate-800 dark:text-slate-100">
             {Object.keys(state.tree.persons).length} people loaded from {state.file.name}.
           </p>
-          <p className="max-w-md text-sm text-slate-600">
+          <p className="max-w-md text-sm text-slate-600 dark:text-slate-400">
             Open the full-screen editor to explore, search, edit, and export your family tree — laid
             out exactly like the printable poster.
           </p>
           <a
             href="#/editor"
-            className="rounded-md bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800"
+            className="rounded-md bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 dark:bg-emerald-500 dark:text-slate-950 dark:hover:bg-emerald-400"
           >
             Open editor →
           </a>
@@ -265,7 +273,7 @@ export function HomePage() {
       )}
 
       {!loaded && (
-        <p className="text-center text-xs text-slate-500">
+        <p className="text-center text-xs text-slate-500 dark:text-slate-400">
           Don&apos;t have a file handy? Export a GEDCOM from Ancestry, MyHeritage or FamilySearch
           (look for &ldquo;Export tree&rdquo;), then drop it above.
         </p>
