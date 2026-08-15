@@ -9,6 +9,30 @@
       content="Convert Quick Family Tree (.FTZ) files into standards-compliant GEDCOM files, entirely in your browser. Free, open source, no upload required."
     />
     <title>FTZ to GEDCOM Converter</title>
+    <!--
+      Theme pre-hydration (G1). useTheme applies the theme in an effect, which runs after first
+      paint — so without this, a dark-mode user sees a full white flash on every load. This is the
+      one place theme logic is duplicated outside src/lib/theme.ts; it is deliberately kept to the
+      minimum needed to set the class before paint, and must stay in sync with resolveInitialTheme
+      (stored pref wins, else follow the OS). Guarded so a storage exception can't block boot.
+    -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("familyTree.theme.v1");
+          var theme =
+            stored === "light" || stored === "dark"
+              ? stored
+              : window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light";
+          document.documentElement.classList.toggle("dark", theme === "dark");
+          document.documentElement.style.colorScheme = theme;
+        } catch (e) {
+          /* private mode / storage disabled — fall through to the light default */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

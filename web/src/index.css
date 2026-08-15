@@ -5,12 +5,32 @@
    See web/src/lib/theme.ts. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Light is the default; the pre-hydration script in index.html overrides `color-scheme` on
+   <html> before first paint when the resolved theme is dark, and applyTheme keeps it in sync
+   thereafter. This drives native control/scrollbar rendering, which no `dark:` utility reaches. */
 :root {
   color-scheme: light;
 }
+:root.dark {
+  color-scheme: dark;
+}
 
-/* Visible focus ring for keyboard navigation, kept even where Tailwind's reset would hide it. */
+/* The app shell is h-screen, so the body only shows through on overscroll — but an unpainted
+   body flashes white there in dark mode. Painted at the L0 backdrop colour to match. */
+body {
+  background-color: var(--color-slate-50);
+}
+:root.dark body {
+  background-color: var(--color-slate-950);
+}
+
+/* Visible focus ring for keyboard navigation, kept even where Tailwind's reset would hide it.
+   blue-600 on light / blue-400 on dark — both clear 3:1 against every surface in the token
+   vocabulary (WCAG 1.4.11 non-text contrast). See docs/dark-mode-tokens.md. */
 :focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
+}
+:root.dark :focus-visible {
+  outline-color: #60a5fa;
 }
