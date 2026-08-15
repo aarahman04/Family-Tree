@@ -339,10 +339,12 @@ export const EditorCanvas = memo(
     if (!hasPeople) {
       return (
         <div className="flex h-full flex-col items-center justify-center gap-1 p-8 text-center">
-          <p className="text-sm font-medium text-slate-700">This tree has no people yet.</p>
-          <p className="text-sm text-slate-500">
-            Use <span className="font-medium text-slate-700">Add person</span> in the toolbar to add
-            the first one.
+          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            This tree has no people yet.
+          </p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Use <span className="font-medium text-slate-700 dark:text-slate-300">Add person</span>{" "}
+            in the toolbar to add the first one.
           </p>
         </div>
       );
@@ -368,7 +370,7 @@ export const EditorCanvas = memo(
         : undefined;
 
     return (
-      <div className="relative h-full w-full overflow-hidden bg-slate-50">
+      <div className="relative h-full w-full overflow-hidden bg-slate-50 dark:bg-slate-950">
         <div
           ref={viewportRef}
           className="h-full w-full cursor-grab touch-none active:cursor-grabbing"
@@ -425,7 +427,7 @@ export const EditorCanvas = memo(
                 <img
                   src={href}
                   alt={photoAlt(person)}
-                  className="pointer-events-none absolute z-30 h-40 w-40 rounded-lg border border-slate-300 object-cover shadow-xl"
+                  className="pointer-events-none absolute z-30 h-40 w-40 rounded-lg border border-slate-300 object-cover shadow-xl dark:border-slate-600"
                   style={{ left: hoverPreview.left, top: hoverPreview.top }}
                 />
               );
@@ -449,7 +451,7 @@ export const EditorCanvas = memo(
         {page && mmW > 0 && (
           <div
             aria-hidden="true"
-            className="absolute bottom-3 left-3 overflow-hidden rounded border border-slate-300 bg-white/90 shadow-sm"
+            className="absolute bottom-3 left-3 overflow-hidden rounded border border-slate-300 bg-white/90 shadow-sm dark:border-slate-600 dark:bg-slate-800/90"
             style={{ width: mmW, height: mmH }}
           >
             {viewRect && (
@@ -466,12 +468,12 @@ export const EditorCanvas = memo(
           </div>
         )}
 
-        <div className="absolute bottom-3 right-3 flex flex-col gap-1 rounded-lg border border-slate-200 bg-white/95 p-1 shadow-sm">
+        <div className="absolute bottom-3 right-3 flex flex-col gap-1 rounded-lg border border-slate-200 bg-white/95 p-1 shadow-sm dark:border-slate-700 dark:bg-slate-800/95">
           <button
             type="button"
             aria-label="Zoom in"
             onClick={() => zoomBy(1.2)}
-            className="h-8 w-8 rounded text-lg text-slate-700 hover:bg-slate-100"
+            className="h-11 w-11 rounded text-lg text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
           >
             +
           </button>
@@ -479,7 +481,7 @@ export const EditorCanvas = memo(
             type="button"
             aria-label="Zoom out"
             onClick={() => zoomBy(1 / 1.2)}
-            className="h-8 w-8 rounded text-lg text-slate-700 hover:bg-slate-100"
+            className="h-11 w-11 rounded text-lg text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
           >
             −
           </button>
@@ -487,7 +489,7 @@ export const EditorCanvas = memo(
             type="button"
             aria-label="Center on selection"
             onClick={centerSelection}
-            className="h-8 w-8 rounded text-sm text-slate-700 hover:bg-slate-100"
+            className="h-11 w-11 rounded text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
           >
             ⊙
           </button>
@@ -496,8 +498,10 @@ export const EditorCanvas = memo(
             aria-label="Focus mode"
             aria-pressed={focusMode}
             onClick={() => setFocusMode(!focusMode)}
-            className={`h-8 w-8 rounded text-sm hover:bg-slate-100 ${
-              focusMode ? "bg-emerald-100 text-emerald-700" : "text-slate-700"
+            className={`h-11 w-11 rounded text-sm hover:bg-slate-100 dark:hover:bg-slate-700 ${
+              focusMode
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
+                : "text-slate-700 dark:text-slate-300"
             }`}
           >
             ◎
@@ -506,7 +510,7 @@ export const EditorCanvas = memo(
             type="button"
             aria-label="Fit to view"
             onClick={fitToView}
-            className="h-8 w-8 rounded text-xs font-medium text-slate-700 hover:bg-slate-100"
+            className="h-11 w-11 rounded text-xs font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
           >
             Fit
           </button>
