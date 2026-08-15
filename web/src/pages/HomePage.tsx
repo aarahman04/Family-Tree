@@ -137,7 +137,7 @@ export function HomePage() {
             <button
               type="button"
               onClick={handleRestore}
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+              className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
             >
               Restore
             </button>
@@ -249,7 +249,7 @@ export function HomePage() {
           </p>
           <a
             href="#/editor"
-            className="rounded-md bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
+            className="rounded-md bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800"
           >
             Open editor →
           </a>

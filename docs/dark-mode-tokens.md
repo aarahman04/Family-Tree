@@ -60,11 +60,11 @@ across the whole app. Flagged rather than changed unilaterally; see "Open findin
 | Warning text | `text-amber-800` | `dark:text-amber-300` |
 | Warning tint | `bg-amber-50 border-amber-200` | `dark:bg-amber-950/40 dark:border-amber-900` |
 | Success text | `text-green-700` | `dark:text-green-400` |
-| Primary action | `bg-emerald-600 text-white` ⚠ | `dark:bg-emerald-500 dark:text-slate-950` |
+| Primary action | `bg-emerald-700 text-white` | `dark:bg-emerald-500 dark:text-slate-950` |
 
-⚠ `text-white` on `bg-emerald-600` is **3.65:1** at `text-sm font-semibold` (14px — not "large" by
-WCAG, which needs ≥18.66px bold). Another pre-existing light-mode AA failure. `emerald-700` gives
-5.36:1. See "Open findings".
+`text-white` on `bg-emerald-700` is **5.36:1** — clears AA for the `text-sm font-semibold` (14px)
+label. This was raised from `emerald-600` (3.65:1, a failure) in the global batch; hover deepens to
+`emerald-800`.
 
 ## Inverted surfaces
 
@@ -87,11 +87,13 @@ dims against the light sheet, not against the app backdrop.
 
 ## Open findings (pre-existing, not introduced by this phase)
 
-Both are genuine WCAG AA failures in the **existing light** design. Fixing either changes the
-established light appearance, so neither is being changed as a side effect of dark-mode work:
+Both surfaced during the audit as genuine WCAG AA failures in the **existing light** design.
 
-1. **Control borders** — `border-slate-300` on white, 1.49:1 vs. the 3:1 bar. Affects every text
-   input in PersonInspector, PersonPicker, SearchBox, PosterExportPanel.
-2. **Primary CTA** — `text-white` on `bg-emerald-600`, 3.65:1 vs. the 4.5:1 bar. Affects the
-   HomePage hero and restore CTAs, the EditorPage empty-state CTA, and the wizard's Next button.
-   `bg-emerald-700` would clear it at 5.36:1.
+1. **Control borders — DEFERRED as AUD-9.** `border-slate-300` on white, 1.49:1 vs. the 3:1 bar.
+   Affects every text input in PersonInspector, PersonPicker, SearchBox, PosterExportPanel. Not
+   fixed here: the lightest passing shade (`slate-500`, 4.76:1) is a visibly heavier border applied
+   app-wide — a visual-weight decision, not a contained swap. Pinned by `theme-contrast.test.ts`.
+2. **Primary CTA — FIXED (global batch).** `text-white` on `bg-emerald-600` was 3.65:1 vs. the
+   4.5:1 bar. Raised to `bg-emerald-700` (5.36:1) across all five call sites (HomePage restore +
+   bottom CTAs, EditorPage empty-state CTA, both wizard Next buttons); hover deepens to
+   `emerald-800`. Asserted positively in `theme-contrast.test.ts`.

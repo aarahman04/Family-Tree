@@ -92,7 +92,7 @@ export function CreateFamilyTreeWizard({ onCreated, onCancel }: CreateFamilyTree
               type="button"
               disabled={!canContinue}
               onClick={() => setStep(2)}
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               Next: first person →
             </button>
@@ -197,7 +197,7 @@ export function CreateFamilyTreeWizard({ onCreated, onCancel }: CreateFamilyTree
               type="button"
               disabled={!canCreate}
               onClick={handleCreate}
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               Create tree
             </button>

@@ -91,6 +91,7 @@ const LIGHT: Check[] = [
   ["error text on tint", "red-800", "red-50", AA_TEXT],
   ["warning text on tint", "amber-800", "amber-50", AA_TEXT],
   ["success text", "green-700", "white", AA_TEXT],
+  ["primary action label", "white", "emerald-700", AA_TEXT],
   ["focus ring on L0", "blue-600", "slate-50", AA_LARGE],
   ["focus ring on L1", "blue-600", "white", AA_LARGE],
 ];
@@ -136,14 +137,13 @@ describe("dark-mode token vocabulary meets WCAG AA", () => {
     expect(contrastRatio("white", "white")).toBeCloseTo(1, 5);
   });
 
-  // The two pre-existing light-mode failures are pinned so they can't be forgotten, and so that
-  // fixing them turns this test red as the prompt to update docs/dark-mode-tokens.md.
-  describe("known pre-existing light-mode AA failures (documented, not yet fixed)", () => {
+  // Pre-existing light-mode failure pinned so it can't be forgotten, and so that fixing it turns
+  // this test red as the prompt to update docs/dark-mode-tokens.md. (The emerald-600 CTA failure
+  // that used to be pinned here was FIXED in the global batch — CTAs are now emerald-700, asserted
+  // positively in LIGHT above. Border weight remains deferred as AUD-9.)
+  describe("known pre-existing light-mode AA failure (AUD-9, deferred)", () => {
     it("control border slate-300 on white still fails 1.4.11", () => {
       expect(contrastRatio("slate-300", "white")).toBeLessThan(AA_LARGE);
-    });
-    it("white on emerald-600 still fails 1.4.3 for 14px semibold", () => {
-      expect(contrastRatio("white", "emerald-600")).toBeLessThan(AA_TEXT);
     });
   });
 });
