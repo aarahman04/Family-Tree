@@ -35,4 +35,5 @@ utilities. No semantic-token refactor (out of scope for shell-only).
 3. **Gates + manual smoke in both themes.**
 
 ## Out of scope
-Any `poster/` change; the two backlogged AUD-5 items; a semantic-token refactor; AUD-6.
+Any `poster/` change; the two backlogged AUD-5 items; a semantic-token refactor; AUD-6; AUD-8
+(ViewMenu `menuitemcheckbox` misuse — behavioral a11y, deferred out of the styling phase).
