@@ -60,7 +60,37 @@ C1 and E1).**
   region.** The menus' pinned-vs-scrollable behavior is the open structural decision (portal/fixed
   dropdowns, icon-collapse on mobile, or a combined "Tools" menu) — pick one and get sign-off first.
 - **E3 — status `ml-auto`.** The auto-margin misbehaves once the toolbar row wraps; it's only
-  meaningful relative to E2's final layout, so it rides with E2.
+  meaningful relative to E2's final layout, so it rides with E2. Resolves for free inside E2's
+  final structure: status moves into the scroll strip, where `ml-auto` pushes it to the right on
+  desktop (content narrower than the strip) and collapses harmlessly on mobile (content overflows
+  and scrolls) — no wrap, so no broken auto-margin.
+
+#### E2 dropdown-behavior recommendation (2026-08-15) — RECOMMENDED: Option A (portal), awaiting sign-off
+The menus can't be pinned (233px > fits) and can't sit in an `overflow-x-auto` strip (clips their
+`absolute` dropdowns — verified by screenshot). Three ways out:
+- **A — Anchored/portaled dropdowns (RECOMMENDED).** Extract a small `useAnchoredDropdown` hook:
+  the trigger keeps a ref; the panel renders `position: fixed` at a computed rect (right-aligning
+  near the viewport edge) and CLOSES on toolbar scroll (no reposition-on-scroll needed). Then the
+  whole control run lives in one horizontal-scroll strip; menus keep full text labels and simply
+  scroll a swipe away. Fixes dropdown-clipping as a class (reusable for SearchBox/PersonPicker
+  later). Cost: touches the 3 menu components' panel rendering once, via a shared hook.
+- **B — Icon-collapse below `sm`.** Add/View/Appearance become icon-only triggers (~120px total),
+  so they stay pinned and dropdowns stay `absolute`/unclipped. Cost: responsive icon+aria on 3
+  triggers; discoverability hit (what icon = "Appearance"?).
+- **C — Combined "Tools ▾" menu below `sm`.** One trigger composes all three menus' items. Minimal
+  pinned width, but the heaviest build (new composing component) and an extra tap to any View
+  action on mobile.
+Recommendation rationale: A keeps text labels, removes a latent bug class, and is the most
+reusable; menus scrolling (not pinned) is acceptable and standard on mobile toolbars. B is the
+fallback if menus must stay always-visible. Bring the final pick back before building.
+
+### Final verification checkpoint (to run after PosterExportPanel, before the pass closes)
+Formally part of the plan so it can't compress away at the end. Full both-workspace gates; the AA
+contrast gate; the render-identity guard; a real-browser smoke of BOTH themes at 375/768/1280
+across every touched surface (landing, editor, inspector, canvas, menus, export); confirm the FOUC
+script still runs pre-hydration; confirm no body horizontal-scroll at any breakpoint. Produce the
+before/after theme screenshots as the closing evidence, and reconcile the deferred backlog
+(AUD-8/9/10) is still tracked and untouched.
 
 ### EditorPage-chrome checkpoint as actually shipped
 E4 (dark treatment) + E5 (empty state) only — on the current (wrapping) toolbar structure. The 3
