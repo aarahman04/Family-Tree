@@ -8,6 +8,7 @@ import { processImageFile } from "../../../src/lib/photo.js";
 import { parseNodeFtt } from "../../../../src/parser/index.js";
 import { buildNodeFtt, familyRow, personRow } from "../../../../tests/helpers.js";
 import type { FamilyTree } from "../../../../src/models/types.js";
+import { analyzeTree } from "../../../../src/analysis/index.js";
 
 // Mock only the canvas-dependent encoder; keep isAcceptedPhotoType (pure) real so the
 // unsupported-type path exercises the actual predicate.
@@ -31,6 +32,31 @@ function tree(): FamilyTree {
 
 function idOf(t: FamilyTree, name: string): string {
   return Object.values(t.persons).find((p) => p.name === name)!.id;
+}
+
+/** First-cousin marriage (CousinA×CousinB) plus their child, whose parents are cousins. */
+function cousinTree(): FamilyTree {
+  return parseNodeFtt(
+    buildNodeFtt(
+      [
+        personRow({ id: 1, name: "Grandpa", gender: 1 }),
+        personRow({ id: 2, name: "Grandma", gender: 2 }),
+        personRow({ id: 3, name: "DadA", famc: 10, gender: 1 }),
+        personRow({ id: 4, name: "DadB", famc: 10, gender: 1 }),
+        personRow({ id: 5, name: "MomA", gender: 2 }),
+        personRow({ id: 6, name: "CousinA", famc: 20, gender: 1 }),
+        personRow({ id: 7, name: "MomB", gender: 2 }),
+        personRow({ id: 8, name: "CousinB", famc: 30, gender: 2 }),
+        personRow({ id: 9, name: "GrandchildAB", famc: 40 }),
+      ],
+      [
+        familyRow({ id: 10, husband: 1, wife: 2 }),
+        familyRow({ id: 20, husband: 3, wife: 5 }),
+        familyRow({ id: 30, husband: 4, wife: 7 }),
+        familyRow({ id: 40, husband: 6, wife: 8 }),
+      ]
+    )
+  ).tree;
 }
 
 function treeWithKidPhoto(): FamilyTree {
@@ -287,6 +313,62 @@ describe("PersonInspector", () => {
     const input = screen.getByLabelText(/upload photo/i);
     input.focus();
     expect(input).toHaveFocus();
+  });
+
+  it("shows the marriage's cousin classification and confidence when analysis is supplied", () => {
+    const t = cousinTree();
+    const cousinA = idOf(t, "CousinA");
+    render(
+      <PersonInspector
+        tree={t}
+        personId={cousinA}
+        searchIndex={buildSearchIndex(t)}
+        analysis={analyzeTree(t)}
+        onNavigate={vi.fn()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    expect(screen.getByText(/cousinb: first cousins/i)).toBeInTheDocument();
+    expect(screen.getByText(/common ancestor:/i)).toBeInTheDocument();
+    expect(screen.getByText("likely")).toBeInTheDocument();
+    // Inline badge near the heading.
+    expect(screen.getByText("First cousins")).toBeInTheDocument();
+  });
+
+  it("shows the parents-related summary, badge, and chain depth for a cousin marriage's child", () => {
+    const t = cousinTree();
+    const child = idOf(t, "GrandchildAB");
+    render(
+      <PersonInspector
+        tree={t}
+        personId={child}
+        searchIndex={buildSearchIndex(t)}
+        analysis={analyzeTree(t)}
+        onNavigate={vi.fn()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    expect(screen.getByText(/parents: first cousins/i)).toBeInTheDocument();
+    expect(screen.getByText("Parents Related")).toBeInTheDocument();
+    expect(screen.getByText(/chain: 1 generation deep/i)).toBeInTheDocument();
+  });
+
+  it("omits the relationship-intelligence section when no analysis is supplied", () => {
+    const t = tree();
+    const kid = idOf(t, "Kid");
+    render(
+      <PersonInspector
+        tree={t}
+        personId={kid}
+        searchIndex={buildSearchIndex(t)}
+        onNavigate={vi.fn()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    expect(screen.queryByText(/relationship intelligence/i)).not.toBeInTheDocument();
   });
 
   it("shows validation warnings related to this person", () => {

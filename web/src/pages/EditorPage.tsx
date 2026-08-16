@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FamilyTree, UUID } from "../../../src/models/types.js";
 import { buildSearchIndex } from "../lib/search.js";
 import { computeTreeInsights } from "../lib/insights.js";
+import { useTreeAnalysis } from "../hooks/useTreeAnalysis.js";
 import { saveSession } from "../lib/autosave.js";
 import { setHasUnsavedEdits } from "../lib/unsavedEdits.js";
 import { useExport } from "../hooks/useExport.js";
@@ -98,6 +99,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
 
   const searchIndex = useMemo(() => buildSearchIndex(tree), [tree]);
   const insights = useMemo(() => computeTreeInsights(tree), [tree]);
+  const analysis = useTreeAnalysis(tree);
   const errors = tree.validation.issues.filter((i) => i.severity === "error");
   const warnings = tree.validation.issues.filter((i) => i.severity === "warning");
 
@@ -376,6 +378,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
                   tree={tree}
                   personId={selectedPersonId}
                   searchIndex={searchIndex}
+                  analysis={analysis}
                   onNavigate={goTo}
                   onEdit={edit}
                   onClose={() => setSelectedPersonId(undefined)}
