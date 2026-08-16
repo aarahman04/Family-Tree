@@ -1,3 +1,4 @@
+import type { TreeAnalysis } from "../../../../src/analysis/index.js";
 import type { TreeInsights } from "../../lib/insights.js";
 import { useScrollFade } from "../../lib/useScrollFade.js";
 
@@ -13,7 +14,13 @@ function Chip({ icon, label, value }: { icon: string; label: string; value: stri
 
 /** A thin, horizontally-scrollable strip of headline stats across the top of the editor. The
  * detailed breakdown lives in the sidebar's InsightsPanel. */
-export function InsightsStrip({ insights }: { insights: TreeInsights }) {
+export function InsightsStrip({
+  insights,
+  analysis,
+}: {
+  insights: TreeInsights;
+  analysis?: TreeAnalysis;
+}) {
   const i = insights;
   const { ref, edges } = useScrollFade<HTMLDivElement>();
   return (
@@ -29,6 +36,13 @@ export function InsightsStrip({ insights }: { insights: TreeInsights }) {
         <Chip icon="🌳" label="generations" value={String(i.generationCount)} />
         {i.estimatedEarliestDecade !== undefined && (
           <Chip icon="🕰️" label="est. earliest" value={`~${i.estimatedEarliestDecade}s`} />
+        )}
+        {analysis && analysis.summary.cousinMarriageCount > 0 && (
+          <Chip
+            icon="🧬"
+            label="cousin marriages"
+            value={`${analysis.summary.cousinMarriagePercent}%`}
+          />
         )}
       </div>
       {edges.left && (

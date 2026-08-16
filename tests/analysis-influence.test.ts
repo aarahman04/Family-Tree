@@ -4,9 +4,12 @@ import { analyzeInfluence } from "../src/analysis/influence.js";
 import { buildNodeFtt, familyRow, personRow } from "./helpers.js";
 
 /**
- * A x B -> C, D (siblings). C x E -> F, G. So A has the bigger total subtree (4 descendants:
- * C, D, F, G) while C is the more directly-connected person (2 parents + spouse + 2 children +
- * 1 sibling = 6 edges) -- the two metrics should pick DIFFERENT people.
+ * A x B -> C, D (siblings). C x E -> F, G. A also x H -> I, an independent second marriage B has
+ * no part in, so A (5 total descendants: C, D, F, G, I) unambiguously outscores B (4: C, D, F, G)
+ * for "most influential" -- descendant counting is bidirectional (both parents of a family share
+ * credit for its children), so without this second line A and B would tie. Meanwhile C is the
+ * more directly-connected person (2 parents + spouse + 2 children + 1 sibling = 6 edges) -- the
+ * two metrics should pick DIFFERENT people.
  */
 function tree() {
   const text = buildNodeFtt(
@@ -18,10 +21,13 @@ function tree() {
       personRow({ id: 5, name: "E", gender: 2 }),
       personRow({ id: 6, name: "F", famc: 20 }),
       personRow({ id: 7, name: "G", famc: 20 }),
+      personRow({ id: 8, name: "H", gender: 2 }),
+      personRow({ id: 9, name: "I", famc: 30 }),
     ],
     [
       familyRow({ id: 10, husband: 1, wife: 2 }),
       familyRow({ id: 20, husband: 3, wife: 5 }),
+      familyRow({ id: 30, husband: 1, wife: 8 }),
     ],
   );
   return parseNodeFtt(text).tree;
@@ -36,7 +42,7 @@ describe("analysis/influence — analyzeInfluence", () => {
     const t = tree();
     const a = analyzeInfluence(t);
     expect(a.mostInfluentialAncestor?.personId).toBe(idOf(t, "A"));
-    expect(a.mostInfluentialAncestor?.descendantCount).toBe(4); // C, D, F, G
+    expect(a.mostInfluentialAncestor?.descendantCount).toBe(5); // C, D, F, G, I
   });
 
   it("picks the person with the most direct relationship edges as most connected", () => {

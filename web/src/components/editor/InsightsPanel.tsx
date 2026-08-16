@@ -1,4 +1,6 @@
 import { useState } from "react";
+import type { FamilyTree } from "../../../../src/models/types.js";
+import type { TreeAnalysis } from "../../../../src/analysis/index.js";
 import type { TreeInsights } from "../../lib/insights.js";
 
 /** One label/value row. `estimate` renders a small amber "est." badge next to the value. */
@@ -34,9 +36,18 @@ function Section({ title, children }: { title: string; children: React.ReactNode
  * "est." badge and hedged wording ("~1900s", "~175 years") so nothing reads as verified history.
  * Rows are omitted when the underlying data isn't present, so sparse trees stay uncluttered.
  */
-export function InsightsPanel({ insights }: { insights: TreeInsights }) {
+interface InsightsPanelProps {
+  insights: TreeInsights;
+  /** Whole-tree relationship analysis (Insights v2). The "Family health" section renders only
+   * when both this and `tree` (for name resolution) are supplied. */
+  analysis?: TreeAnalysis;
+  tree?: FamilyTree;
+}
+
+export function InsightsPanel({ insights, analysis, tree }: InsightsPanelProps) {
   const [open, setOpen] = useState(true);
   const i = insights;
+  const nameOf = (id: string) => tree?.persons[id]?.name.trim() || "(no name)";
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -139,6 +150,42 @@ export function InsightsPanel({ insights }: { insights: TreeInsights }) {
                 <Stat
                   label="Most common first name"
                   value={`${i.mostCommonFirstName.name} (${i.mostCommonFirstName.count})`}
+                />
+              )}
+            </Section>
+          )}
+
+          {analysis && tree && (
+            <Section title="Family health">
+              {analysis.summary.totalMarriages > 0 && (
+                <Stat
+                  label="Cousin marriages"
+                  value={`${analysis.summary.cousinMarriageCount} of ${analysis.summary.totalMarriages} (${analysis.summary.cousinMarriagePercent}%)`}
+                />
+              )}
+              {analysis.summary.maxChainDepth > 0 && (
+                <Stat
+                  label="Cousin-marriage chain depth"
+                  value={`${analysis.summary.maxChainDepth} generation${analysis.summary.maxChainDepth === 1 ? "" : "s"}`}
+                />
+              )}
+              <Stat
+                label="Pedigree collapse"
+                value={`${analysis.summary.pedigreeCollapsePercent}%`}
+              />
+              {analysis.branches.branches.length > 0 && (
+                <Stat label="Branch overlap" value={`${analysis.summary.branchOverlapPercent}%`} />
+              )}
+              {analysis.influence.mostInfluentialAncestor && (
+                <Stat
+                  label="Most influential ancestor"
+                  value={`${nameOf(analysis.influence.mostInfluentialAncestor.personId)} (${analysis.influence.mostInfluentialAncestor.descendantCount} descendants)`}
+                />
+              )}
+              {analysis.influence.mostConnectedPerson && (
+                <Stat
+                  label="Most connected person"
+                  value={`${nameOf(analysis.influence.mostConnectedPerson.personId)} (${analysis.influence.mostConnectedPerson.connectionCount} connections)`}
                 />
               )}
             </Section>

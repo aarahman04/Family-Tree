@@ -327,7 +327,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
             {sidebarOpen ? "Hide panel" : "Show panel"}
           </button>
         </div>
-        <InsightsStrip insights={insights} />
+        <InsightsStrip insights={insights} analysis={analysis} />
         <div className="min-h-0 flex-1">
           <EditorCanvas
             ref={canvasRef}
@@ -407,7 +407,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
               Select a person on the canvas to view and edit their details.
             </p>
           )}
-          <InsightsPanel insights={insights} />
+          <InsightsPanel insights={insights} analysis={analysis} tree={tree} />
           <ExportMenu
             tree={tree}
             sourceFileName={session.fileName}

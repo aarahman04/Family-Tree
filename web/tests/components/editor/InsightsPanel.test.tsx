@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { TreeInsights } from "../../../src/lib/insights.js";
 import { InsightsPanel } from "../../../src/components/editor/InsightsPanel.js";
+import { parseNodeFtt } from "../../../../src/parser/index.js";
+import { analyzeTree } from "../../../../src/analysis/index.js";
+import { buildNodeFtt, familyRow, personRow } from "../../../../tests/helpers.js";
 
 const insights: TreeInsights = {
   totalMembers: 6,
@@ -40,5 +43,40 @@ describe("InsightsPanel", () => {
     expect(screen.getByText(/Smith \(5\)/)).toBeInTheDocument();
     // Estimated figures are badged.
     expect(screen.getAllByText(/^est\.$/i).length).toBeGreaterThan(0);
+  });
+
+  it("omits the family-health section when no analysis/tree is supplied", () => {
+    render(<InsightsPanel insights={insights} />);
+    expect(screen.queryByText(/family health/i)).not.toBeInTheDocument();
+  });
+
+  it("shows family-health stats when analysis and tree are supplied", () => {
+    // One first-cousin marriage (CousinA x CousinB) among 4 marriages -> 25%.
+    const text = buildNodeFtt(
+      [
+        personRow({ id: 1, name: "Grandpa", gender: 1 }),
+        personRow({ id: 2, name: "Grandma", gender: 2 }),
+        personRow({ id: 3, name: "DadA", famc: 10, gender: 1 }),
+        personRow({ id: 4, name: "DadB", famc: 10, gender: 1 }),
+        personRow({ id: 5, name: "MomA", gender: 2 }),
+        personRow({ id: 6, name: "CousinA", famc: 20, gender: 1 }),
+        personRow({ id: 7, name: "MomB", gender: 2 }),
+        personRow({ id: 8, name: "CousinB", famc: 30, gender: 2 }),
+      ],
+      [
+        familyRow({ id: 10, husband: 1, wife: 2 }),
+        familyRow({ id: 20, husband: 3, wife: 5 }),
+        familyRow({ id: 30, husband: 4, wife: 7 }),
+        familyRow({ id: 40, husband: 6, wife: 8 }),
+      ]
+    );
+    const tree = parseNodeFtt(text).tree;
+    const analysis = analyzeTree(tree);
+    render(<InsightsPanel insights={insights} analysis={analysis} tree={tree} />);
+    expect(screen.getByText(/family health/i)).toBeInTheDocument();
+    expect(screen.getByText(/cousin marriages/i)).toBeInTheDocument();
+    expect(screen.getByText("1 of 4 (25%)")).toBeInTheDocument();
+    expect(screen.getByText(/most influential ancestor/i)).toBeInTheDocument();
+    expect(screen.getByText(/most connected person/i)).toBeInTheDocument();
   });
 });
