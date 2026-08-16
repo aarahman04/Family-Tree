@@ -10,6 +10,12 @@ import {
   useState,
 } from "react";
 import type { FamilyTree, UUID } from "../../../../src/models/types.js";
+import {
+  DEPTH_CAP,
+  ancestorPaths,
+  parentsRelated,
+  type TreeAnalysis,
+} from "../../../../src/analysis/index.js";
 import { computeBalancedPosterLayout } from "../../../../src/poster/layoutBalanced.js";
 import { computePosterPageSize } from "../../../../src/poster/pageSize.js";
 import { renderPosterSvg } from "../../../../src/poster/renderSvg.js";
@@ -25,6 +31,9 @@ interface EditorCanvasProps {
   tree: FamilyTree;
   /** Display mode / photo shape / living indicator — drives the shared poster style. */
   appearance: AppearancePrefs;
+  /** Whole-tree relationship analysis (Insights v2). Optional: the ancestry-highlight overlay
+   * simply doesn't render without it. */
+  analysis?: TreeAnalysis;
   selectedPersonId?: UUID;
   onSelectPerson: (id: UUID | undefined) => void;
   /** When this changes, the canvas re-centers on that person and briefly pulses them. */
@@ -58,6 +67,34 @@ const clampScale = (s: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
 const MINIMAP_MAX = { w: 160, h: 120 };
 
 /**
+ * People (besides `personId` itself) on the ancestry loop that explains why the selected person
+ * is part of a cousin marriage — their own parents' shared lineage, and/or their own spouse's
+ * shared lineage. Feeds the transient interaction overlay below; never rendered by
+ * `renderPosterSvg` (Invariant 1 — this is interaction-only, like the existing focus-dim overlay).
+ */
+function ancestryHighlightIds(tree: FamilyTree, personId: UUID, analysis: TreeAnalysis): Set<UUID> {
+  const ids = new Set<UUID>();
+  const addPath = (fromId: UUID, ancestorId: UUID) => {
+    const path = ancestorPaths(tree, fromId, ancestorId, DEPTH_CAP, 1)[0];
+    for (const id of path ?? []) ids.add(id);
+  };
+  const pr = parentsRelated(tree, personId);
+  if (pr?.related && pr.relation.closest) {
+    addPath(pr.fatherId, pr.relation.closest.ancestorId);
+    addPath(pr.motherId, pr.relation.closest.ancestorId);
+  }
+  for (const famId of tree.persons[personId]?.famsIds ?? []) {
+    const m = analysis.marriages.get(famId);
+    if (m?.isCousinMarriage && m.relation.closest) {
+      addPath(m.husbandId, m.relation.closest.ancestorId);
+      addPath(m.wifeId, m.relation.closest.ancestorId);
+    }
+  }
+  ids.delete(personId);
+  return ids;
+}
+
+/**
  * The interactive tree view. Deliberately renders the EXACT SVG the Print Poster uses
  * (computeBalancedPosterLayout -> renderPosterSvg), then layers pan/zoom, click-to-select, a
  * minimap and a search pulse on top of it — so the editor and the poster can never drift apart.
@@ -69,7 +106,15 @@ const MINIMAP_MAX = { w: 160, h: 120 };
 // on the tree, so even a real re-render never regenerates them unless the tree itself changed.
 export const EditorCanvas = memo(
   forwardRef<EditorCanvasHandle, EditorCanvasProps>(function EditorCanvas(
-    { tree, appearance, selectedPersonId, onSelectPerson, focusPersonId, onFocusModeChange },
+    {
+      tree,
+      appearance,
+      analysis,
+      selectedPersonId,
+      onSelectPerson,
+      focusPersonId,
+      onFocusModeChange,
+    },
     ref
   ) {
     const style = useMemo(() => appearanceToStyle(appearance), [appearance]);
@@ -103,6 +148,16 @@ export const EditorCanvas = memo(
       () =>
         focusMode && selectedPersonId ? immediateRelatives(tree, selectedPersonId) : undefined,
       [focusMode, selectedPersonId, tree]
+    );
+
+    // Transient interaction overlay (never exported — see ancestryHighlightIds above): the
+    // ancestry loop that explains the selected person's cousin-marriage link, if any.
+    const ancestryHighlight = useMemo(
+      () =>
+        analysis && selectedPersonId
+          ? ancestryHighlightIds(tree, selectedPersonId, analysis)
+          : undefined,
+      [analysis, selectedPersonId, tree]
     );
 
     const measurer = useMemo(() => makeCanvasTextMeasurer(style.fontFamily), [style.fontFamily]);
@@ -517,6 +572,20 @@ export const EditorCanvas = memo(
               style={pulseRect}
             />
           )}
+          {ancestryHighlight &&
+            [...ancestryHighlight].map((id) => {
+              const r = overlayRect(id);
+              if (!r) return null;
+              return (
+                <div
+                  key={id}
+                  data-testid="ancestry-highlight"
+                  aria-hidden="true"
+                  className="pointer-events-none absolute rounded-md ring-2 ring-amber-500 ring-offset-1"
+                  style={r}
+                />
+              );
+            })}
         </div>
 
         {page && mmW > 0 && (

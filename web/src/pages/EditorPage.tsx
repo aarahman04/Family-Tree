@@ -333,6 +333,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
             ref={canvasRef}
             tree={tree}
             appearance={appearance}
+            analysis={analysis}
             selectedPersonId={selectedPersonId}
             onSelectPerson={setSelectedPersonId}
             focusPersonId={focusPersonId}
