@@ -84,6 +84,14 @@ Recommendation rationale: A keeps text labels, removes a latent bug class, and i
 reusable; menus scrolling (not pinned) is acceptable and standard on mobile toolbars. B is the
 fallback if menus must stay always-visible. Bring the final pick back before building.
 
+### About/Privacy dark-mode follow-up (deferred surface — must land before final verification)
+`web/src/pages/AboutPage.tsx` and `web/src/pages/PrivacyPage.tsx` currently have **zero `dark:`
+treatment** — they render light in dark mode, the same gap the landing/import surfaces had before
+step 7. They were skipped by the earlier passes (not in any checkpoint's surface list). They need
+their own small `dark:` pass, done **before** the final verification checkpoint so the both-theme
+smoke can cover them. Add "about, privacy" to the checkpoint's touched-surface smoke list when this
+lands. Scope: chrome/text tokens only — no `poster/` touch, render-identity guard stays green.
+
 ### Final verification checkpoint (to run after PosterExportPanel, before the pass closes)
 Formally part of the plan so it can't compress away at the end. Full both-workspace gates; the AA
 contrast gate; the render-identity guard; a real-browser smoke of BOTH themes at 375/768/1280
