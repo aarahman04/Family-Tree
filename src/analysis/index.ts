@@ -1,4 +1,5 @@
 import type { FamilyTree, UUID } from "../models/types.js";
+import { type BranchAnalysis, analyzeBranches } from "./branches.js";
 import { type CousinChains, analyzeCousinChains } from "./chains.js";
 import type { Confidence } from "./confidence.js";
 import { type MarriageAnalysis, classifyAllMarriages } from "./marriages.js";
@@ -17,6 +18,7 @@ export * from "./confidence.js";
 export * from "./marriages.js";
 export * from "./chains.js";
 export * from "./pedigree.js";
+export * from "./branches.js";
 
 export interface TreeAnalysisSummary {
   /** Couples with both spouses recorded. */
@@ -34,6 +36,9 @@ export interface TreeAnalysisSummary {
   /** Tree-level pedigree-collapse score (D-5: averaged over the terminal generation), as a
    * whole-number percent. */
   pedigreeCollapsePercent: number;
+  /** How much branches' descendant sets overlap due to cross-branch marriages, as a
+   * whole-number percent (see `BranchAnalysis.overlapPercent`). */
+  branchOverlapPercent: number;
 }
 
 export interface TreeAnalysis {
@@ -45,6 +50,8 @@ export interface TreeAnalysis {
   chains: CousinChains;
   /** Pedigree-collapse score per person + the tree-level headline. */
   pedigree: PedigreeAnalysis;
+  /** Branch overlap / vitality analysis. */
+  branches: BranchAnalysis;
   /** Headline counts for the insights panel/strip. */
   summary: TreeAnalysisSummary;
 }
@@ -72,6 +79,7 @@ export function analyzeTree(tree: FamilyTree): TreeAnalysis {
 
   const chains = analyzeCousinChains(tree, marriages);
   const pedigree = analyzePedigreeCollapse(tree);
+  const branches = analyzeBranches(tree);
   const totalMarriages = marriages.size;
   const cousinMarriageCount = cousinMarriages.length;
 
@@ -80,6 +88,7 @@ export function analyzeTree(tree: FamilyTree): TreeAnalysis {
     cousinMarriages,
     chains,
     pedigree,
+    branches,
     summary: {
       totalMarriages,
       cousinMarriageCount,
@@ -91,6 +100,7 @@ export function analyzeTree(tree: FamilyTree): TreeAnalysis {
       maxChainDepth: chains.maxChainDepth,
       byConfidence,
       pedigreeCollapsePercent: Math.round(pedigree.treeScore * 100),
+      branchOverlapPercent: branches.overlapPercent,
     },
   };
 }

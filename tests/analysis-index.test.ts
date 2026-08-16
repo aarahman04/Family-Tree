@@ -55,6 +55,9 @@ describe("analysis/index — analyzeTree", () => {
     // No pedigree collapse in this fixture (no ancestor is reachable via two different slots).
     expect(a.pedigree.treeScore).toBe(0);
     expect(a.summary.pedigreeCollapsePercent).toBe(0);
+    // Grandpa is the primary anchor; CousinA's family is the bridge that creates the overlap.
+    expect(a.branches.primaryRootId).toBeDefined();
+    expect(a.summary.branchOverlapPercent).toBe(a.branches.overlapPercent);
   });
 });
 
