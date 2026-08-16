@@ -351,7 +351,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
         />
       )}
       {sidebarOpen && (
-        <aside className="fixed inset-y-0 right-0 z-30 flex w-[85%] max-w-sm flex-col gap-3 overflow-y-auto border-l border-slate-200 bg-slate-50 p-3 shadow-xl lg:static lg:z-auto lg:w-96 lg:max-w-none lg:shrink-0 lg:shadow-none dark:border-slate-800 dark:bg-slate-900">
+        <aside className="fixed inset-y-0 right-0 z-30 flex w-[85%] max-w-sm flex-col gap-3 overflow-y-auto border-l border-slate-200 bg-slate-50 p-3 shadow-xl lg:relative lg:z-auto lg:w-96 lg:max-w-none lg:shrink-0 lg:shadow-none dark:border-slate-800 dark:bg-slate-900">
           {/* The drawer overlays the toolbar on mobile (incl. its Hide-panel button), so it carries
               its own close control there. The scrim also closes it; on lg+ this header is hidden and
               the toolbar toggle is visible again. */}
