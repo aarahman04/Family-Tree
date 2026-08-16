@@ -108,7 +108,7 @@ export function CreateFamilyTreeWizard({ onCreated, onCancel }: CreateFamilyTree
           <p className="text-sm text-slate-600 dark:text-slate-400">
             Add the first person — the root of your tree. You can add everyone else in the editor.
           </p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label htmlFor="fn" className={labelClass}>
                 First name
@@ -147,7 +147,7 @@ export function CreateFamilyTreeWizard({ onCreated, onCancel }: CreateFamilyTree
               <option value="female">Female</option>
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label htmlFor="birth" className={labelClass}>
                 Birth date
