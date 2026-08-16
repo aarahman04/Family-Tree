@@ -1,4 +1,5 @@
 import type { TreeInsights } from "../../lib/insights.js";
+import { useScrollFade } from "../../lib/useScrollFade.js";
 
 function Chip({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
@@ -14,17 +15,27 @@ function Chip({ icon, label, value }: { icon: string; label: string; value: stri
  * detailed breakdown lives in the sidebar's InsightsPanel. */
 export function InsightsStrip({ insights }: { insights: TreeInsights }) {
   const i = insights;
+  const { ref, edges } = useScrollFade<HTMLDivElement>();
   return (
-    <div
-      className="flex items-center gap-2 overflow-x-auto border-b border-slate-200 bg-white px-4 py-1.5 dark:border-slate-800 dark:bg-slate-900"
-      aria-label="Tree insights summary"
-    >
-      <Chip icon="👥" label="members" value={String(i.totalMembers)} />
-      <Chip icon="♂" label="male" value={String(i.maleCount)} />
-      <Chip icon="♀" label="female" value={String(i.femaleCount)} />
-      <Chip icon="🌳" label="generations" value={String(i.generationCount)} />
-      {i.estimatedEarliestDecade !== undefined && (
-        <Chip icon="🕰️" label="est. earliest" value={`~${i.estimatedEarliestDecade}s`} />
+    <div className="relative border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <div
+        ref={ref}
+        className="flex items-center gap-2 overflow-x-auto px-4 py-1.5"
+        aria-label="Tree insights summary"
+      >
+        <Chip icon="👥" label="members" value={String(i.totalMembers)} />
+        <Chip icon="♂" label="male" value={String(i.maleCount)} />
+        <Chip icon="♀" label="female" value={String(i.femaleCount)} />
+        <Chip icon="🌳" label="generations" value={String(i.generationCount)} />
+        {i.estimatedEarliestDecade !== undefined && (
+          <Chip icon="🕰️" label="est. earliest" value={`~${i.estimatedEarliestDecade}s`} />
+        )}
+      </div>
+      {edges.left && (
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-white dark:from-slate-900" />
+      )}
+      {edges.right && (
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white dark:from-slate-900" />
       )}
     </div>
   );

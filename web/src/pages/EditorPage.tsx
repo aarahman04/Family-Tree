@@ -25,6 +25,7 @@ import { QuickActions } from "../components/editor/QuickActions.js";
 import { PersonInspector } from "../components/explorer/PersonInspector.js";
 import { SearchBox } from "../components/explorer/SearchBox.js";
 import { shouldSidebarStartOpen } from "../lib/sidebarLayout.js";
+import { useScrollFade } from "../lib/useScrollFade.js";
 
 /** Prefers the FTZ header's anchor person as the initial view, falling back deterministically. */
 function resolveDefaultFocus(tree: FamilyTree): UUID | undefined {
@@ -90,6 +91,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
   const searchWrapRef = useRef<HTMLDivElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const canvasRef = useRef<EditorCanvasHandle>(null);
+  const { ref: toolbarStripRef, edges: toolbarEdges } = useScrollFade<HTMLDivElement>();
 
   const searchIndex = useMemo(() => buildSearchIndex(tree), [tree]);
   const insights = useMemo(() => computeTreeInsights(tree), [tree]);
@@ -198,92 +200,105 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
               {tree.metadata.name}
             </span>
           )}
-          <div ref={searchWrapRef} className="w-40 shrink-0 sm:w-64">
+          <div ref={searchWrapRef} className="w-32 shrink-0 sm:w-64">
             <SearchBox tree={tree} index={searchIndex} onSelect={goTo} />
           </div>
           {/* E2: the menus, undo/redo, and status ride in a horizontal-scroll strip so they never
               wrap or push the pinned tree-name / search / panel-toggle off-screen. The menu
-              dropdowns are portaled (useAnchoredDropdown), so this overflow strip can't clip them. */}
-          <div className="flex min-w-0 flex-1 items-center gap-x-3 overflow-x-auto">
-            <div className="flex shrink-0 items-center gap-2">
-              <AddPersonMenu
-                tree={tree}
-                selectedPersonId={selectedPersonId}
-                onEdit={edit}
-                onSelect={goTo}
-                disabled={isExporting}
-              />
-              <ViewMenu
-                focusMode={focusMode}
-                showPhotos={appearance.displayMode === "photoCards"}
-                onToggleShowPhotos={toggleShowPhotos}
-                onFitTree={() => canvasRef.current?.fitTree()}
-                onFitWidth={() => canvasRef.current?.fitWidth()}
-                onFitHeight={() => canvasRef.current?.fitHeight()}
-                onPosterScale={() => canvasRef.current?.posterScale()}
-                onCenterSelection={() => canvasRef.current?.centerSelection()}
-                onToggleFocus={() => canvasRef.current?.toggleFocus()}
-                onResetView={() => canvasRef.current?.resetView()}
-              />
-              <AppearanceMenu prefs={appearance} onChange={updateAppearance} />
-              <button
-                type="button"
-                onClick={undo}
-                disabled={!canUndo || isExporting}
-                aria-label="Undo last edit"
-                className="rounded border border-slate-300 px-2 py-1 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                ↶ Undo
-              </button>
-              <button
-                type="button"
-                onClick={redo}
-                disabled={!canRedo || isExporting}
-                aria-label="Redo last undone edit"
-                className="rounded border border-slate-300 px-2 py-1 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                ↷ Redo
-              </button>
-            </div>
-            {/* E3: status + unsaved pill sit at the strip's right via ml-auto on desktop (content
+              dropdowns are portaled (useAnchoredDropdown), so this overflow strip can't clip them.
+              A right/left fade (useScrollFade) signals the strip scrolls, so a partially-visible
+              first control reads as "scroll for more" rather than a clipped/broken button. */}
+          <div className="relative flex min-w-0 flex-1">
+            <div
+              ref={toolbarStripRef}
+              className="flex w-full min-w-0 items-center gap-x-3 overflow-x-auto"
+            >
+              <div className="flex shrink-0 items-center gap-2">
+                <AddPersonMenu
+                  tree={tree}
+                  selectedPersonId={selectedPersonId}
+                  onEdit={edit}
+                  onSelect={goTo}
+                  disabled={isExporting}
+                />
+                <ViewMenu
+                  focusMode={focusMode}
+                  showPhotos={appearance.displayMode === "photoCards"}
+                  onToggleShowPhotos={toggleShowPhotos}
+                  onFitTree={() => canvasRef.current?.fitTree()}
+                  onFitWidth={() => canvasRef.current?.fitWidth()}
+                  onFitHeight={() => canvasRef.current?.fitHeight()}
+                  onPosterScale={() => canvasRef.current?.posterScale()}
+                  onCenterSelection={() => canvasRef.current?.centerSelection()}
+                  onToggleFocus={() => canvasRef.current?.toggleFocus()}
+                  onResetView={() => canvasRef.current?.resetView()}
+                />
+                <AppearanceMenu prefs={appearance} onChange={updateAppearance} />
+                <button
+                  type="button"
+                  onClick={undo}
+                  disabled={!canUndo || isExporting}
+                  aria-label="Undo last edit"
+                  className="rounded border border-slate-300 px-2 py-1 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  ↶ Undo
+                </button>
+                <button
+                  type="button"
+                  onClick={redo}
+                  disabled={!canRedo || isExporting}
+                  aria-label="Redo last undone edit"
+                  className="rounded border border-slate-300 px-2 py-1 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  ↷ Redo
+                </button>
+              </div>
+              {/* E3: status + unsaved pill sit at the strip's right via ml-auto on desktop (content
                 narrower than the strip), and simply scroll into view on mobile when the row
                 overflows — no wrap, so no broken auto-margin. */}
-            <div className="ml-auto flex shrink-0 items-center gap-x-3">
-              {editCount > 0 && (
-                <span
-                  className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-400/15 dark:text-amber-300"
-                  title="You have unsaved edits. They're autosaved locally, but leaving will prompt a warning."
+              <div className="ml-auto flex shrink-0 items-center gap-x-3">
+                {editCount > 0 && (
+                  <span
+                    className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-400/15 dark:text-amber-300"
+                    title="You have unsaved edits. They're autosaved locally, but leaving will prompt a warning."
+                  >
+                    <span aria-hidden="true">●</span> Unsaved changes
+                  </span>
+                )}
+                <p
+                  className="whitespace-nowrap text-xs text-slate-600 dark:text-slate-400"
+                  role="status"
                 >
-                  <span aria-hidden="true">●</span> Unsaved changes
-                </span>
-              )}
-              <p
-                className="whitespace-nowrap text-xs text-slate-600 dark:text-slate-400"
-                role="status"
-              >
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {Object.keys(tree.persons).length}
-                </span>{" "}
-                people,{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {Object.keys(tree.families).length}
-                </span>{" "}
-                families.{" "}
-                {errors.length > 0 && (
-                  <span className="text-red-700 dark:text-red-400">
-                    {errors.length} validation {errors.length === 1 ? "error" : "errors"}.{" "}
-                  </span>
-                )}
-                {warnings.length > 0 && (
-                  <span className="text-amber-700 dark:text-amber-300">
-                    {warnings.length} validation {warnings.length === 1 ? "warning" : "warnings"}.
-                  </span>
-                )}
-                {errors.length === 0 && warnings.length === 0 && (
-                  <span className="text-green-700 dark:text-green-400">Ready for export.</span>
-                )}
-              </p>
+                  <span className="font-medium text-slate-900 dark:text-slate-100">
+                    {Object.keys(tree.persons).length}
+                  </span>{" "}
+                  people,{" "}
+                  <span className="font-medium text-slate-900 dark:text-slate-100">
+                    {Object.keys(tree.families).length}
+                  </span>{" "}
+                  families.{" "}
+                  {errors.length > 0 && (
+                    <span className="text-red-700 dark:text-red-400">
+                      {errors.length} validation {errors.length === 1 ? "error" : "errors"}.{" "}
+                    </span>
+                  )}
+                  {warnings.length > 0 && (
+                    <span className="text-amber-700 dark:text-amber-300">
+                      {warnings.length} validation {warnings.length === 1 ? "warning" : "warnings"}.
+                    </span>
+                  )}
+                  {errors.length === 0 && warnings.length === 0 && (
+                    <span className="text-green-700 dark:text-green-400">Ready for export.</span>
+                  )}
+                </p>
+              </div>
             </div>
+            {toolbarEdges.left && (
+              <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-white dark:from-slate-900" />
+            )}
+            {toolbarEdges.right && (
+              <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-white dark:from-slate-900" />
+            )}
           </div>
           <button
             type="button"
@@ -308,8 +323,35 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
         </div>
       </div>
 
+      {/* Below lg the panel is a drawer overlaid above the canvas (fixed, out of flow) with a
+          scrim — opening it must never steal the canvas's width down to a sliver, which crushed
+          the toolbar and made its pinned items overflow across the panel. At lg+ it returns to an
+          in-flow side-by-side column. */}
       {sidebarOpen && (
-        <aside className="flex w-96 shrink-0 flex-col gap-3 overflow-y-auto border-l border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+        <div
+          className="fixed inset-0 z-20 bg-slate-900/40 lg:hidden"
+          aria-hidden="true"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      {sidebarOpen && (
+        <aside className="fixed inset-y-0 right-0 z-30 flex w-[85%] max-w-sm flex-col gap-3 overflow-y-auto border-l border-slate-200 bg-slate-50 p-3 shadow-xl lg:static lg:z-auto lg:w-96 lg:max-w-none lg:shrink-0 lg:shadow-none dark:border-slate-800 dark:bg-slate-900">
+          {/* The drawer overlays the toolbar on mobile (incl. its Hide-panel button), so it carries
+              its own close control there. The scrim also closes it; on lg+ this header is hidden and
+              the toolbar toggle is visible again. */}
+          <div className="flex items-center justify-between lg:hidden">
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              Details
+            </span>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Close panel"
+              className="rounded border border-slate-300 px-2 py-1 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              ✕ Close
+            </button>
+          </div>
           <ValidationSummary issues={tree.validation.issues} onSelect={goTo} />
           {selectedPersonId && tree.persons[selectedPersonId] ? (
             <>
