@@ -30,20 +30,20 @@ export function ExportMenu({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white">
+    <div className="rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-slate-800"
+        className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-slate-800 dark:text-slate-100"
       >
         Export
-        <span aria-hidden="true" className="text-slate-400">
+        <span aria-hidden="true" className="text-slate-400 dark:text-slate-500">
           {open ? "▲" : "▼"}
         </span>
       </button>
       {open && (
-        <div className="flex flex-col gap-3 border-t border-slate-200 p-3">
+        <div className="flex flex-col gap-3 border-t border-slate-200 p-3 dark:border-slate-800">
           <ExportPanel
             tree={tree}
             editCount={editCount}

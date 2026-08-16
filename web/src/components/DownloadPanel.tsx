@@ -36,11 +36,11 @@ export function DownloadPanel({
   const headingRef = useAutoFocus<HTMLParagraphElement>();
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-green-200 bg-green-50 p-5">
+    <div className="flex flex-col gap-4 rounded-lg border border-green-200 bg-green-50 p-5 dark:border-green-900 dark:bg-green-950/40">
       <p
         ref={headingRef}
         tabIndex={-1}
-        className="flex items-center gap-2 text-base font-semibold text-green-800"
+        className="flex items-center gap-2 text-base font-semibold text-green-800 dark:text-green-300"
       >
         <span aria-hidden="true">✓</span>
         Conversion successful
@@ -54,7 +54,7 @@ export function DownloadPanel({
         Download {fileName}
       </a>
 
-      <p className="text-xs text-slate-600">
+      <p className="text-xs text-slate-600 dark:text-slate-400">
         You can download this file as many times as you like without re-uploading.
       </p>
 
@@ -73,7 +73,7 @@ export function DownloadPanel({
       <button
         type="button"
         onClick={onConvertAnother}
-        className="w-fit text-sm font-medium text-blue-700 underline hover:text-blue-900"
+        className="w-fit text-sm font-medium text-blue-700 underline hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
       >
         {secondaryActionLabel}
       </button>

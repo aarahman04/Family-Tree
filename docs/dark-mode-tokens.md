@@ -55,12 +55,21 @@ across the whole app. Flagged rather than changed unilaterally; see "Open findin
 | Role | Light | Dark |
 | --- | --- | --- |
 | Link / accent | `text-blue-700` | `dark:text-blue-400` |
+| Selected/accent tint | `bg-blue-50 border-blue-500` | `dark:bg-blue-950/40 dark:border-blue-500` |
 | Error text | `text-red-700` | `dark:text-red-400` |
 | Error tint | `bg-red-50 border-red-200` | `dark:bg-red-950/40 dark:border-red-900` |
 | Warning text | `text-amber-800` | `dark:text-amber-300` |
 | Warning tint | `bg-amber-50 border-amber-200` | `dark:bg-amber-950/40 dark:border-amber-900` |
 | Success text | `text-green-700` | `dark:text-green-400` |
+| Success tint | `bg-green-50 border-green-200` | `dark:bg-green-950/40 dark:border-green-900` |
 | Primary action | `bg-emerald-700 text-white` | `dark:bg-emerald-500 dark:text-slate-950` |
+
+The three tint rows follow one pattern — a `50` fill + `200`/`500` border in light become a
+`950/40` fill + `900` border in dark, with the label at the `300` shade (`slate-100`/`blue-400` on
+the selected tint). Text on a tint stays at-or-brighter than the same family's tested "text on L1"
+pair, so no new contrast pair is introduced. **Saturated filled accent buttons** (`bg-blue-600`,
+`bg-green-700` download actions) are theme-independent — the fill carries its own contrast on any
+backdrop, so they take no `dark:` variant, unlike the emerald chrome CTA which brightens.
 
 `text-white` on `bg-emerald-700` is **5.36:1** — clears AA for the `text-sm font-semibold` (14px)
 label. This was raised from `emerald-600` (3.65:1, a failure) in the global batch; hover deepens to
