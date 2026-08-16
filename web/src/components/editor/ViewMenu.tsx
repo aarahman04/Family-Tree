@@ -30,12 +30,16 @@ export function ViewMenu(props: ViewMenuProps) {
     close();
   };
 
-  const items: { label: string; onClick: () => void; checked?: boolean }[] = [
+  // `toggle` items are real on/off states → role="menuitemcheckbox" with aria-checked. The rest
+  // are one-shot actions (they recompute/move the view, they don't hold a checked state) → plain
+  // role="menuitem", so screen readers don't announce a checkbox state that doesn't exist.
+  const items: { label: string; onClick: () => void; toggle?: boolean; checked?: boolean }[] = [
     ...(props.onToggleShowPhotos
       ? [
           {
             label: "Show photos",
             onClick: props.onToggleShowPhotos,
+            toggle: true,
             checked: props.showPhotos ?? false,
           },
         ]
@@ -45,7 +49,7 @@ export function ViewMenu(props: ViewMenuProps) {
     { label: "Fit height", onClick: props.onFitHeight },
     { label: "Poster scale (100%)", onClick: props.onPosterScale },
     { label: "Center selection", onClick: props.onCenterSelection },
-    { label: "Focus mode", onClick: props.onToggleFocus, checked: props.focusMode },
+    { label: "Focus mode", onClick: props.onToggleFocus, toggle: true, checked: props.focusMode },
     { label: "Reset view", onClick: props.onResetView },
   ];
 
@@ -72,8 +76,8 @@ export function ViewMenu(props: ViewMenuProps) {
           <button
             key={item.label}
             type="button"
-            role="menuitemcheckbox"
-            aria-checked={item.checked ?? false}
+            role={item.toggle ? "menuitemcheckbox" : "menuitem"}
+            aria-checked={item.toggle ? (item.checked ?? false) : undefined}
             onClick={run(item.onClick)}
             className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 dark:text-slate-300 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300"
           >

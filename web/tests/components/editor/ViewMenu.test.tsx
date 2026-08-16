@@ -23,21 +23,24 @@ describe("ViewMenu", () => {
     const h = setup();
     await userEvent.click(screen.getByRole("button", { name: /view/i }));
 
+    // Only the two real on/off states are checkboxes.
     expect(screen.getByRole("menuitemcheckbox", { name: /show photos/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitemcheckbox", { name: /focus mode/i })).toBeInTheDocument();
 
+    // The rest are one-shot actions — plain menuitems, no checkbox state announced.
     for (const name of [
       /fit tree/i,
       /fit width/i,
       /fit height/i,
       /poster scale/i,
       /center selection/i,
-      /focus mode/i,
       /reset view/i,
     ]) {
-      expect(screen.getByRole("menuitemcheckbox", { name })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name })).toBeInTheDocument();
+      expect(screen.queryByRole("menuitemcheckbox", { name })).not.toBeInTheDocument();
     }
 
-    await userEvent.click(screen.getByRole("menuitemcheckbox", { name: /poster scale/i }));
+    await userEvent.click(screen.getByRole("menuitem", { name: /poster scale/i }));
     expect(h.onPosterScale).toHaveBeenCalledOnce();
   });
 

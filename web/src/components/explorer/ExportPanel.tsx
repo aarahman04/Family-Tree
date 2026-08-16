@@ -83,7 +83,7 @@ export function ExportPanel({
           type="button"
           onClick={() => runExport(tree, sourceFileName)}
           disabled={errors.length > 0}
-          className="w-full rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-700"
+          className="w-full rounded-md bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-700"
         >
           Export GEDCOM
         </button>

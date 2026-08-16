@@ -92,6 +92,9 @@ const LIGHT: Check[] = [
   ["warning text on tint", "amber-800", "amber-50", AA_TEXT],
   ["success text", "green-700", "white", AA_TEXT],
   ["primary action label", "white", "emerald-700", AA_TEXT],
+  ["filled accent button label", "white", "blue-700", AA_TEXT],
+  ["control boundary on L1", "slate-500", "white", AA_LARGE],
+  ["control boundary on L0", "slate-500", "slate-50", AA_LARGE],
   ["focus ring on L0", "blue-600", "slate-50", AA_LARGE],
   ["focus ring on L1", "blue-600", "white", AA_LARGE],
 ];
@@ -137,13 +140,10 @@ describe("dark-mode token vocabulary meets WCAG AA", () => {
     expect(contrastRatio("white", "white")).toBeCloseTo(1, 5);
   });
 
-  // Pre-existing light-mode failure pinned so it can't be forgotten, and so that fixing it turns
-  // this test red as the prompt to update docs/dark-mode-tokens.md. (The emerald-600 CTA failure
-  // that used to be pinned here was FIXED in the global batch — CTAs are now emerald-700, asserted
-  // positively in LIGHT above. Border weight remains deferred as AUD-9.)
-  describe("known pre-existing light-mode AA failure (AUD-9, deferred)", () => {
-    it("control border slate-300 on white still fails 1.4.11", () => {
-      expect(contrastRatio("slate-300", "white")).toBeLessThan(AA_LARGE);
-    });
+  // Regression guard for AUD-9: the old slate-300 control border (1.49:1) is why input borders
+  // were raised to slate-500. Keep asserting the old shade would still fail 1.4.11, so nothing
+  // silently reintroduces it — the passing slate-500 boundary is asserted positively in LIGHT.
+  it("the old slate-300 control border would still fail 1.4.11 (why AUD-9 moved to slate-500)", () => {
+    expect(contrastRatio("slate-300", "white")).toBeLessThan(AA_LARGE);
   });
 });

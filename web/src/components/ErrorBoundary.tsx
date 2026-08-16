@@ -85,7 +85,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         <button
           type="button"
           onClick={this.handleReturnToUpload}
-          className="mx-auto rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+          className="mx-auto rounded-md bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800"
         >
           Return to upload screen
         </button>

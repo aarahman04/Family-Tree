@@ -375,7 +375,7 @@ export function PersonInspector({
               type="text"
               value={draft.name}
               onChange={(e) => updateDraft({ name: e.target.value })}
-              className="rounded border border-slate-300 px-2 py-1 text-sm font-normal dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
+              className="rounded border border-slate-500 px-2 py-1 text-sm font-normal dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
             />
           </label>
 
@@ -385,7 +385,7 @@ export function PersonInspector({
               type="text"
               value={draft.nickname}
               onChange={(e) => updateDraft({ nickname: e.target.value })}
-              className="rounded border border-slate-300 px-2 py-1 text-sm font-normal dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
+              className="rounded border border-slate-500 px-2 py-1 text-sm font-normal dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
             />
           </label>
 
@@ -394,7 +394,7 @@ export function PersonInspector({
             <select
               value={draft.gender}
               onChange={(e) => updateDraft({ gender: e.target.value as Gender })}
-              className="rounded border border-slate-300 px-2 py-1 text-sm font-normal dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
+              className="rounded border border-slate-500 px-2 py-1 text-sm font-normal dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
             >
               <option value="unknown">Unknown</option>
               <option value="male">Male</option>
@@ -413,7 +413,7 @@ export function PersonInspector({
                 value={draft.birthYear}
                 onChange={(e) => updateDraft({ birthYear: e.target.value })}
                 aria-label="Birth year"
-                className="w-1/3 rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
+                className="w-1/3 rounded border border-slate-500 px-2 py-1 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
               />
               <input
                 type="number"
@@ -421,7 +421,7 @@ export function PersonInspector({
                 value={draft.birthMonth}
                 onChange={(e) => updateDraft({ birthMonth: e.target.value })}
                 aria-label="Birth month"
-                className="w-1/3 rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
+                className="w-1/3 rounded border border-slate-500 px-2 py-1 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
               />
               <input
                 type="number"
@@ -429,7 +429,7 @@ export function PersonInspector({
                 value={draft.birthDay}
                 onChange={(e) => updateDraft({ birthDay: e.target.value })}
                 aria-label="Birth day"
-                className="w-1/3 rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
+                className="w-1/3 rounded border border-slate-500 px-2 py-1 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
               />
             </div>
           </fieldset>
@@ -445,7 +445,7 @@ export function PersonInspector({
                 value={draft.deathYear}
                 onChange={(e) => updateDraft({ deathYear: e.target.value })}
                 aria-label="Death year"
-                className="w-1/3 rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
+                className="w-1/3 rounded border border-slate-500 px-2 py-1 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
               />
               <input
                 type="number"
@@ -453,7 +453,7 @@ export function PersonInspector({
                 value={draft.deathMonth}
                 onChange={(e) => updateDraft({ deathMonth: e.target.value })}
                 aria-label="Death month"
-                className="w-1/3 rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
+                className="w-1/3 rounded border border-slate-500 px-2 py-1 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
               />
               <input
                 type="number"
@@ -461,7 +461,7 @@ export function PersonInspector({
                 value={draft.deathDay}
                 onChange={(e) => updateDraft({ deathDay: e.target.value })}
                 aria-label="Death day"
-                className="w-1/3 rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
+                className="w-1/3 rounded border border-slate-500 px-2 py-1 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
               />
             </div>
           </fieldset>
@@ -472,13 +472,13 @@ export function PersonInspector({
               value={draft.notes}
               onChange={(e) => updateDraft({ notes: e.target.value })}
               rows={3}
-              className="rounded border border-slate-300 px-2 py-1 text-sm font-normal dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
+              className="rounded border border-slate-500 px-2 py-1 text-sm font-normal dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
             />
           </label>
 
           <button
             type="submit"
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"
+            className="rounded-md bg-blue-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-800"
           >
             Save changes
           </button>

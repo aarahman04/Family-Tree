@@ -224,7 +224,7 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
               max={24}
               value={style.nameFontSize}
               onChange={(e) => updateStyle("nameFontSize", Number(e.target.value))}
-              className="rounded border border-slate-300 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
+              className="rounded border border-slate-500 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
@@ -235,7 +235,7 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
               max={400}
               value={style.nodeMinWidth}
               onChange={(e) => updateStyle("nodeMinWidth", Number(e.target.value))}
-              className="rounded border border-slate-300 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
+              className="rounded border border-slate-500 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
@@ -246,7 +246,7 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
               max={600}
               value={style.nodeMaxWidth}
               onChange={(e) => updateStyle("nodeMaxWidth", Number(e.target.value))}
-              className="rounded border border-slate-300 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
+              className="rounded border border-slate-500 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
@@ -257,7 +257,7 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
               max={100}
               value={style.horizontalSpacing}
               onChange={(e) => updateStyle("horizontalSpacing", Number(e.target.value))}
-              className="rounded border border-slate-300 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
+              className="rounded border border-slate-500 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
@@ -268,7 +268,7 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
               max={200}
               value={style.generationSpacing}
               onChange={(e) => updateStyle("generationSpacing", Number(e.target.value))}
-              className="rounded border border-slate-300 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
+              className="rounded border border-slate-500 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
@@ -280,7 +280,7 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
               step={0.25}
               value={style.lineThickness}
               onChange={(e) => updateStyle("lineThickness", Number(e.target.value))}
-              className="rounded border border-slate-300 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
+              className="rounded border border-slate-500 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
@@ -291,7 +291,7 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
               max={144}
               value={style.marginPt}
               onChange={(e) => updateStyle("marginPt", Number(e.target.value))}
-              className="rounded border border-slate-300 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
+              className="rounded border border-slate-500 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
@@ -300,7 +300,7 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
               type="color"
               value={style.textColor}
               onChange={(e) => updateStyle("textColor", e.target.value)}
-              className="h-8 rounded border border-slate-300 dark:border-slate-500"
+              className="h-8 rounded border border-slate-500 dark:border-slate-500"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
@@ -309,7 +309,7 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
               type="color"
               value={style.lineColor}
               onChange={(e) => updateStyle("lineColor", e.target.value)}
-              className="h-8 rounded border border-slate-300 dark:border-slate-500"
+              className="h-8 rounded border border-slate-500 dark:border-slate-500"
             />
           </label>
 
@@ -443,7 +443,7 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
         <button
           type="button"
           onClick={handleDownloadSvg}
-          className="rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+          className="rounded-md bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800"
         >
           Download SVG
         </button>

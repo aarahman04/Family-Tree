@@ -42,7 +42,7 @@ export function AppearanceMenu({ prefs, onChange }: AppearanceMenuProps) {
         onClose={close}
         className="w-56 rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800"
       >
-        <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+        <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">
           Display mode
         </p>
         {MODES.map((m) => (
@@ -62,7 +62,7 @@ export function AppearanceMenu({ prefs, onChange }: AppearanceMenuProps) {
             )}
           </button>
         ))}
-        <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+        <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">
           Photo shape
         </p>
         {SHAPES.map((s) => (

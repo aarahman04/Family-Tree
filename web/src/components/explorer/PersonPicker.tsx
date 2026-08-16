@@ -54,7 +54,7 @@ export function PersonPicker({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search by name or ID…"
-        className="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+        className="mt-1 w-full rounded border border-slate-500 px-2 py-1.5 text-sm"
       />
       <ul className="mt-2 flex max-h-40 flex-col gap-0.5 overflow-y-auto">
         {results.map((r) => (

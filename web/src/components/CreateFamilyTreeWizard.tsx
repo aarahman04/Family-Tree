@@ -8,7 +8,7 @@ interface CreateFamilyTreeWizardProps {
 }
 
 const inputClass =
-  "w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400";
+  "w-full rounded-md border border-slate-500 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400";
 const labelClass = "block text-sm font-medium text-slate-700 dark:text-slate-300";
 
 /**

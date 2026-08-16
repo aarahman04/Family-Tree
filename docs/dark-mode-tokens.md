@@ -35,11 +35,13 @@ where a text input begins is, so it must clear 3:1.
 | Role | Light | Dark | Bar |
 | --- | --- | --- | --- |
 | Divider (decorative) | `border-slate-200` | `dark:border-slate-800` | exempt |
-| Control boundary (inputs, bordered buttons) | `border-slate-300` ⚠ | `dark:border-slate-500` | 3:1 |
+| Text-input boundary | `border-slate-500` | `dark:border-slate-500` | 3:1 |
+| Bordered button boundary | `border-slate-300` | `dark:border-slate-600` | — (label identifies) |
 
-⚠ `border-slate-300` on white is **1.49:1** — a pre-existing light-mode 1.4.11 failure, not
-introduced here. The lightest passing shade is `slate-500` (4.76:1), a visibly heavier border
-across the whole app. Flagged rather than changed unilaterally; see "Open findings".
+Text inputs rely on their border to be perceivable as a control, so 1.4.11 applies: the light
+boundary is `border-slate-500` (**4.76:1**), matching the dark side. Bordered buttons carry a text
+label that identifies them, so their border isn't the load-bearing cue — they keep the lighter
+`border-slate-300` decorative weight. This split was AUD-9; see "Resolved findings".
 
 ## Text
 
@@ -67,9 +69,11 @@ across the whole app. Flagged rather than changed unilaterally; see "Open findin
 The three tint rows follow one pattern — a `50` fill + `200`/`500` border in light become a
 `950/40` fill + `900` border in dark, with the label at the `300` shade (`slate-100`/`blue-400` on
 the selected tint). Text on a tint stays at-or-brighter than the same family's tested "text on L1"
-pair, so no new contrast pair is introduced. **Saturated filled accent buttons** (`bg-blue-600`,
+pair, so no new contrast pair is introduced. **Saturated filled accent buttons** (`bg-blue-700`,
 `bg-green-700` download actions) are theme-independent — the fill carries its own contrast on any
-backdrop, so they take no `dark:` variant, unlike the emerald chrome CTA which brightens.
+backdrop, so they take no `dark:` variant, unlike the emerald chrome CTA which brightens. `text-white`
+on `bg-blue-700` is **5.1:1** (clears the 4.5:1 bar); raised from `bg-blue-600` (3.7:1, a failure) —
+see AUD-11 in "Resolved findings". Hover deepens to `blue-800`.
 
 `text-white` on `bg-emerald-700` is **5.36:1** — clears AA for the `text-sm font-semibold` (14px)
 label. This was raised from `emerald-600` (3.65:1, a failure) in the global batch; hover deepens to
@@ -94,15 +98,22 @@ tool. Enforced by `web/tests/lib/theme-render-identity.test.ts`.
 This also means the canvas focus-dim overlay (`bg-slate-50/75`) stays light in both themes — it
 dims against the light sheet, not against the app backdrop.
 
-## Open findings (pre-existing, not introduced by this phase)
+## Resolved findings (pre-existing light-mode AA failures, now fixed)
 
-Both surfaced during the audit as genuine WCAG AA failures in the **existing light** design.
-
-1. **Control borders — DEFERRED as AUD-9.** `border-slate-300` on white, 1.49:1 vs. the 3:1 bar.
-   Affects every text input in PersonInspector, PersonPicker, SearchBox, PosterExportPanel. Not
-   fixed here: the lightest passing shade (`slate-500`, 4.76:1) is a visibly heavier border applied
-   app-wide — a visual-weight decision, not a contained swap. Pinned by `theme-contrast.test.ts`.
-2. **Primary CTA — FIXED (global batch).** `text-white` on `bg-emerald-600` was 3.65:1 vs. the
+1. **Control borders — FIXED (AUD-9).** `border-slate-300` on white was 1.49:1 vs. the 3:1 bar.
+   Text-input boundaries (PersonInspector, PersonPicker, SearchBox, PosterExportPanel,
+   CreateFamilyTreeWizard) raised to `border-slate-500` (4.76:1), matching the dark side. Bordered
+   buttons kept `border-slate-300` — their text label is the identifying cue, so 1.4.11 doesn't
+   hold their border to 3:1. Asserted positively as "control boundary on L1/L0" in
+   `theme-contrast.test.ts`.
+2. **Filled accent buttons — FIXED (AUD-11).** `text-white` on `bg-blue-600` was ~3.7:1 vs. the
+   4.5:1 bar. Raised to `bg-blue-700` (5.1:1) at all four filled call sites (Download SVG, Export
+   GEDCOM, PersonInspector Save, ErrorBoundary Reload); hover deepens to `blue-800`. Asserted as
+   "filled accent button label" in `theme-contrast.test.ts`.
+3. **Menu section headers — FIXED (AUD-12).** AppearanceMenu's "Display mode"/"Photo shape" labels
+   were `text-slate-400`/`dark:text-slate-500` (~2.5:1). Raised to the muted role
+   `text-slate-600`/`dark:text-slate-400`, both tested pairs.
+4. **Primary CTA — FIXED (global batch).** `text-white` on `bg-emerald-600` was 3.65:1 vs. the
    4.5:1 bar. Raised to `bg-emerald-700` (5.36:1) across all five call sites (HomePage restore +
    bottom CTAs, EditorPage empty-state CTA, both wizard Next buttons); hover deepens to
    `emerald-800`. Asserted positively in `theme-contrast.test.ts`.
