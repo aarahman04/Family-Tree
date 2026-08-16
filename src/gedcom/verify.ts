@@ -1,4 +1,9 @@
-import type { FamilyTree, RoundTripReport, UUID, ValidationIssue } from "../models/types.js";
+import type {
+  FamilyTree,
+  RoundTripReport,
+  UUID,
+  ValidationIssue,
+} from "../models/types.js";
 import { fatherOf, motherOf } from "../parser/relationships.js";
 import { XrefAllocator } from "./xref.js";
 
@@ -78,7 +83,7 @@ function ancestorFtzSet(
   tree: FamilyTree,
   personId: UUID,
   ftzIdOf: (id: UUID) => number | undefined,
-  maxDepth = 10
+  maxDepth = 10,
 ): Set<number> {
   const result = new Set<number>();
   let frontier = [personId];
@@ -103,7 +108,7 @@ function ancestorFtzSetFromGedcom(
   families: Map<string, ParsedFamily>,
   persons: Map<string, ParsedPerson>,
   startXref: string,
-  maxDepth = 10
+  maxDepth = 10,
 ): Set<number> {
   const result = new Set<number>();
   let frontier = [startXref];
@@ -133,8 +138,12 @@ function ancestorFtzSetFromGedcom(
  * GEDCOM text and diffs them against the source tree. See docs/gedcom-exporter.md
  * "Round-trip verification" for what this proves and doesn't prove.
  */
-export function verifyRoundTrip(tree: FamilyTree, gedcomText: string): RoundTripReport {
-  const { persons: gPersons, families: gFamilies } = parseGedcomForVerification(gedcomText);
+export function verifyRoundTrip(
+  tree: FamilyTree,
+  gedcomText: string,
+): RoundTripReport {
+  const { persons: gPersons, families: gFamilies } =
+    parseGedcomForVerification(gedcomText);
   const xrefs = new XrefAllocator(tree); // independently re-derived, not passed in from export.ts
 
   const relationshipMismatches: ValidationIssue[] = [];
@@ -142,9 +151,12 @@ export function verifyRoundTrip(tree: FamilyTree, gedcomText: string): RoundTrip
   const duplicateIndividuals: ValidationIssue[] = [];
 
   // No duplicate xref definitions in the output.
-  const indiXrefLines = [...gedcomText.matchAll(/^0 (@[^@]+@) INDI$/gm)].map((m) => m[1]!);
+  const indiXrefLines = [...gedcomText.matchAll(/^0 (@[^@]+@) INDI$/gm)].map(
+    (m) => m[1]!,
+  );
   const xrefCounts = new Map<string, number>();
-  for (const x of indiXrefLines) xrefCounts.set(x, (xrefCounts.get(x) ?? 0) + 1);
+  for (const x of indiXrefLines)
+    xrefCounts.set(x, (xrefCounts.get(x) ?? 0) + 1);
   for (const [xref, count] of xrefCounts) {
     if (count > 1) {
       duplicateIndividuals.push({
@@ -169,7 +181,9 @@ export function verifyRoundTrip(tree: FamilyTree, gedcomText: string): RoundTrip
       continue;
     }
 
-    const expectedFamc = person.famcId ? xrefs.familyXref.get(person.famcId) : undefined;
+    const expectedFamc = person.famcId
+      ? xrefs.familyXref.get(person.famcId)
+      : undefined;
     if (expectedFamc !== parsed.famc) {
       relationshipMismatches.push({
         severity: "error",
@@ -181,7 +195,9 @@ export function verifyRoundTrip(tree: FamilyTree, gedcomText: string): RoundTrip
       });
     }
 
-    const expectedFams = person.famsIds.map((f) => xrefs.familyXref.get(f)).sort();
+    const expectedFams = person.famsIds
+      .map((f) => xrefs.familyXref.get(f))
+      .sort();
     const actualFams = [...parsed.fams].sort();
     if (JSON.stringify(expectedFams) !== JSON.stringify(actualFams)) {
       relationshipMismatches.push({
@@ -214,8 +230,12 @@ export function verifyRoundTrip(tree: FamilyTree, gedcomText: string): RoundTrip
       });
       continue;
     }
-    const expectedHusb = family.husbandId ? xrefs.personXref.get(family.husbandId) : undefined;
-    const expectedWife = family.wifeId ? xrefs.personXref.get(family.wifeId) : undefined;
+    const expectedHusb = family.husbandId
+      ? xrefs.personXref.get(family.husbandId)
+      : undefined;
+    const expectedWife = family.wifeId
+      ? xrefs.personXref.get(family.wifeId)
+      : undefined;
     if (expectedHusb !== parsed.husb || expectedWife !== parsed.wife) {
       relationshipMismatches.push({
         severity: "error",
@@ -237,6 +257,11 @@ export function verifyRoundTrip(tree: FamilyTree, gedcomText: string): RoundTrip
 
   // Cousin-marriage / shared-ancestor count, computed twice independently: once over the
   // UUID-space source tree, once over the freshly-reparsed GEDCOM-text ftzId-space graph.
+  //
+  // D-11: this ftzId-based walk is kept INTENTIONALLY separate from the UUID-based analysis
+  // engine in src/analysis/ (see marriages.ts `sharesCommonAncestor`). The duplication is the
+  // cross-check — tests/analysis-marriages.test.ts asserts the two produce the same count on the
+  // real sample (a golden-agreement test). Do not merge them onto a shared helper.
   const ftzIdOfUuid = (id: UUID) => tree.persons[id]?.ftzId;
   let cousinMarriageCountSource = 0;
   for (const family of Object.values(tree.families)) {
@@ -255,8 +280,10 @@ export function verifyRoundTrip(tree: FamilyTree, gedcomText: string): RoundTrip
   }
 
   const personCountMatches = gPersons.size === Object.keys(tree.persons).length;
-  const familyCountMatches = gFamilies.size === Object.keys(tree.families).length;
-  const cousinMarriagesMatch = cousinMarriageCountSource === cousinMarriageCountGedcom;
+  const familyCountMatches =
+    gFamilies.size === Object.keys(tree.families).length;
+  const cousinMarriagesMatch =
+    cousinMarriageCountSource === cousinMarriageCountGedcom;
 
   return {
     personCountMatches,
