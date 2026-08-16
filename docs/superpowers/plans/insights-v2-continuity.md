@@ -4,7 +4,7 @@
 
 - **Plan (immutable):** `docs/superpowers/plans/2026-08-16-family-tree-insights-v2.md`
 - **Source spec:** `family_tree_insight_phased_plan.md` (repo root)
-- **Last updated:** 2026-08-16 — after CP2.9 (standalone review complete, no Critical/Important findings).
+- **Last updated:** 2026-08-16 — after CP3.1 (standalone review dispatched).
 
 ---
 
@@ -36,7 +36,12 @@ Legend: ⬜ not-started · 🟡 in-progress · ✅ done
 | 2.7                    | `PersonInspector` relationship-intelligence section   | ✅     | `34b0ebd`                    | Batched review with 2.8. Parents-related + per-spouse classification, confidence tags, common-ancestor path, chain depth.               |
 | 2.8                    | Inline relationship badges (panel header)             | ✅     | `34b0ebd`                    | Batched with 2.7. "Parents Related" + per-cousin-marriage label pills near the person heading, reusing the accent-tint pair.            |
 | 2.9                    | Editor transient ancestry-highlight overlay           | ✅     | `d261890`                    | Both-workspace gates green. **Standalone review complete: no Critical/Important findings**, 2 Minor notes recorded in Known gaps below.  |
-| 3.x, 4.x, 5.x          | Phases 3–5                                            | ⬜     | —                            | Not started. **NEXT.**                                                                                                                    |
+| 3.1                    | `analysis/pedigree.ts` pedigree-collapse scoring      | ✅     | `2f33c7e`                    | Both-workspace gates green; standalone review dispatched. See module map + review note below.                                            |
+| 3.2                    | `analysis/branches.ts` branch overlap                 | ⬜     | —                            | **NEXT.** Large, touches root-anchor concept from `layoutBalanced.ts` (D-4) → standalone review.                                          |
+| 3.3                    | `analysis/influence.ts` most-influential ancestor     | ⬜     | —                            | Batchable review with 3.2 per plan.                                                                                                       |
+| 3.4                    | "Family health" blocks in `InsightsPanel`             | ⬜     | —                            | Standalone review (user-facing).                                                                                                          |
+| 3.5                    | Headline chips in `InsightsStrip`                     | ⬜     | —                            | Batchable review with 3.4.                                                                                                                |
+| 4.x, 5.x               | Phases 4–5                                            | ⬜     | —                            | Not started.                                                                                                                               |
 
 **Refactor-merge gate (satisfied):** the repo-structure refactor **PR #11** (`refactor/repo-structure-src`) is **confirmed merged into `main`** (2026-08-16 13:43 UTC). `src/analysis/` is being created in its post-refactor final location on branch `feat/insights-v2` (off `main`, which also carries the PR #12 scroll fix).
 
@@ -81,6 +86,7 @@ export function ancestorPaths(
   maxDepth = DEPTH_CAP,
   cap = 4,
 ): UUID[][]; // [from … to]
+export function filledAncestorSlots(tree, personId, depth): number; // (CP3.1) no dedup by identity — every parent-link instance counts
 ```
 
 **Refinement vs plan §A:** the map stores `minDistance` only (`AncestorInfo`); display paths come from the separate `ancestorPaths()`, not stored per-ancestor — avoids exponential path storage under pedigree collapse. Consumers needing distances use the map; consumers needing a path string call `ancestorPaths`.
@@ -216,6 +222,32 @@ export interface TreeAnalysis {
 }
 export function analyzeTree(tree: FamilyTree): TreeAnalysis;
 ```
+
+**`src/analysis/pedigree.ts`** (CP3.1, `2f33c7e`):
+
+```ts
+export function pedigreeCollapseScore(
+  tree,
+  personId,
+  depth = DEPTH_CAP,
+): number; // 1 − distinctAncestors/filledSlots, over KNOWN ancestry only
+export interface PedigreeAnalysis {
+  byPerson: Map<UUID, number>;
+  treeScore: number; // D-5: averaged over the terminal (no-recorded-children) generation
+}
+export function analyzePedigreeCollapse(tree, depth = DEPTH_CAP): PedigreeAnalysis;
+```
+
+**Refinement vs plan:** both `distinctAncestors` and `filledSlots` are counted over ancestry that
+is actually recorded, NOT the theoretical full binary pedigree (2^depth) — using the theoretical
+denominator would score a person with only 1 of 2 known parents as ~50% "collapsed," which is
+missing data, not intermarriage. `filledAncestorSlots` (new export in `ancestry.ts`) was extracted
+from `confidence.ts`'s `ancestryCompleteness`, which now calls it instead of duplicating the walk
+(behavior-preserving — confirmed by the unchanged D-12 distribution). D-5's "living-presumed
+generation" is implemented as `terminalGenerationIds` (people with no recorded children anywhere
+in the tree) rather than the web layer's date-based living heuristic, to keep this package
+framework-free. Wired into `analyzeTree`: `TreeAnalysis.pedigree: PedigreeAnalysis` and
+`TreeAnalysisSummary.pedigreeCollapsePercent: number`.
 
 **`web/src/hooks/useTreeAnalysis.ts`** (CP2.6, `dfb5df9`):
 
