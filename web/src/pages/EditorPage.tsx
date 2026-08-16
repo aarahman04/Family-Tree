@@ -189,97 +189,104 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
   return (
     <div className="flex h-full min-h-0 w-full">
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex items-center gap-x-3 border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900">
           {tree.metadata.name && (
             <span
-              className="max-w-[10rem] shrink-0 truncate text-sm font-semibold text-slate-800 dark:text-slate-100"
+              className="min-w-0 shrink truncate text-sm font-semibold text-slate-800 dark:text-slate-100 sm:max-w-[10rem]"
               title={tree.metadata.name}
             >
               {tree.metadata.name}
             </span>
           )}
-          <div ref={searchWrapRef}>
+          <div ref={searchWrapRef} className="w-40 shrink-0 sm:w-64">
             <SearchBox tree={tree} index={searchIndex} onSelect={goTo} />
           </div>
-          <div className="flex items-center gap-2">
-            <AddPersonMenu
-              tree={tree}
-              selectedPersonId={selectedPersonId}
-              onEdit={edit}
-              onSelect={goTo}
-              disabled={isExporting}
-            />
-            <ViewMenu
-              focusMode={focusMode}
-              showPhotos={appearance.displayMode === "photoCards"}
-              onToggleShowPhotos={toggleShowPhotos}
-              onFitTree={() => canvasRef.current?.fitTree()}
-              onFitWidth={() => canvasRef.current?.fitWidth()}
-              onFitHeight={() => canvasRef.current?.fitHeight()}
-              onPosterScale={() => canvasRef.current?.posterScale()}
-              onCenterSelection={() => canvasRef.current?.centerSelection()}
-              onToggleFocus={() => canvasRef.current?.toggleFocus()}
-              onResetView={() => canvasRef.current?.resetView()}
-            />
-            <AppearanceMenu prefs={appearance} onChange={updateAppearance} />
-            <button
-              type="button"
-              onClick={undo}
-              disabled={!canUndo || isExporting}
-              aria-label="Undo last edit"
-              className="rounded border border-slate-300 px-2 py-1 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              ↶ Undo
-            </button>
-            <button
-              type="button"
-              onClick={redo}
-              disabled={!canRedo || isExporting}
-              aria-label="Redo last undone edit"
-              className="rounded border border-slate-300 px-2 py-1 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              ↷ Redo
-            </button>
+          {/* E2: the menus, undo/redo, and status ride in a horizontal-scroll strip so they never
+              wrap or push the pinned tree-name / search / panel-toggle off-screen. The menu
+              dropdowns are portaled (useAnchoredDropdown), so this overflow strip can't clip them. */}
+          <div className="flex min-w-0 flex-1 items-center gap-x-3 overflow-x-auto">
+            <div className="flex shrink-0 items-center gap-2">
+              <AddPersonMenu
+                tree={tree}
+                selectedPersonId={selectedPersonId}
+                onEdit={edit}
+                onSelect={goTo}
+                disabled={isExporting}
+              />
+              <ViewMenu
+                focusMode={focusMode}
+                showPhotos={appearance.displayMode === "photoCards"}
+                onToggleShowPhotos={toggleShowPhotos}
+                onFitTree={() => canvasRef.current?.fitTree()}
+                onFitWidth={() => canvasRef.current?.fitWidth()}
+                onFitHeight={() => canvasRef.current?.fitHeight()}
+                onPosterScale={() => canvasRef.current?.posterScale()}
+                onCenterSelection={() => canvasRef.current?.centerSelection()}
+                onToggleFocus={() => canvasRef.current?.toggleFocus()}
+                onResetView={() => canvasRef.current?.resetView()}
+              />
+              <AppearanceMenu prefs={appearance} onChange={updateAppearance} />
+              <button
+                type="button"
+                onClick={undo}
+                disabled={!canUndo || isExporting}
+                aria-label="Undo last edit"
+                className="rounded border border-slate-300 px-2 py-1 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                ↶ Undo
+              </button>
+              <button
+                type="button"
+                onClick={redo}
+                disabled={!canRedo || isExporting}
+                aria-label="Redo last undone edit"
+                className="rounded border border-slate-300 px-2 py-1 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                ↷ Redo
+              </button>
+            </div>
+            {/* E3: status + unsaved pill sit at the strip's right via ml-auto on desktop (content
+                narrower than the strip), and simply scroll into view on mobile when the row
+                overflows — no wrap, so no broken auto-margin. */}
+            <div className="ml-auto flex shrink-0 items-center gap-x-3">
+              {editCount > 0 && (
+                <span
+                  className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-400/15 dark:text-amber-300"
+                  title="You have unsaved edits. They're autosaved locally, but leaving will prompt a warning."
+                >
+                  <span aria-hidden="true">●</span> Unsaved changes
+                </span>
+              )}
+              <p className="whitespace-nowrap text-xs text-slate-600 dark:text-slate-400" role="status">
+                <span className="font-medium text-slate-900 dark:text-slate-100">
+                  {Object.keys(tree.persons).length}
+                </span>{" "}
+                people,{" "}
+                <span className="font-medium text-slate-900 dark:text-slate-100">
+                  {Object.keys(tree.families).length}
+                </span>{" "}
+                families.{" "}
+                {errors.length > 0 && (
+                  <span className="text-red-700 dark:text-red-400">
+                    {errors.length} validation {errors.length === 1 ? "error" : "errors"}.{" "}
+                  </span>
+                )}
+                {warnings.length > 0 && (
+                  <span className="text-amber-700 dark:text-amber-300">
+                    {warnings.length} validation {warnings.length === 1 ? "warning" : "warnings"}.
+                  </span>
+                )}
+                {errors.length === 0 && warnings.length === 0 && (
+                  <span className="text-green-700 dark:text-green-400">Ready for export.</span>
+                )}
+              </p>
+            </div>
           </div>
-          {editCount > 0 && (
-            <span
-              className="ml-auto inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-400/15 dark:text-amber-300"
-              title="You have unsaved edits. They're autosaved locally, but leaving will prompt a warning."
-            >
-              <span aria-hidden="true">●</span> Unsaved changes
-            </span>
-          )}
-          <p
-            className={`text-xs text-slate-600 dark:text-slate-400 ${editCount > 0 ? "" : "ml-auto"}`}
-            role="status"
-          >
-            <span className="font-medium text-slate-900 dark:text-slate-100">
-              {Object.keys(tree.persons).length}
-            </span>{" "}
-            people,{" "}
-            <span className="font-medium text-slate-900 dark:text-slate-100">
-              {Object.keys(tree.families).length}
-            </span>{" "}
-            families.{" "}
-            {errors.length > 0 && (
-              <span className="text-red-700 dark:text-red-400">
-                {errors.length} validation {errors.length === 1 ? "error" : "errors"}.{" "}
-              </span>
-            )}
-            {warnings.length > 0 && (
-              <span className="text-amber-700 dark:text-amber-300">
-                {warnings.length} validation {warnings.length === 1 ? "warning" : "warnings"}.
-              </span>
-            )}
-            {errors.length === 0 && warnings.length === 0 && (
-              <span className="text-green-700 dark:text-green-400">Ready for export.</span>
-            )}
-          </p>
           <button
             type="button"
             onClick={() => setSidebarOpen((v) => !v)}
             aria-expanded={sidebarOpen}
-            className="rounded border border-slate-300 px-2 py-1 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+            className="shrink-0 rounded border border-slate-300 px-2 py-1 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             {sidebarOpen ? "Hide panel" : "Show panel"}
           </button>
