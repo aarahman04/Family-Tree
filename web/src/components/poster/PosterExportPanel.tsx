@@ -1,15 +1,15 @@
 import { useMemo, useRef, useState } from "react";
-import type { FamilyTree } from "../../../../models/types.js";
-import { computePosterLayout } from "../../../../poster/layout.js";
-import { computeBalancedPosterLayout } from "../../../../poster/layoutBalanced.js";
-import { computePosterPageSize } from "../../../../poster/pageSize.js";
-import { renderPosterSvg } from "../../../../poster/renderSvg.js";
+import type { FamilyTree } from "../../../../src/models/types.js";
+import { computePosterLayout } from "../../../../src/poster/layout.js";
+import { computeBalancedPosterLayout } from "../../../../src/poster/layoutBalanced.js";
+import { computePosterPageSize } from "../../../../src/poster/pageSize.js";
+import { renderPosterSvg } from "../../../../src/poster/renderSvg.js";
 import {
   DEFAULT_POSTER_STYLE,
   type DisplayMode,
   type PhotoShape,
   type PosterStyleOptions,
-} from "../../../../poster/types.js";
+} from "../../../../src/poster/types.js";
 import { makeCanvasTextMeasurer } from "../../lib/canvasTextMeasure.js";
 import { buildPhotoMap, type PhotoQuality } from "../../lib/resolvePhoto.js";
 import { posterSvgToPdfBlob, posterSvgToSvgBlob } from "../../lib/posterExport.js";

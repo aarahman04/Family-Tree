@@ -1,10 +1,10 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { useTreeEditor } from "../../src/state/useTreeEditor.js";
-import { setFather, updatePersonFields } from "../../../editor/operations.js";
-import { parseNodeFtt } from "../../../parser/index.js";
+import { setFather, updatePersonFields } from "../../../src/editor/operations.js";
+import { parseNodeFtt } from "../../../src/parser/index.js";
 import { buildNodeFtt, familyRow, personRow } from "../../../tests/helpers.js";
-import type { FamilyTree } from "../../../models/types.js";
+import type { FamilyTree } from "../../../src/models/types.js";
 
 function nuclearFamilyTree(): FamilyTree {
   return parseNodeFtt(

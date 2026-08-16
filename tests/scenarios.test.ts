@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseNodeFtt } from "../parser/index.js";
-import { getRelationships } from "../parser/relationships.js";
+import { parseNodeFtt } from "../src/parser/index.js";
+import { getRelationships } from "../src/parser/relationships.js";
 import { buildNodeFtt, familyRow, personRow } from "./helpers.js";
 
 describe("remarriage (deceased first spouse, second marriage)", () => {

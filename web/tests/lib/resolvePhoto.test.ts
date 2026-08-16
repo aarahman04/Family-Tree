@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildPhotoMap, photoAlt, resolvePhoto } from "../../src/lib/resolvePhoto.js";
-import type { FamilyTree, Person } from "../../../models/types.js";
+import type { FamilyTree, Person } from "../../../src/models/types.js";
 
 const withPhoto: Person = {
   id: "p1",

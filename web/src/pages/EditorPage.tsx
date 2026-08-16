@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FamilyTree, UUID } from "../../../models/types.js";
+import type { FamilyTree, UUID } from "../../../src/models/types.js";
 import { buildSearchIndex } from "../lib/search.js";
 import { computeTreeInsights } from "../lib/insights.js";
 import { saveSession } from "../lib/autosave.js";
@@ -7,7 +7,7 @@ import { setHasUnsavedEdits } from "../lib/unsavedEdits.js";
 import { useExport } from "../hooks/useExport.js";
 import { useTreeEditor } from "../state/useTreeEditor.js";
 import { useTreeSession, type TreeSession } from "../state/treeSession.js";
-import { deletePerson } from "../../../editor/operations.js";
+import { deletePerson } from "../../../src/editor/operations.js";
 import { EditorCanvas, type EditorCanvasHandle } from "../components/editor/EditorCanvas.js";
 import { ExportMenu } from "../components/editor/ExportMenu.js";
 import { AddPersonMenu } from "../components/editor/AddPersonMenu.js";

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { Family, FamilyTree, Person, UUID } from "../../../../models/types.js";
+import type { Family, FamilyTree, Person, UUID } from "../../../../src/models/types.js";
 import { EditorCanvas } from "../../../src/components/editor/EditorCanvas.js";
 import { DEFAULT_APPEARANCE_PREFS } from "../../../src/lib/appearancePrefs.js";
 

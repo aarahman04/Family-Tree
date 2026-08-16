@@ -114,7 +114,7 @@ describe.skipIf(!SAMPLE_EXISTS)("Upload interactions", () => {
 // (rejecting an oversized file before any parsing is attempted) and should run in CI too.
 describe("Upload interactions — oversized archive", () => {
   it("shows a clear, specific message instead of the generic parse-failure fallback", async () => {
-    const { MAX_ARCHIVE_BYTES } = await import("../../../parser/zip.js");
+    const { MAX_ARCHIVE_BYTES } = await import("../../../src/parser/zip.js");
     render(<App />);
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
 

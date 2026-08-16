@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { posterLayoutKey } from "../../../poster/layoutKey.js";
+import { posterLayoutKey } from "../../../src/poster/layoutKey.js";
 import { appearanceToStyle } from "../../src/lib/appearancePrefs.js";
-import { setPersonPhoto, updatePersonFields } from "../../../editor/operations.js";
-import type { FamilyTree } from "../../../models/types.js";
+import { setPersonPhoto, updatePersonFields } from "../../../src/editor/operations.js";
+import type { FamilyTree } from "../../../src/models/types.js";
 
 /**
  * The machine-checkable form of the memo contract EditorCanvas relies on: the layout is memoized

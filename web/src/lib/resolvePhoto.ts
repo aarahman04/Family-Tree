@@ -1,4 +1,4 @@
-import type { FamilyTree, Person, UUID } from "../../../models/types.js";
+import type { FamilyTree, Person, UUID } from "../../../src/models/types.js";
 
 export type PhotoQuality = "thumb" | "print";
 

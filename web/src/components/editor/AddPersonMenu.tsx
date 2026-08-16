@@ -1,6 +1,6 @@
-import type { FamilyTree, UUID } from "../../../../models/types.js";
+import type { FamilyTree, UUID } from "../../../../src/models/types.js";
 import { addRelative, type RelativeKind } from "../../lib/addRelative.js";
-import { createPerson } from "../../../../editor/operations.js";
+import { createPerson } from "../../../../src/editor/operations.js";
 import { useCloseOnEscape } from "../../lib/useCloseOnEscape.js";
 import { AnchoredPanel, useAnchoredDropdown } from "../../lib/useAnchoredDropdown.js";
 

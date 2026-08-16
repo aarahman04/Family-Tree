@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Event, Family, FamilyTree, Gender, Person, UUID } from "../../../models/types.js";
+import type { Event, Family, FamilyTree, Gender, Person, UUID } from "../../../src/models/types.js";
 import { computeTreeInsights } from "../../src/lib/insights.js";
 
 function ev(id: string, type: Event["type"], year: number): Event {

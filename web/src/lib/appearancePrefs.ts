@@ -3,7 +3,7 @@ import {
   type DisplayMode,
   type PhotoShape,
   type PosterStyleOptions,
-} from "../../../poster/types.js";
+} from "../../../src/poster/types.js";
 
 export interface AppearancePrefs {
   displayMode: DisplayMode;

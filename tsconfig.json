@@ -12,5 +12,5 @@
     "declaration": true,
     "resolveJsonModule": true
   },
-  "include": ["parser", "models", "validation", "lib", "gedcom", "editor", "poster", "tests", "scripts"]
+  "include": ["src", "tests", "scripts"]
 }

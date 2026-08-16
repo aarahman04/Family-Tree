@@ -1,4 +1,4 @@
-import type { FamilyTree, UUID } from "../../../models/types.js";
+import type { FamilyTree, UUID } from "../../../src/models/types.js";
 
 interface SearchIndexEntry {
   id: UUID;

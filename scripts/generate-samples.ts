@@ -5,9 +5,9 @@
  */
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { parseFtzFile } from "../parser/index.js";
-import { exportGedcom } from "../gedcom/export.js";
-import { verifyRoundTrip } from "../gedcom/verify.js";
+import { parseFtzFile } from "../src/parser/index.js";
+import { exportGedcom } from "../src/gedcom/export.js";
+import { verifyRoundTrip } from "../src/gedcom/verify.js";
 
 // Run from the repository root (this script is not part of the compiled package layout).
 const ROOT = process.cwd();

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import type { FamilyTree } from "../../../models/types.js";
+import type { FamilyTree } from "../../../src/models/types.js";
 import { clearSavedSession, loadSavedSession, saveSession } from "../../src/lib/autosave.js";
 
 const tree: FamilyTree = {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PosterNode } from "../../../poster/types.js";
+import type { PosterNode } from "../../../src/poster/types.js";
 import { hitTestNode } from "../../src/lib/canvasHitTest.js";
 
 const n = (personId: string, x: number, y: number): PosterNode => ({

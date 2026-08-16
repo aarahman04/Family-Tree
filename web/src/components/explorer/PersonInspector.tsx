@@ -5,7 +5,7 @@ import type {
   Gender,
   UUID,
   ValidationIssue,
-} from "../../../../models/types.js";
+} from "../../../../src/models/types.js";
 import {
   addChildToPerson,
   addSpouse,
@@ -16,8 +16,8 @@ import {
   setMother,
   setPersonPhoto,
   updatePersonFields,
-} from "../../../../editor/operations.js";
-import { getRelationships } from "../../../../parser/relationships.js";
+} from "../../../../src/editor/operations.js";
+import { getRelationships } from "../../../../src/parser/relationships.js";
 import { isAcceptedPhotoType, processImageFile } from "../../lib/photo.js";
 import { photoAlt, resolvePhoto } from "../../lib/resolvePhoto.js";
 import type { SearchIndex } from "../../lib/search.js";

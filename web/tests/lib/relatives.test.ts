@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Family, FamilyTree, Person, UUID } from "../../../models/types.js";
+import type { Family, FamilyTree, Person, UUID } from "../../../src/models/types.js";
 import { immediateRelatives } from "../../src/lib/relatives.js";
 
 function P(id: string, opts: Partial<Person> = {}): Person {

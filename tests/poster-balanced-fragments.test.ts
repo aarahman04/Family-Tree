@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { Family, FamilyTree, Person, UUID } from "../models/types.js";
-import { computeBalancedPosterLayout } from "../poster/layoutBalanced.js";
-import { DEFAULT_POSTER_STYLE } from "../poster/types.js";
+import type { Family, FamilyTree, Person, UUID } from "../src/models/types.js";
+import { computeBalancedPosterLayout } from "../src/poster/layoutBalanced.js";
+import { DEFAULT_POSTER_STYLE } from "../src/poster/types.js";
 
 // AUD-6 repro fixture. layoutBalanced.finalize claims: "Any people the walk never owned
 // (disconnected fragments) ... are dropped below everything so they never overlap the main

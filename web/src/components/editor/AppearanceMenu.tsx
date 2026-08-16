@@ -1,7 +1,7 @@
 import { useCloseOnEscape } from "../../lib/useCloseOnEscape.js";
 import { AnchoredPanel, useAnchoredDropdown } from "../../lib/useAnchoredDropdown.js";
 import type { AppearancePrefs } from "../../lib/appearancePrefs.js";
-import type { DisplayMode, PhotoShape } from "../../../../poster/types.js";
+import type { DisplayMode, PhotoShape } from "../../../../src/poster/types.js";
 
 interface AppearanceMenuProps {
   prefs: AppearancePrefs;

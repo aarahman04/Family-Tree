@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseNodeFtt } from "../../../parser/index.js";
-import { applyEdit } from "../../../editor/index.js";
-import { updatePersonFields } from "../../../editor/operations.js";
+import { parseNodeFtt } from "../../../src/parser/index.js";
+import { applyEdit } from "../../../src/editor/index.js";
+import { updatePersonFields } from "../../../src/editor/operations.js";
 import { buildNodeFtt, familyRow, personRow } from "../../../tests/helpers.js";
 import { buildSearchIndex, searchPeople } from "../../src/lib/search.js";
-import type { FamilyTree } from "../../../models/types.js";
+import type { FamilyTree } from "../../../src/models/types.js";
 
 /**
  * Same generation-chain pattern as the root package's tests/scenarios.test.ts, scaled up to

@@ -1,4 +1,4 @@
-import type { PersonPhoto } from "../../../models/types.js";
+import type { PersonPhoto } from "../../../src/models/types.js";
 
 export const ACCEPTED_PHOTO_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 export const MAX_PHOTO_BYTES = 20 * 1024 * 1024;

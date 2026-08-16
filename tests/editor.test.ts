@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { parseNodeFtt } from "../parser/index.js";
+import { parseNodeFtt } from "../src/parser/index.js";
 import { buildNodeFtt, familyRow, personRow } from "./helpers.js";
-import { applyEdit, EditorError } from "../editor/index.js";
+import { applyEdit, EditorError } from "../src/editor/index.js";
 import {
   addChildToFamily,
   addChildToPerson,
@@ -12,8 +12,8 @@ import {
   setFather,
   setMother,
   updatePersonFields,
-} from "../editor/operations.js";
-import type { FamilyTree } from "../models/types.js";
+} from "../src/editor/operations.js";
+import type { FamilyTree } from "../src/models/types.js";
 
 function nuclearFamilyTree(): FamilyTree {
   return parseNodeFtt(

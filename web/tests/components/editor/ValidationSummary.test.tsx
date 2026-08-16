@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { ValidationIssue } from "../../../../models/types.js";
+import type { ValidationIssue } from "../../../../src/models/types.js";
 import { ValidationSummary } from "../../../src/components/editor/ValidationSummary.js";
 
 describe("ValidationSummary", () => {

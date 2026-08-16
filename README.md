@@ -55,17 +55,17 @@ Then open `http://localhost:5173`, drop in a `.ftz` file, and go.
 FTZ file
   │
   ▼
-ZIP extraction + node.ftt parsing      (parser/)
+ZIP extraction + node.ftt parsing      (src/parser/)
   │
   ▼
-Internal data model + validation       (models/, validation/)
+Internal data model + validation       (src/models/, src/validation/)
   │
   ▼
-Explore & edit (optional)              (editor/, web/ — React Flow visualization)
+Explore & edit (optional)              (src/editor/, web/)
   │
-  ├──▶ GEDCOM 5.5.1 generation         (gedcom/) ──▶ download .ged
+  ├──▶ GEDCOM 5.5.1 generation         (src/gedcom/) ──▶ download .ged
   │
-  └──▶ Print poster layout + render    (poster/) ──▶ download PDF/SVG
+  └──▶ Print poster layout + render    (src/poster/) ──▶ download PDF/SVG
 
 All of the above runs in your browser (Web Worker for parsing/GEDCOM), nothing leaves it.
 ```
@@ -89,6 +89,31 @@ Every stage was built and verified as its own milestone, each with its own docum
 | [`docs/audit-findings.md`](docs/audit-findings.md) | Real bugs found and fixed during the v1.0 release-readiness engineering audit |
 | [`docs/roadmap.md`](docs/roadmap.md) | What's planned for v1.1, v1.2, and beyond |
 | [`docs/release-notes-v1.0.md`](docs/release-notes-v1.0.md) | Version 1.0 release notes |
+
+## Project structure
+
+The shared FTZ↔GEDCOM core lives in `src/` (a plain TypeScript package, no framework), and the
+web app in `web/` imports it directly — there is exactly one implementation of the business
+logic, not a copy per surface.
+
+```text
+Family-Tree/
+├─ src/                 # shared TypeScript core (imported by both tests/ and web/)
+│  ├─ models/           #   FamilyTree / Person / Family data model
+│  ├─ parser/           #   FTZ (.ftz / node.ftt) extraction + parsing
+│  ├─ gedcom/           #   GEDCOM 5.5.1 import + export
+│  ├─ validation/       #   relationship reconstruction + integrity checks
+│  ├─ editor/           #   tree edit operations (add / delete / link, undo/redo)
+│  ├─ poster/           #   print-poster layout engine + SVG rendering
+│  └─ lib/              #   small shared utilities (e.g. uuid)
+├─ tests/               # test suite for the src/ core (vitest, Node env)
+├─ scripts/             # build / maintenance scripts
+├─ web/                 # Vite + React app (npm workspace)
+│  ├─ src/              #   pages, components, hooks, worker, app-local lib
+│  └─ tests/            #   component / integration / accessibility tests
+├─ docs/                # architecture, specs, and audit docs
+└─ .github/             # CI workflows and issue templates
+```
 
 ## Privacy, in one sentence
 
@@ -119,10 +144,10 @@ GEDCOM import, CSV import, photo support, and more are planned but not yet built
 
 ## Development
 
-This is an npm workspace: the parser/editor/exporter live at the repo root as a plain
-TypeScript package (no framework dependency), and the web app lives in `web/` and imports
-them directly — there is exactly one implementation of the FTZ↔GEDCOM logic, not a copy per
-surface.
+This is an npm workspace: the parser/editor/exporter live in `src/` as a plain TypeScript
+package (no framework dependency), and the web app lives in `web/` and imports them directly
+— there is exactly one implementation of the FTZ↔GEDCOM logic, not a copy per surface. See
+[Project structure](#project-structure) above for the full layout.
 
 ```bash
 # from the repo root

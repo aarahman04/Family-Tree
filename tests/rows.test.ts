@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseFamilyRow, parsePersonRow } from "../parser/rows.js";
+import { parseFamilyRow, parsePersonRow } from "../src/parser/rows.js";
 import { familyRow, personRow } from "./helpers.js";
 
 describe("parsePersonRow", () => {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { FamilyTree, Gender } from "../../../models/types.js";
+import type { FamilyTree, Gender } from "../../../src/models/types.js";
 import { buildNewTree } from "../lib/newTree.js";
 
 interface CreateFamilyTreeWizardProps {

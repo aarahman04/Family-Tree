@@ -1,4 +1,4 @@
-import type { FamilyTree, ValidationIssue, ValidationState } from "../../../models/types.js";
+import type { FamilyTree, ValidationIssue, ValidationState } from "../../../src/models/types.js";
 
 /** Messages the main thread sends to the worker. */
 export type WorkerRequest =

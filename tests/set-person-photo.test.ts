@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { setPersonPhoto } from "../editor/operations.js";
-import type { FamilyTree, PersonPhoto } from "../models/types.js";
+import { setPersonPhoto } from "../src/editor/operations.js";
+import type { FamilyTree, PersonPhoto } from "../src/models/types.js";
 
 function tree(): FamilyTree {
   return {

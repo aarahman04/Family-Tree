@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PosterExportPanel } from "../../../src/components/poster/PosterExportPanel.js";
-import { parseNodeFtt } from "../../../../parser/index.js";
+import { parseNodeFtt } from "../../../../src/parser/index.js";
 import { buildNodeFtt, familyRow, personRow } from "../../../../tests/helpers.js";
-import type { FamilyTree, PersonPhoto } from "../../../../models/types.js";
+import type { FamilyTree, PersonPhoto } from "../../../../src/models/types.js";
 
 function cousinMarriageTree() {
   return parseNodeFtt(

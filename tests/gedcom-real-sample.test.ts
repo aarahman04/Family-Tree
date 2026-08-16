@@ -3,9 +3,9 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { parseFtzFile } from "../parser/index.js";
-import { exportGedcom } from "../gedcom/export.js";
-import { verifyRoundTrip } from "../gedcom/verify.js";
+import { parseFtzFile } from "../src/parser/index.js";
+import { exportGedcom } from "../src/gedcom/export.js";
+import { verifyRoundTrip } from "../src/gedcom/verify.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SAMPLE_PATH = path.join(__dirname, "..", "Family Tree FTZ", "FamilyTree.ftz");

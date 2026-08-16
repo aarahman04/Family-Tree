@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { FamilyTree } from "../../../models/types.js";
+import type { FamilyTree } from "../../../src/models/types.js";
 import { useTreeImport, ACCEPT_EXTENSIONS } from "../hooks/useTreeImport.js";
 import { UploadArea } from "../components/UploadArea.js";
 import { CreateFamilyTreeWizard } from "../components/CreateFamilyTreeWizard.js";

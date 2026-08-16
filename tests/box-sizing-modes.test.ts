@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { computePersonBox, photoAreaHeight } from "../poster/boxSizing.js";
-import { DEFAULT_POSTER_STYLE } from "../poster/types.js";
+import { computePersonBox, photoAreaHeight } from "../src/poster/boxSizing.js";
+import { DEFAULT_POSTER_STYLE } from "../src/poster/types.js";
 
 const compact = DEFAULT_POSTER_STYLE;
 const photoCards = { ...DEFAULT_POSTER_STYLE, displayMode: "photoCards" as const };

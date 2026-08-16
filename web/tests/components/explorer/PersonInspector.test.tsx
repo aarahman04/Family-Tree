@@ -5,9 +5,9 @@ import userEvent from "@testing-library/user-event";
 import { PersonInspector } from "../../../src/components/explorer/PersonInspector.js";
 import { buildSearchIndex } from "../../../src/lib/search.js";
 import { processImageFile } from "../../../src/lib/photo.js";
-import { parseNodeFtt } from "../../../../parser/index.js";
+import { parseNodeFtt } from "../../../../src/parser/index.js";
 import { buildNodeFtt, familyRow, personRow } from "../../../../tests/helpers.js";
-import type { FamilyTree } from "../../../../models/types.js";
+import type { FamilyTree } from "../../../../src/models/types.js";
 
 // Mock only the canvas-dependent encoder; keep isAcceptedPhotoType (pure) real so the
 // unsupported-type path exercises the actual predicate.

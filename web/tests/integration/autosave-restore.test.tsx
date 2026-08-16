@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { FamilyTree } from "../../../models/types.js";
+import type { FamilyTree } from "../../../src/models/types.js";
 import { App } from "../../src/App.js";
 import { clearSavedSession, loadSavedSession, saveSession } from "../../src/lib/autosave.js";
 
