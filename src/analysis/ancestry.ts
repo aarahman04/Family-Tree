@@ -53,6 +53,36 @@ export function computeAncestorMap(
   return map;
 }
 
+/**
+ * Count of filled ancestor-SLOT instances up to `depth` generations — every parent-link edge
+ * actually recorded, counting a person once per slot they occupy. Unlike `computeAncestorMap`,
+ * this does NOT dedupe by ancestor identity: when pedigree collapse makes one ancestor fill
+ * multiple slots (e.g. a shared great-grandparent reached via two different grandparents), each
+ * occurrence counts separately. That gap between this count and the number of DISTINCT ancestors
+ * is exactly what `pedigree.ts`'s collapse score measures.
+ */
+export function filledAncestorSlots(
+  tree: FamilyTree,
+  personId: UUID,
+  depth: number,
+): number {
+  let count = 0;
+  let frontier: UUID[] = [personId];
+  for (let k = 1; k <= depth && frontier.length > 0; k++) {
+    const next: UUID[] = [];
+    for (const id of frontier) {
+      for (const parent of [fatherOf(tree, id), motherOf(tree, id)]) {
+        if (parent && tree.persons[parent] && parent !== id) {
+          count++;
+          next.push(parent);
+        }
+      }
+    }
+    frontier = next;
+  }
+  return count;
+}
+
 export interface CommonAncestor {
   ancestorId: UUID;
   /** Distance from the first person to this shared ancestor. */

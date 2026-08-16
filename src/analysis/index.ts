@@ -2,6 +2,7 @@ import type { FamilyTree, UUID } from "../models/types.js";
 import { type CousinChains, analyzeCousinChains } from "./chains.js";
 import type { Confidence } from "./confidence.js";
 import { type MarriageAnalysis, classifyAllMarriages } from "./marriages.js";
+import { type PedigreeAnalysis, analyzePedigreeCollapse } from "./pedigree.js";
 
 /**
  * Public API of the relationship-analysis engine (Insights v2). `analyzeTree` is the single
@@ -15,6 +16,7 @@ export * from "./classify.js";
 export * from "./confidence.js";
 export * from "./marriages.js";
 export * from "./chains.js";
+export * from "./pedigree.js";
 
 export interface TreeAnalysisSummary {
   /** Couples with both spouses recorded. */
@@ -29,6 +31,9 @@ export interface TreeAnalysisSummary {
   maxChainDepth: number;
   /** Confidence distribution across all couples. */
   byConfidence: Record<Confidence, number>;
+  /** Tree-level pedigree-collapse score (D-5: averaged over the terminal generation), as a
+   * whole-number percent. */
+  pedigreeCollapsePercent: number;
 }
 
 export interface TreeAnalysis {
@@ -38,6 +43,8 @@ export interface TreeAnalysis {
   cousinMarriages: MarriageAnalysis[];
   /** Cousin-marriage chain depth per person + tree-wide max. */
   chains: CousinChains;
+  /** Pedigree-collapse score per person + the tree-level headline. */
+  pedigree: PedigreeAnalysis;
   /** Headline counts for the insights panel/strip. */
   summary: TreeAnalysisSummary;
 }
@@ -64,6 +71,7 @@ export function analyzeTree(tree: FamilyTree): TreeAnalysis {
   }
 
   const chains = analyzeCousinChains(tree, marriages);
+  const pedigree = analyzePedigreeCollapse(tree);
   const totalMarriages = marriages.size;
   const cousinMarriageCount = cousinMarriages.length;
 
@@ -71,6 +79,7 @@ export function analyzeTree(tree: FamilyTree): TreeAnalysis {
     marriages,
     cousinMarriages,
     chains,
+    pedigree,
     summary: {
       totalMarriages,
       cousinMarriageCount,
@@ -81,6 +90,7 @@ export function analyzeTree(tree: FamilyTree): TreeAnalysis {
           : 0,
       maxChainDepth: chains.maxChainDepth,
       byConfidence,
+      pedigreeCollapsePercent: Math.round(pedigree.treeScore * 100),
     },
   };
 }

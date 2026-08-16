@@ -52,6 +52,9 @@ describe("analysis/index — analyzeTree", () => {
       0,
     );
     expect(totalByConfidence).toBe(a.summary.totalMarriages);
+    // No pedigree collapse in this fixture (no ancestor is reachable via two different slots).
+    expect(a.pedigree.treeScore).toBe(0);
+    expect(a.summary.pedigreeCollapsePercent).toBe(0);
   });
 });
 

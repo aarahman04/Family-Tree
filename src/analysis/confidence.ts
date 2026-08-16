@@ -1,6 +1,10 @@
 import type { FamilyTree, UUID } from "../models/types.js";
-import { fatherOf, grandparentsOf, motherOf } from "../parser/relationships.js";
-import { type CommonAncestor, ancestorPaths } from "./ancestry.js";
+import { grandparentsOf } from "../parser/relationships.js";
+import {
+  type CommonAncestor,
+  ancestorPaths,
+  filledAncestorSlots,
+} from "./ancestry.js";
 import type { RelKind } from "./classify.js";
 
 /**
@@ -28,21 +32,8 @@ export function ancestryCompleteness(
 ): number {
   if (depth <= 0) return 1;
   let expected = 0;
-  let actual = 0;
-  let frontier: UUID[] = [personId];
-  for (let k = 1; k <= depth; k++) {
-    expected += 2 ** k;
-    const next: UUID[] = [];
-    for (const id of frontier) {
-      for (const parent of [fatherOf(tree, id), motherOf(tree, id)]) {
-        if (parent && tree.persons[parent] && parent !== id) {
-          actual++;
-          next.push(parent);
-        }
-      }
-    }
-    frontier = next;
-  }
+  for (let k = 1; k <= depth; k++) expected += 2 ** k;
+  const actual = filledAncestorSlots(tree, personId, depth);
   return expected === 0 ? 1 : actual / expected;
 }
 
