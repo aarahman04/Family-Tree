@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Family, FamilyTree, Person, UUID } from "../../../../models/types.js";
 import { EditorCanvas } from "../../../src/components/editor/EditorCanvas.js";
@@ -30,6 +30,35 @@ const tree: FamilyTree = {
   } as Record<UUID, Family>,
   validation: { validatedAt: "", issues: [], isValid: true },
 };
+
+// jsdom has no PointerEvent, so fireEvent.pointerX drops clientX/pointerId. Dispatch a MouseEvent
+// typed as a pointer event with pointerId attached — React reads clientX/pointerId off the native
+// event, which is all the canvas handlers need.
+function firePointer(
+  el: HTMLElement,
+  type: "down" | "move" | "up",
+  o: { pointerId: number; clientX: number; clientY: number }
+) {
+  const ev = new MouseEvent(`pointer${type}`, {
+    bubbles: true,
+    cancelable: true,
+    clientX: o.clientX,
+    clientY: o.clientY,
+  });
+  Object.defineProperty(ev, "pointerId", { value: o.pointerId, configurable: true });
+  Object.defineProperty(ev, "pointerType", { value: "touch", configurable: true });
+  // act() flushes the handler's setState so the transform is committed before we read it back.
+  act(() => {
+    el.dispatchEvent(ev);
+  });
+}
+
+/** The transform scale currently applied to the canvas's content layer. */
+function scaleOf(viewport: HTMLElement): number {
+  const layer = viewport.querySelector(":scope > div") as HTMLElement;
+  const m = /scale\(([-\d.]+)\)/.exec(layer.style.transform);
+  return m ? parseFloat(m[1]!) : NaN;
+}
 
 describe("EditorCanvas", () => {
   it("renders the poster svg and zoom controls", () => {
@@ -98,6 +127,46 @@ describe("EditorCanvas", () => {
       />
     );
     expect(screen.getByRole("img", { name: /photo of kid/i })).toBeInTheDocument();
+  });
+
+  // Regression guard for the touch "fluctuation": before the fix, two fingers panned off a single
+  // shared drag ref and never changed the scale. A pinch must now change scale, monotonically with
+  // the finger distance, so the view zooms instead of oscillating.
+  it("pinches to zoom: two fingers spreading zoom in, pinching together zoom out", () => {
+    render(
+      <EditorCanvas tree={tree} appearance={DEFAULT_APPEARANCE_PREFS} onSelectPerson={vi.fn()} />
+    );
+    const viewport = screen.getByRole("application");
+    const start = scaleOf(viewport);
+
+    // Two fingers 200px apart, then spread to 300px apart -> zoom in.
+    firePointer(viewport, "down", { pointerId: 1, clientX: 500, clientY: 400 });
+    firePointer(viewport, "down", { pointerId: 2, clientX: 700, clientY: 400 });
+    firePointer(viewport, "move", { pointerId: 1, clientX: 450, clientY: 400 });
+    firePointer(viewport, "move", { pointerId: 2, clientX: 750, clientY: 400 });
+    const zoomedIn = scaleOf(viewport);
+    expect(zoomedIn).toBeGreaterThan(start);
+
+    // Draw them back together, much closer than the start -> zoom out below the start scale.
+    firePointer(viewport, "move", { pointerId: 1, clientX: 590, clientY: 400 });
+    firePointer(viewport, "move", { pointerId: 2, clientX: 610, clientY: 400 });
+    const zoomedOut = scaleOf(viewport);
+    expect(zoomedOut).toBeLessThan(zoomedIn);
+    expect(zoomedOut).toBeLessThan(start);
+
+    firePointer(viewport, "up", { pointerId: 1, clientX: 590, clientY: 400 });
+    firePointer(viewport, "up", { pointerId: 2, clientX: 610, clientY: 400 });
+  });
+
+  it("still treats a single tap (press that doesn't move) as a select", () => {
+    const onSelect = vi.fn();
+    render(
+      <EditorCanvas tree={tree} appearance={DEFAULT_APPEARANCE_PREFS} onSelectPerson={onSelect} />
+    );
+    const viewport = screen.getByRole("application");
+    firePointer(viewport, "down", { pointerId: 1, clientX: 12, clientY: 12 });
+    firePointer(viewport, "up", { pointerId: 1, clientX: 12, clientY: 12 });
+    expect(onSelect).toHaveBeenCalled();
   });
 
   it("focus mode dims people outside the selected person's immediate family", async () => {
