@@ -4,7 +4,7 @@
 
 - **Plan (immutable):** `docs/superpowers/plans/2026-08-16-family-tree-insights-v2.md`
 - **Source spec:** `family_tree_insight_phased_plan.md` (repo root)
-- **Last updated:** 2026-08-16 — after CP3.1 (standalone review dispatched).
+- **Last updated:** 2026-08-16 — after CP3.2+CP3.3 (batched standalone review dispatched).
 
 ---
 
@@ -37,9 +37,9 @@ Legend: ⬜ not-started · 🟡 in-progress · ✅ done
 | 2.8                    | Inline relationship badges (panel header)             | ✅     | `34b0ebd`                    | Batched with 2.7. "Parents Related" + per-cousin-marriage label pills near the person heading, reusing the accent-tint pair.            |
 | 2.9                    | Editor transient ancestry-highlight overlay           | ✅     | `d261890`                    | Both-workspace gates green. **Standalone review complete: no Critical/Important findings**, 2 Minor notes recorded in Known gaps below.  |
 | 3.1                    | `analysis/pedigree.ts` pedigree-collapse scoring      | ✅     | `2f33c7e`                    | Both-workspace gates green. **Standalone review complete: no Critical/Important findings**, 2 Minor notes in Known gaps below.           |
-| 3.2                    | `analysis/branches.ts` branch overlap                 | ⬜     | —                            | **NEXT.** Large, touches root-anchor concept from `layoutBalanced.ts` (D-4) → standalone review.                                          |
-| 3.3                    | `analysis/influence.ts` most-influential ancestor     | ⬜     | —                            | Batchable review with 3.2 per plan.                                                                                                       |
-| 3.4                    | "Family health" blocks in `InsightsPanel`             | ⬜     | —                            | Standalone review (user-facing).                                                                                                          |
+| 3.2                    | `analysis/branches.ts` branch overlap                 | ✅     | `6d22aa0`                    | Both-workspace gates green (D-6: 5.89ms). Batched standalone review dispatched with 3.3.                                                 |
+| 3.3                    | `analysis/influence.ts` most-influential ancestor     | ✅     | `34dd3fd`                    | Both-workspace gates green (D-6: 11.71ms, still sub-frame). Batched standalone review dispatched with 3.2.                               |
+| 3.4                    | "Family health" blocks in `InsightsPanel`             | ⬜     | —                            | **NEXT.** Standalone review (user-facing).                                                                                                |
 | 3.5                    | Headline chips in `InsightsStrip`                     | ⬜     | —                            | Batchable review with 3.4.                                                                                                                |
 | 4.x, 5.x               | Phases 4–5                                            | ⬜     | —                            | Not started.                                                                                                                               |
 
@@ -213,15 +213,21 @@ export interface TreeAnalysisSummary {
   cousinMarriagePercent;
   maxChainDepth;
   byConfidence: Record<Confidence, number>;
+  pedigreeCollapsePercent: number; // CP3.1
+  branchOverlapPercent: number; // CP3.2
 }
 export interface TreeAnalysis {
   marriages: Map<UUID, MarriageAnalysis>;
   cousinMarriages: MarriageAnalysis[];
   chains: CousinChains;
+  pedigree: PedigreeAnalysis; // CP3.1
+  branches: BranchAnalysis; // CP3.2
+  influence: InfluenceAnalysis; // CP3.3
   summary: TreeAnalysisSummary;
 }
 export function analyzeTree(tree: FamilyTree): TreeAnalysis;
 ```
+(Fields tagged CP3.x above were added in those checkpoints, additive to the CP2.6-locked shape.)
 
 **`src/analysis/pedigree.ts`** (CP3.1, `2f33c7e`):
 
@@ -248,6 +254,57 @@ generation" is implemented as `terminalGenerationIds` (people with no recorded c
 in the tree) rather than the web layer's date-based living heuristic, to keep this package
 framework-free. Wired into `analyzeTree`: `TreeAnalysis.pedigree: PedigreeAnalysis` and
 `TreeAnalysisSummary.pedigreeCollapsePercent: number`.
+
+**`src/analysis/branches.ts`** (CP3.2, `6d22aa0`):
+
+```ts
+export interface DescendantClosure { members: Set<UUID>; depth: number; maxBreadth: number }
+export function descendantsOf(tree, rootId): DescendantClosure; // bidirectional childrenOf, per-call cycle-safe dedup
+export interface Branch {
+  rootPersonId: UUID; memberIds: Set<UUID>; descendantCount: number;
+  livingDescendantCount: number; depth: number; maxBreadth: number; bridgeCount: number;
+}
+export interface BranchOverlap { branchA: UUID; branchB: UUID; sharedDescendantIds: UUID[] }
+export interface MarriageBridge { familyId: UUID; branchA: UUID; branchB: UUID }
+export interface BranchAnalysis {
+  primaryRootId: UUID | undefined; branches: Branch[]; overlaps: BranchOverlap[];
+  overlapPercent: number; marriageBridges: MarriageBridge[];
+}
+export function analyzeBranches(tree): BranchAnalysis;
+```
+
+**Critical refinement vs plan (found by TDD, not by design):** anchor selection CANNOT use the
+same bidirectional `childrenOf` that branch membership uses. A person's in-law (their own child's
+spouse's parent) structurally out-scores the "main line" root by exactly +1 descendant whenever
+both sides' grandparents are recorded (extremely common) — because the in-law's walk credits
+their own child on top of every descendant already shared with the main-line root. Fixed with a
+NEW module-private `ownedDescendantCount`/`ownedChildrenOf` (husbandId-preferred single-owner per
+family, mirroring `layoutBalanced.ts`'s `parentPersonIds[0]` convention) used ONLY for picking the
+anchor. Branch membership itself deliberately stays bidirectional — a cross-branch marriage's
+child legitimately belonging to both branches IS the overlap signal this module measures; if
+anchor selection used the same rule as branch membership, overlap detection would work but anchor
+picking would be wrong (or vice versa). D-4's "no single clean anchor → fall back to per-component"
+was generalized: `analyzeBranches` always processes every connected component (each gets its own
+local anchor + branches), and only the component with the most PEOPLE (not most descendants) sets
+the tree-level `primaryRootId` — smaller components are never discarded.
+
+**`src/analysis/influence.ts`** (CP3.3, `34dd3fd`):
+
+```ts
+export interface InfluentialAncestor { personId: UUID; descendantCount: number }
+export interface MostConnectedPerson { personId: UUID; connectionCount: number }
+export interface InfluenceAnalysis {
+  mostInfluentialAncestor: InfluentialAncestor | undefined;
+  mostConnectedPerson: MostConnectedPerson | undefined;
+}
+export function analyzeInfluence(tree): InfluenceAnalysis;
+```
+
+Two deliberately independent metrics (confirmed by a fixture where they pick different people):
+`mostInfluentialAncestor` reuses `branches.ts`'s `descendantsOf` (bidirectional — this is a
+whole-tree headline, not anchor selection, so the in-law-inflation concern above doesn't apply
+here); `mostConnectedPerson` = most direct edges (parents+spouses+children+siblings). Skips the
+descendant walk for anyone with zero children as a bounded perf guard.
 
 **`web/src/hooks/useTreeAnalysis.ts`** (CP2.6, `dfb5df9`):
 
