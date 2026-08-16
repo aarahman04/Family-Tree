@@ -78,14 +78,23 @@ describe.skipIf(!SAMPLE_EXISTS)("Upload interactions", () => {
     render(<App />);
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     await userEvent.upload(input, await realFtzFile());
-    await screen.findByText("FamilyTree.ftz");
+    // Two sequential async worker parses run in this test (real ftz, then the bad file); under
+    // full-suite CPU contention each settle can exceed the 1000ms default, which is what made this
+    // flake ~1-in-4 (AUD-10). Give both waits a generous timeout, and assert the settled state in
+    // ONE waitFor so the alert-fired and DOM-untouched checks can't race the async settle.
+    await screen.findByText("FamilyTree.ftz", undefined, { timeout: 5000 });
 
     const badFile = new File(["not an ftz"], "other.ftz", { type: "application/zip" });
     fireEvent.change(input, { target: { files: [badFile] } });
 
-    await waitFor(() => expect(window.alert).toHaveBeenCalled());
-    expect(screen.getByText("FamilyTree.ftz")).toBeInTheDocument();
-    expect(screen.queryByText("other.ftz")).not.toBeInTheDocument();
+    await waitFor(
+      () => {
+        expect(window.alert).toHaveBeenCalled();
+        expect(screen.getByText("FamilyTree.ftz")).toBeInTheDocument();
+        expect(screen.queryByText("other.ftz")).not.toBeInTheDocument();
+      },
+      { timeout: 5000 }
+    );
   });
 
   it("supports clearing a selected file back to the empty drop zone", async () => {

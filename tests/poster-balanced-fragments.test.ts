@@ -60,17 +60,14 @@ function multiComponentTree(): FamilyTree {
   return buildTree(persons, families);
 }
 
-// FINDING (2026-08-11): the bug is REAL. finalize computes its normalization bbox over OWNED
-// nodes only and then shifts ALL nodes by the same (minX,minY) — there is no code that moves
-// disconnected fragments below the chart. They keep their FLAT positions, so here the second
-// family lands in the top band (fragTop ≈ 0) while the main chart runs down to y ≈ 606.
-//   • The "dropped below everything" contract is broken → the .fails test below is the repro.
-//   • The worst consequence (a fragment overlapping a main node) is LATENT, not reproduced by
-//     this particular fixture's x-geometry, so no overlap assertion is made here — asserting
-//     "no overlap" would encode a guarantee finalize does not actually provide.
-//   • Fragments do stay on-page (non-negative coords) for this fixture — pinned as a guard so a
-//     future fix doesn't regress it.
-// Do NOT fix layoutBalanced.ts here (AUD-6 is gated on this fixture existing first).
+// FINDING (2026-08-11): the bug was REAL. finalize computed its normalization bbox over OWNED
+// nodes only and shifted ALL nodes by the same (minX,minY) — nothing moved disconnected fragments
+// below the chart, so the second family landed in the top band while the main chart ran down past
+// it, breaking finalize's own "dropped below everything" contract.
+// FIXED (2026-08-16, AUD-6): finalize now relocates unowned fragments as one rigid block to below
+// the main chart, left-aligned to it. The assertions below are the regression guards:
+//   • fragments stay on-page (non-negative coords), and
+//   • fragments sit below the main chart's bottom edge (the contract now holds).
 describe("AUD-6 — disconnected fragments in the balanced layout", () => {
   const layout = computeBalancedPosterLayout(multiComponentTree(), DEFAULT_POSTER_STYLE);
   const boxOf = (n: { x: number; y: number; width: number; height: number }) => ({
@@ -87,9 +84,7 @@ describe("AUD-6 — disconnected fragments in the balanced layout", () => {
     expect(minT).toBeGreaterThanOrEqual(-0.5);
   });
 
-  // Expected to FAIL until AUD-6 is fixed: fragments are NOT dropped below the main chart today.
-  // When finalize is fixed, this starts passing and vitest flags the stale `.fails` for removal.
-  it.fails("drops disconnected fragments BELOW the main chart (finalize's stated contract)", () => {
+  it("drops disconnected fragments BELOW the main chart (finalize's stated contract)", () => {
     const mainBottom = Math.max(...main.map((b) => b.b));
     const fragTop = Math.min(...frag.map((b) => b.t));
     expect(fragTop).toBeGreaterThanOrEqual(mainBottom - 0.5);

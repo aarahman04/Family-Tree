@@ -31,7 +31,7 @@ export function SearchBox({ tree, index, onSelect }: SearchBoxProps) {
         aria-expanded={results.length > 0}
         aria-controls={listId}
         aria-autocomplete="list"
-        className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
+        className="w-full rounded-md border border-slate-500 px-3 py-1.5 text-sm dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
       />
       {results.length > 0 && (
         <ul

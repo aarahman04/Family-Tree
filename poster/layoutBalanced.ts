@@ -246,11 +246,26 @@ export function computeBalancedPosterLayout(
   return finalize(flat.nodes, flat.chips);
 
   function finalize(nodes: PosterNode[], chips: PosterChip[]): PosterLayout {
-    // Any people the walk never owned (disconnected fragments) keep their flat positions but
-    // are dropped below everything so they never overlap the main chart.
+    // Bounding box of the main chart = everything the recursive walk actually placed.
     let bb = EMPTY;
     for (const n of nodes) if (owned.has(n.personId)) bb = extend(bb, boxOf(n));
     for (const c of chips) if (owned.has(c.anchorPersonId)) bb = extend(bb, boxOf(c));
+
+    // Any people the walk never owned (disconnected fragments) keep their flat arrangement but are
+    // moved as one rigid block to sit BELOW the main chart, left-aligned to it — so they never
+    // overlap it and never clip off the top/left edge. (Left in their flat positions they'd retain
+    // coordinates that can collide with the relocated chart, or fall at negative offsets.)
+    const fragNodes = nodes.filter((n) => !owned.has(n.personId));
+    const fragChips = chips.filter((c) => !owned.has(c.anchorPersonId));
+    if (bb.minX !== Infinity && (fragNodes.length > 0 || fragChips.length > 0)) {
+      let fragBB = EMPTY;
+      for (const n of fragNodes) fragBB = extend(fragBB, boxOf(n));
+      for (const c of fragChips) fragBB = extend(fragBB, boxOf(c));
+      const dx = bb.minX - fragBB.minX;
+      const dy = bb.maxY + GEN_GAP - fragBB.minY;
+      for (const n of fragNodes) { n.x += dx; n.y += dy; }
+      for (const c of fragChips) { c.x += dx; c.y += dy; }
+    }
 
     const minX = bb.minX === Infinity ? 0 : bb.minX;
     const minY = bb.minY === Infinity ? 0 : bb.minY;
