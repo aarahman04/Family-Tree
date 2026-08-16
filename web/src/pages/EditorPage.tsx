@@ -257,7 +257,10 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
                   <span aria-hidden="true">●</span> Unsaved changes
                 </span>
               )}
-              <p className="whitespace-nowrap text-xs text-slate-600 dark:text-slate-400" role="status">
+              <p
+                className="whitespace-nowrap text-xs text-slate-600 dark:text-slate-400"
+                role="status"
+              >
                 <span className="font-medium text-slate-900 dark:text-slate-100">
                   {Object.keys(tree.persons).length}
                 </span>{" "}

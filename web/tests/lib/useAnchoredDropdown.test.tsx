@@ -75,8 +75,19 @@ describe("useAnchoredDropdown", () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 400 });
     Object.defineProperty(HTMLElement.prototype, "offsetWidth", { configurable: true, value: 208 });
     Element.prototype.getBoundingClientRect = function () {
-      return { x: 360, y: 8, width: 32, height: 24, top: 8, left: 360, right: 392, bottom: 32,
-        toJSON() { return this; } } as DOMRect;
+      return {
+        x: 360,
+        y: 8,
+        width: 32,
+        height: 24,
+        top: 8,
+        left: 360,
+        right: 392,
+        bottom: 32,
+        toJSON() {
+          return this;
+        },
+      } as DOMRect;
     };
     try {
       render(<Harness />);

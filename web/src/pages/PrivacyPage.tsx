@@ -11,7 +11,9 @@ export function PrivacyPage() {
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">No uploads to a server</h2>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          No uploads to a server
+        </h2>
         <p className="mt-2 text-slate-600 dark:text-slate-400">
           When you select or drop an FTZ file, it's read directly by your browser and processed in a
           background thread on your own device. The file's contents — names, dates, notes,
@@ -21,14 +23,18 @@ export function PrivacyPage() {
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">No tracking, no analytics</h2>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          No tracking, no analytics
+        </h2>
         <p className="mt-2 text-slate-600 dark:text-slate-400">
           This site does not use analytics scripts, tracking pixels, or third-party cookies.
         </p>
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">No personal data stored</h2>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          No personal data stored
+        </h2>
         <p className="mt-2 text-slate-600 dark:text-slate-400">
           Nothing about your family tree is saved between visits. Refreshing the page clears
           everything. There are no accounts, no sign-in, and nothing is written to a database
@@ -37,7 +43,9 @@ export function PrivacyPage() {
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">If this ever changes</h2>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          If this ever changes
+        </h2>
         <p className="mt-2 text-slate-600 dark:text-slate-400">
           If a future version of this project adds any server-side processing (for example, an
           optional larger-file conversion service), that change will be documented here honestly,

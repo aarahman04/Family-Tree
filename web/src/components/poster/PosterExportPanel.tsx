@@ -134,9 +134,11 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
         <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
           One continuous page sized to fit the whole tree at a readable name size — no A4 splitting,
           no shrinking to fit.{" "}
-          <strong className="font-semibold text-slate-800 dark:text-slate-100">Download the SVG</strong> and take it
-          straight to a print shop: it is fully vector, has no size limit, and prints crisp at any
-          width, however long the tree needs to be.
+          <strong className="font-semibold text-slate-800 dark:text-slate-100">
+            Download the SVG
+          </strong>{" "}
+          and take it straight to a print shop: it is fully vector, has no size limit, and prints
+          crisp at any width, however long the tree needs to be.
         </p>
       </div>
 
@@ -170,7 +172,9 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
                 className="sr-only"
               />
               <span className="font-semibold">{label}</span>
-              {layoutMode === mode && <span className="ml-1 text-blue-700 dark:text-blue-400">✓</span>}
+              {layoutMode === mode && (
+                <span className="ml-1 text-blue-700 dark:text-blue-400">✓</span>
+              )}
               <span className="mt-0.5 block text-slate-500 dark:text-slate-400">{hint}</span>
             </label>
           ))}
@@ -179,9 +183,13 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
 
       <dl className="grid grid-cols-3 gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
         <dt>People</dt>
-        <dd className="col-span-2 font-medium text-slate-900 dark:text-slate-100">{layout.nodes.length}</dd>
+        <dd className="col-span-2 font-medium text-slate-900 dark:text-slate-100">
+          {layout.nodes.length}
+        </dd>
         <dt>Generations</dt>
-        <dd className="col-span-2 font-medium text-slate-900 dark:text-slate-100">{layout.generationCount}</dd>
+        <dd className="col-span-2 font-medium text-slate-900 dark:text-slate-100">
+          {layout.generationCount}
+        </dd>
         <dt>Poster size</dt>
         <dd className="col-span-2 font-medium text-slate-900 dark:text-slate-100">
           {formatMeters(page.widthMm)} × {formatMeters(page.heightMm)}
@@ -384,7 +392,9 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
           onChange={(e) => setZoomPercent(Number(e.target.value))}
           className="w-32"
         />
-        <span className="w-10 text-xs tabular-nums text-slate-600 dark:text-slate-400">{zoomPercent}%</span>
+        <span className="w-10 text-xs tabular-nums text-slate-600 dark:text-slate-400">
+          {zoomPercent}%
+        </span>
         <button
           type="button"
           onClick={handleFitToPage}
