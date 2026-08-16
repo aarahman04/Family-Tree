@@ -25,7 +25,7 @@ import { QuickActions } from "../components/editor/QuickActions.js";
 import { PersonInspector } from "../components/explorer/PersonInspector.js";
 import { SearchBox } from "../components/explorer/SearchBox.js";
 import { shouldSidebarStartOpen } from "../lib/sidebarLayout.js";
-import { useScrollFade } from "../lib/useScrollFade.js";
+import { useCloseOnEscape } from "../lib/useCloseOnEscape.js";
 
 /** Prefers the FTZ header's anchor person as the initial view, falling back deterministically. */
 function resolveDefaultFocus(tree: FamilyTree): UUID | undefined {
@@ -91,7 +91,10 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
   const searchWrapRef = useRef<HTMLDivElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const canvasRef = useRef<EditorCanvasHandle>(null);
-  const { ref: toolbarStripRef, edges: toolbarEdges } = useScrollFade<HTMLDivElement>();
+  // Below lg the toolbar actions collapse behind a single ☰ trigger (PHASE 3); this owns that
+  // dropdown's open state. Escape closes it.
+  const [actionsOpen, setActionsOpen] = useState(false);
+  useCloseOnEscape(actionsOpen, () => setActionsOpen(false));
 
   const searchIndex = useMemo(() => buildSearchIndex(tree), [tree]);
   const insights = useMemo(() => computeTreeInsights(tree), [tree]);
@@ -191,7 +194,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
   return (
     <div className="flex h-full min-h-0 w-full">
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <div className="flex items-center gap-x-3 border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900">
+        <div className="relative flex items-center gap-x-3 border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900">
           {tree.metadata.name && (
             <span
               className="min-w-0 shrink truncate text-sm font-semibold text-slate-800 dark:text-slate-100 sm:max-w-[10rem]"
@@ -200,106 +203,119 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
               {tree.metadata.name}
             </span>
           )}
-          <div ref={searchWrapRef} className="w-32 shrink-0 sm:w-64">
+          <div ref={searchWrapRef} className="w-32 shrink-0 sm:w-52 lg:w-44">
             <SearchBox tree={tree} index={searchIndex} onSelect={goTo} />
           </div>
-          {/* E2: the menus, undo/redo, and status ride in a horizontal-scroll strip so they never
-              wrap or push the pinned tree-name / search / panel-toggle off-screen. The menu
-              dropdowns are portaled (useAnchoredDropdown), so this overflow strip can't clip them.
-              A right/left fade (useScrollFade) signals the strip scrolls, so a partially-visible
-              first control reads as "scroll for more" rather than a clipped/broken button. */}
-          <div className="relative flex min-w-0 flex-1">
-            <div
-              ref={toolbarStripRef}
-              className="flex w-full min-w-0 items-center gap-x-3 overflow-x-auto"
-            >
-              <div className="flex shrink-0 items-center gap-2">
-                <AddPersonMenu
-                  tree={tree}
-                  selectedPersonId={selectedPersonId}
-                  onEdit={edit}
-                  onSelect={goTo}
-                  disabled={isExporting}
-                />
-                <ViewMenu
-                  focusMode={focusMode}
-                  showPhotos={appearance.displayMode === "photoCards"}
-                  onToggleShowPhotos={toggleShowPhotos}
-                  onFitTree={() => canvasRef.current?.fitTree()}
-                  onFitWidth={() => canvasRef.current?.fitWidth()}
-                  onFitHeight={() => canvasRef.current?.fitHeight()}
-                  onPosterScale={() => canvasRef.current?.posterScale()}
-                  onCenterSelection={() => canvasRef.current?.centerSelection()}
-                  onToggleFocus={() => canvasRef.current?.toggleFocus()}
-                  onResetView={() => canvasRef.current?.resetView()}
-                />
-                <AppearanceMenu prefs={appearance} onChange={updateAppearance} />
+          {/* PHASE 3: one mounted set of action controls. From lg up they sit inline in the
+              toolbar; below lg they collapse into a single ☰ dropdown (the button lives after the
+              panel toggle). The child menus portal their own panels, so a single instance serves
+              both layouts — no duplicate controls, no horizontal-scroll strip to fight on a phone. */}
+          <div
+            id="editor-actions"
+            className={
+              (actionsOpen ? "max-lg:flex" : "max-lg:hidden") +
+              " lg:flex lg:min-w-0 lg:flex-1 lg:flex-row lg:items-center lg:gap-x-3" +
+              " max-lg:absolute max-lg:top-full max-lg:right-2 max-lg:z-30 max-lg:mt-1 max-lg:w-64 max-lg:flex-col max-lg:gap-2 max-lg:rounded-lg max-lg:border max-lg:border-slate-200 max-lg:bg-white max-lg:p-2 max-lg:shadow-lg max-lg:dark:border-slate-700 max-lg:dark:bg-slate-800"
+            }
+          >
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-2 lg:[&_button]:whitespace-nowrap">
+              <AddPersonMenu
+                tree={tree}
+                selectedPersonId={selectedPersonId}
+                onEdit={edit}
+                onSelect={goTo}
+                disabled={isExporting}
+              />
+              <ViewMenu
+                focusMode={focusMode}
+                showPhotos={appearance.displayMode === "photoCards"}
+                onToggleShowPhotos={toggleShowPhotos}
+                onFitTree={() => canvasRef.current?.fitTree()}
+                onFitWidth={() => canvasRef.current?.fitWidth()}
+                onFitHeight={() => canvasRef.current?.fitHeight()}
+                onPosterScale={() => canvasRef.current?.posterScale()}
+                onCenterSelection={() => canvasRef.current?.centerSelection()}
+                onToggleFocus={() => canvasRef.current?.toggleFocus()}
+                onResetView={() => canvasRef.current?.resetView()}
+              />
+              <AppearanceMenu prefs={appearance} onChange={updateAppearance} />
+              <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={undo}
                   disabled={!canUndo || isExporting}
                   aria-label="Undo last edit"
+                  title="Undo last edit"
                   className="rounded border border-slate-300 px-2 py-1 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
-                  ↶ Undo
+                  ↶<span className="lg:hidden"> Undo</span>
                 </button>
                 <button
                   type="button"
                   onClick={redo}
                   disabled={!canRedo || isExporting}
                   aria-label="Redo last undone edit"
+                  title="Redo last undone edit"
                   className="rounded border border-slate-300 px-2 py-1 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
-                  ↷ Redo
+                  ↷<span className="lg:hidden"> Redo</span>
                 </button>
               </div>
-              {/* E3: status + unsaved pill sit at the strip's right via ml-auto on desktop (content
-                narrower than the strip), and simply scroll into view on mobile when the row
-                overflows — no wrap, so no broken auto-margin. */}
-              <div className="ml-auto flex shrink-0 items-center gap-x-3">
-                {editCount > 0 && (
-                  <span
-                    className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-400/15 dark:text-amber-300"
-                    title="You have unsaved edits. They're autosaved locally, but leaving will prompt a warning."
-                  >
-                    <span aria-hidden="true">●</span> Unsaved changes
+            </div>
+            {/* Status + unsaved pill: pinned right on desktop; a bottom row inside the ☰ menu on
+                mobile (own divider). */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 max-lg:mt-1 max-lg:border-t max-lg:border-slate-100 max-lg:pt-2 lg:ml-auto max-lg:dark:border-slate-700">
+              {editCount > 0 && (
+                <span
+                  className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-400/15 dark:text-amber-300"
+                  title="You have unsaved edits. They're autosaved locally, but leaving will prompt a warning."
+                >
+                  <span aria-hidden="true">●</span> Unsaved changes
+                </span>
+              )}
+              {/* Compact validation state. The people/family counts that used to live here are
+                  redundant with the InsightsStrip directly below, so they were dropped to declutter
+                  the toolbar and let it fit inline without a scroll strip. */}
+              <p className="text-xs whitespace-nowrap" role="status">
+                {errors.length > 0 && (
+                  <span className="text-red-700 dark:text-red-400">
+                    {errors.length} {errors.length === 1 ? "error" : "errors"}
                   </span>
                 )}
-                <p
-                  className="whitespace-nowrap text-xs text-slate-600 dark:text-slate-400"
-                  role="status"
-                >
-                  <span className="font-medium text-slate-900 dark:text-slate-100">
-                    {Object.keys(tree.persons).length}
-                  </span>{" "}
-                  people,{" "}
-                  <span className="font-medium text-slate-900 dark:text-slate-100">
-                    {Object.keys(tree.families).length}
-                  </span>{" "}
-                  families.{" "}
-                  {errors.length > 0 && (
-                    <span className="text-red-700 dark:text-red-400">
-                      {errors.length} validation {errors.length === 1 ? "error" : "errors"}.{" "}
-                    </span>
-                  )}
-                  {warnings.length > 0 && (
-                    <span className="text-amber-700 dark:text-amber-300">
-                      {warnings.length} validation {warnings.length === 1 ? "warning" : "warnings"}.
-                    </span>
-                  )}
-                  {errors.length === 0 && warnings.length === 0 && (
-                    <span className="text-green-700 dark:text-green-400">Ready for export.</span>
-                  )}
-                </p>
-              </div>
+                {warnings.length > 0 && (
+                  <span className="text-amber-700 dark:text-amber-300">
+                    {errors.length > 0 ? " · " : ""}
+                    {warnings.length} {warnings.length === 1 ? "warning" : "warnings"}
+                  </span>
+                )}
+                {errors.length === 0 && warnings.length === 0 && (
+                  <span className="text-green-700 dark:text-green-400">Ready for export</span>
+                )}
+              </p>
             </div>
-            {toolbarEdges.left && (
-              <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-white dark:from-slate-900" />
-            )}
-            {toolbarEdges.right && (
-              <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-white dark:from-slate-900" />
-            )}
           </div>
+          {/* ☰ actions trigger — only below lg, where the row above is a dropdown. */}
+          <button
+            type="button"
+            onClick={() => setActionsOpen((v) => !v)}
+            aria-expanded={actionsOpen}
+            aria-controls="editor-actions"
+            aria-label={actionsOpen ? "Hide actions" : "Show actions"}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded border border-slate-300 text-slate-700 hover:bg-slate-50 lg:hidden dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              aria-hidden="true"
+            >
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
+          </button>
           <button
             type="button"
             onClick={() => setSidebarOpen((v) => !v)}

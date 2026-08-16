@@ -187,10 +187,10 @@ describe("Tree explorer — full integration (synthetic fixture)", () => {
     await userEvent.click(within(spousesSection).getByRole("button", { name: /remove/i }));
 
     // FAMILY_MISSING_PARENT is a warning, not an error — export must remain possible.
-    // The count is split across sibling text nodes by JSX (e.g. "{n} validation {word}."),
-    // so check the status region's accumulated textContent rather than a literal phrase match.
+    // The count is split across sibling text nodes by JSX (e.g. "{n} {word}"), so check the
+    // status region's accumulated textContent rather than a literal phrase match.
     await waitFor(() => {
-      expect(screen.getByRole("status").textContent).toContain("1 validation warning");
+      expect(screen.getByRole("status").textContent).toContain("1 warning");
     });
     await openExport();
     expect(screen.getByRole("button", { name: /export gedcom/i })).toBeEnabled();

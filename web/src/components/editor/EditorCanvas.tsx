@@ -225,26 +225,59 @@ export const EditorCanvas = memo(
       return () => el.removeEventListener("wheel", onWheel);
     }, []);
 
-    // Drag to pan; a pointer-up that barely moved is treated as a click (hit-test to select).
+    // Pointer gestures: one finger / mouse drags to pan (a barely-moved press is a tap → select);
+    // two fingers pinch to zoom about their midpoint. The old code panned off a single shared drag
+    // ref, so a two-finger pinch made the view oscillate between whichever finger moved last — the
+    // "fluctuation" seen on touch. We now track every active pointer and branch on the count.
+    const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
     const dragRef = useRef<{ x: number; y: number; tx: number; ty: number; moved: boolean } | null>(
       null
     );
+    // Pinch anchor captured at gesture start; each move recomputes the transform FROM this anchor
+    // (not incrementally) so intermediate re-renders can't accumulate drift/flicker. midX/midY are
+    // in viewport-local px; s0/tx0/ty0 is the transform when the second finger landed.
+    const pinchRef = useRef<{
+      startDist: number;
+      midX: number;
+      midY: number;
+      s0: number;
+      tx0: number;
+      ty0: number;
+    } | null>(null);
+
     function onPointerDown(e: React.PointerEvent) {
       (e.target as Element).setPointerCapture?.(e.pointerId);
-      setHoverPreview(null); // a drag shouldn't leave a stale hover card floating
-      dragRef.current = {
-        x: e.clientX,
-        y: e.clientY,
-        tx: transform.tx,
-        ty: transform.ty,
-        moved: false,
-      };
+      setHoverPreview(null); // a gesture shouldn't leave a stale hover card floating
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const pts = [...pointersRef.current.values()];
+      if (pts.length >= 2) {
+        // Second finger down: switch from pan to pinch, anchored on the current midpoint+transform.
+        dragRef.current = null;
+        const a = pts[0]!;
+        const b = pts[1]!;
+        const rect = viewportRef.current!.getBoundingClientRect();
+        pinchRef.current = {
+          startDist: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+          midX: (a.x + b.x) / 2 - rect.left,
+          midY: (a.y + b.y) / 2 - rect.top,
+          s0: transform.s,
+          tx0: transform.tx,
+          ty0: transform.ty,
+        };
+      } else {
+        dragRef.current = {
+          x: e.clientX,
+          y: e.clientY,
+          tx: transform.tx,
+          ty: transform.ty,
+          moved: false,
+        };
+      }
     }
     function onPointerMove(e: React.PointerEvent) {
-      const d = dragRef.current;
-      if (!d) {
-        // Not dragging: hover-preview the person under the cursor. Only updates state when the
-        // hovered person changes, so an in-node mouse move doesn't re-render every frame.
+      if (!pointersRef.current.has(e.pointerId)) {
+        // No active press for this pointer (mouse hover): preview the person under the cursor. Only
+        // updates state when the hovered person changes, so an in-node move doesn't re-render/frame.
         const id = personAt(e.clientX, e.clientY);
         setHoverPreview((prev) => {
           if (!id) return prev === null ? prev : null;
@@ -254,6 +287,25 @@ export const EditorCanvas = memo(
         });
         return;
       }
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const pts = [...pointersRef.current.values()];
+      if (pinchRef.current && pts.length >= 2) {
+        const a = pts[0]!;
+        const b = pts[1]!;
+        const rect = viewportRef.current!.getBoundingClientRect();
+        const pr = pinchRef.current;
+        const s = clampScale((pr.s0 * Math.hypot(a.x - b.x, a.y - b.y)) / pr.startDist);
+        // Keep the content point that was under the start midpoint under the CURRENT midpoint, so a
+        // pinch both zooms about the fingers' focal point and pans as the fingers travel.
+        const contentX = (pr.midX - pr.tx0) / pr.s0;
+        const contentY = (pr.midY - pr.ty0) / pr.s0;
+        const midX = (a.x + b.x) / 2 - rect.left;
+        const midY = (a.y + b.y) / 2 - rect.top;
+        setTransform({ s, tx: midX - contentX * s, ty: midY - contentY * s });
+        return;
+      }
+      const d = dragRef.current;
+      if (!d) return;
       const dx = e.clientX - d.x;
       const dy = e.clientY - d.y;
       if (!d.moved && Math.abs(dx) + Math.abs(dy) > 4) d.moved = true;
@@ -268,10 +320,28 @@ export const EditorCanvas = memo(
       return hitTestNode(layout.nodes, contentX, contentY, style.marginPt);
     }
     function onPointerUp(e: React.PointerEvent) {
-      const d = dragRef.current;
-      dragRef.current = null;
-      if (!d || d.moved) return;
-      onSelectPerson(personAt(e.clientX, e.clientY));
+      const wasDrag = dragRef.current;
+      pointersRef.current.delete(e.pointerId);
+      if (pointersRef.current.size < 2) pinchRef.current = null;
+      if (pointersRef.current.size === 1) {
+        // Lifted one finger of a pinch: hand the gesture to the remaining finger as a pan, seeded
+        // from its live position and the current transform, so the view doesn't jump. moved:true
+        // keeps it from being read as a tap.
+        const only = [...pointersRef.current.values()][0]!;
+        dragRef.current = {
+          x: only.x,
+          y: only.y,
+          tx: transform.tx,
+          ty: transform.ty,
+          moved: true,
+        };
+        return;
+      }
+      if (pointersRef.current.size === 0) {
+        dragRef.current = null;
+        // A single-finger / mouse press that never moved is a tap → select the person under it.
+        if (wasDrag && !wasDrag.moved) onSelectPerson(personAt(e.clientX, e.clientY));
+      }
     }
     function onDoubleClick(e: React.MouseEvent) {
       const id = personAt(e.clientX, e.clientY);
@@ -377,6 +447,7 @@ export const EditorCanvas = memo(
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
           onPointerLeave={() => setHoverPreview(null)}
           onDoubleClick={onDoubleClick}
           aria-label="Family tree canvas"
