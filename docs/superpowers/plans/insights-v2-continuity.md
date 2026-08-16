@@ -4,7 +4,7 @@
 
 - **Plan (immutable):** `docs/superpowers/plans/2026-08-16-family-tree-insights-v2.md`
 - **Source spec:** `family_tree_insight_phased_plan.md` (repo root)
-- **Last updated:** 2026-08-16 — after CP2.9 (standalone review in progress).
+- **Last updated:** 2026-08-16 — after CP2.9 (standalone review complete, no Critical/Important findings).
 
 ---
 
@@ -35,7 +35,7 @@ Legend: ⬜ not-started · 🟡 in-progress · ✅ done
 | 2.6                    | `analysis/index.ts` `analyzeTree` + `useTreeAnalysis` | ✅     | `dfb5df9`                    | root 272 + web build/test green. **D-6: 4.71ms median → SYNC useMemo, no worker.**                                                      |
 | 2.7                    | `PersonInspector` relationship-intelligence section   | ✅     | `34b0ebd`                    | Batched review with 2.8. Parents-related + per-spouse classification, confidence tags, common-ancestor path, chain depth.               |
 | 2.8                    | Inline relationship badges (panel header)             | ✅     | `34b0ebd`                    | Batched with 2.7. "Parents Related" + per-cousin-marriage label pills near the person heading, reusing the accent-tint pair.            |
-| 2.9                    | Editor transient ancestry-highlight overlay           | ✅     | `d261890`                    | Both-workspace gates green; standalone review dispatched (touches `EditorCanvas`) — see review note below before treating as final.      |
+| 2.9                    | Editor transient ancestry-highlight overlay           | ✅     | `d261890`                    | Both-workspace gates green. **Standalone review complete: no Critical/Important findings**, 2 Minor notes recorded in Known gaps below.  |
 | 3.x, 4.x, 5.x          | Phases 3–5                                            | ⬜     | —                            | Not started. **NEXT.**                                                                                                                    |
 
 **Refactor-merge gate (satisfied):** the repo-structure refactor **PR #11** (`refactor/repo-structure-src`) is **confirmed merged into `main`** (2026-08-16 13:43 UTC). `src/analysis/` is being created in its post-refactor final location on branch `feat/insights-v2` (off `main`, which also carries the PR #12 scroll fix).
@@ -278,6 +278,9 @@ interface PersonInspectorProps {
 - **D-2 privacy limitation:** the living/deceased **export** badge policy relies on the presumptive living heuristic (`insights.ts`: no death event, or age ≤ 110). A mis-classified living person (e.g. missing death record) could have a sensitive relationship badge exported in a shareable artifact. Accepted for v2; revisit if a per-person privacy flag is ever added.
 - **D-6:** execution model (sync vs Web Worker) is decided at CP2.6 from the real-sample benchmark, not before.
 - **D-11:** `gedcom/verify.ts` intentionally keeps its own independent `ftzId`-based ancestor/cousin-count code; the CP2.4 golden-agreement test is what keeps the two honest.
+- **CP2.9 standalone review, Minor (not fixed — cosmetic/perf only, no correctness bug):**
+  1. `ancestryHighlightIds`'s `ancestorPaths(..., cap=1)` calls return the first path DFS finds (father branch before mother), not necessarily the shortest — under pedigree collapse with multiple paths of different lengths to the same closest common ancestor, the amber ring could visually connect through a longer/different route than the distance the analysis actually reports. Cosmetic only; not triggered by any current fixture.
+  2. `parentsRelated(tree, personId)` inside `ancestryHighlightIds` is called with its default throwaway `mapOf` cache rather than reusing anything from the already-computed `analysis` — a fresh bounded BFS ancestor-map runs on every `selectedPersonId` change. Cheap (gated by `useMemo` on selection change) and not a real perf problem, just an unexploited reuse opportunity.
 
 ---
 
