@@ -4,7 +4,7 @@
 
 - **Plan (immutable):** `docs/superpowers/plans/2026-08-16-family-tree-insights-v2.md`
 - **Source spec:** `family_tree_insight_phased_plan.md` (repo root)
-- **Last updated:** 2026-08-16 — after CP2.3.
+- **Last updated:** 2026-08-16 — after CP2.4.
 
 ---
 
@@ -30,8 +30,8 @@ Legend: ⬜ not-started · 🟡 in-progress · ✅ done
 | 2.1                    | `analysis/ancestry.ts`                                | ✅     | `f0196ba`                    | 6 tests; root suite 242 green. Branch `feat/insights-v2` off `main`                                                                      |
 | 2.2                    | `analysis/classify.ts`                                | ✅     | `f0a253f`                    | 10 tests; root suite 252 green. Review batch A = 2.1+2.2+2.3                                                                             |
 | 2.3                    | `analysis/confidence.ts`                              | ✅     | `2aabefe`                    | 6 tests; root suite 258 green. **D-12 evidence captured** (see Results below)                                                            |
-| 2.4                    | `analysis/marriages.ts`                               | ⬜     | —                            | standalone review; report golden-agreement counts vs `verify.ts`                                                                         |
-| 2.5                    | `analysis/chains.ts`                                  | ⬜     | —                            | batchable w/ 2.4                                                                                                                         |
+| 2.4                    | `analysis/marriages.ts`                               | ✅     | `336b9ae`                    | 7 tests; suite 265 green. **Golden 31=31** vs verify.ts. D-11 comment added. Review batch B = 2.4+2.5                                    |
+| 2.5                    | `analysis/chains.ts`                                  | ⬜     | —                            | batchable w/ 2.4 (review batch B)                                                                                                        |
 | 2.6                    | `analysis/index.ts` `analyzeTree` + `useTreeAnalysis` | ⬜     | —                            | **benchmark on 473-sample first**; decide sync vs Web Worker (D-6). **HARD STOP after this CP** — interface handoff to a different model |
 | 2.7–2.9, 3.x, 4.x, 5.x | Phase 2 UI, Phases 3–5                                | ⬜     | —                            | not yet in scope of the current run                                                                                                      |
 
@@ -133,9 +133,44 @@ export function classifyConfidence(link: ConfidenceLink): ConfidenceResult;
 
 Related ⇒ confirmed (fully dated+consistent path) | likely (missing/contradictory dates). Unrelated ⇒ confirmed-negative (both have ≥2 gens) | unknown. **"possible" is defined but only activated in Phase 4** (duplicate-suspect on path).
 
+**`src/analysis/marriages.ts`** (CP2.4, `336b9ae`):
+
+```ts
+export interface CoupleRelation {
+  relation: PairClass;
+  confidence: ConfidenceResult;
+  sharesCommonAncestor: boolean;
+  isCousinMarriage: boolean;
+}
+export interface MarriageAnalysis extends CoupleRelation {
+  familyId: UUID;
+  husbandId: UUID;
+  wifeId: UUID;
+}
+export interface ParentsRelation extends CoupleRelation {
+  fatherId: UUID;
+  motherId: UUID;
+  related: boolean;
+}
+export function classifyMarriage(
+  tree,
+  familyId,
+  mapOf?,
+): MarriageAnalysis | undefined;
+export function classifyAllMarriages(
+  tree,
+): Map<UUID /*familyId*/, MarriageAnalysis>;
+export function parentsRelated(
+  tree,
+  personId,
+  mapOf?,
+): ParentsRelation | undefined;
+```
+
+`mapOf` is an optional shared ancestor-map cache (a whole-tree pass computes each person's map once). Direct-lineage spouses are excluded from cousin classification.
+
 ### Planned (not yet built; signatures may refine at implementation)
 
-- `src/analysis/marriages.ts` — `classifyMarriage(tree, familyId)`; `classifyAllMarriages(tree)`; `parentsRelated(tree, personId)`.
 - `src/analysis/chains.ts` — up/down cousin chain + repeated-pattern depth.
 - `src/analysis/index.ts` — `analyzeTree(tree): TreeAnalysis`; web `useTreeAnalysis(tree)` memo.
 
@@ -163,7 +198,7 @@ Update this section with the **actual** exported types/signatures as each file l
 ## Evidence / results (reported as checkpoints land)
 
 - **D-12 — real-sample confidence distribution (CP2.3, `2aabefe`).** Over the 473-person sample's **136 couples (31 related)**: `confirmed 0, likely 31, possible 0, unknown 105`. All 31 related couples are "likely" (real ancestry paths carry missing dates → never "confirmed" under the strict rule); the 105 non-relations are "unknown" (those couples lack ≥2 generations of ancestry to confidently declare no relation). Honest for sparse data; the 31 related count matches `verify.ts`'s cousin-marriage count.
-- **CP2.4 golden-agreement (pending).** Will record the two independently-computed cousin-marriage counts here.
+- **CP2.4 golden-agreement (`336b9ae`).** On the 473-sample, the UUID-based analysis module's shares-common-ancestor count = **31**, exactly matching `verify.ts`'s independent ftzId-based `cousinMarriageCountSource` = **31**. Two keyspaces + code paths agree. D-11 cross-reference comment added in `verify.ts`.
 - **CP2.6 benchmark (pending).** Will record expected `analyzeTree()` wall-clock on the 473-sample + the sync-vs-worker decision.
 
 ---
