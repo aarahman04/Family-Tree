@@ -98,7 +98,7 @@ contrast gate; the render-identity guard; a real-browser smoke of BOTH themes at
 across every touched surface (landing, editor, inspector, canvas, menus, export); confirm the FOUC
 script still runs pre-hydration; confirm no body horizontal-scroll at any breakpoint. Produce the
 before/after theme screenshots as the closing evidence, and reconcile the deferred backlog
-(AUD-8/9/10) is still tracked and untouched.
+(AUD-8/9/10/11/12) is still tracked and untouched.
 
 ### EditorPage-chrome checkpoint as actually shipped
 E4 (dark treatment) + E5 (empty state) only — on the current (wrapping) toolbar structure. The 3
