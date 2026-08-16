@@ -28,14 +28,16 @@ Legend: ⬜ not-started · 🟡 in-progress · ✅ done
 | ---------------------- | ----------------------------------------------------- | ------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | **1.1**                | Audit `insights.ts` vs spec §3A; coverage note        | ✅     | (doc-only; no source change) | See "CP1.1 coverage note" below — **full coverage, nothing to build**                                                                    |
 | 2.1                    | `analysis/ancestry.ts`                                | ✅     | `f0196ba`                    | 6 tests; root suite 242 green. Branch `feat/insights-v2` off `main`                                                                      |
-| 2.2                    | `analysis/classify.ts`                                | ⬜     | —                            | batchable w/ 2.1 (review batch A = 2.1+2.2+2.3)                                                                                          |
+| 2.2                    | `analysis/classify.ts`                                | ✅     | `f0a253f`                    | 10 tests; root suite 252 green. Review batch A = 2.1+2.2+2.3                                                                             |
 | 2.3                    | `analysis/confidence.ts`                              | ⬜     | —                            | must report real confirmed/likely/possible/unknown distribution on 473-sample                                                            |
 | 2.4                    | `analysis/marriages.ts`                               | ⬜     | —                            | standalone review; report golden-agreement counts vs `verify.ts`                                                                         |
 | 2.5                    | `analysis/chains.ts`                                  | ⬜     | —                            | batchable w/ 2.4                                                                                                                         |
 | 2.6                    | `analysis/index.ts` `analyzeTree` + `useTreeAnalysis` | ⬜     | —                            | **benchmark on 473-sample first**; decide sync vs Web Worker (D-6). **HARD STOP after this CP** — interface handoff to a different model |
 | 2.7–2.9, 3.x, 4.x, 5.x | Phase 2 UI, Phases 3–5                                | ⬜     | —                            | not yet in scope of the current run                                                                                                      |
 
-**Current gate before CP2.1:** the repo-structure refactor must be **confirmed merged into `main`** (do not assume). `src/analysis/` is created only in its post-refactor final location. Confirmation status recorded here when checked: _pending — checked at end of CP1.1, see run log._
+**Refactor-merge gate (satisfied):** the repo-structure refactor **PR #11** (`refactor/repo-structure-src`) is **confirmed merged into `main`** (2026-08-16 13:43 UTC). `src/analysis/` is being created in its post-refactor final location on branch `feat/insights-v2` (off `main`, which also carries the PR #12 scroll fix).
+
+**Last updated:** after CP2.2.
 
 ---
 
@@ -82,9 +84,38 @@ export function ancestorPaths(
 
 **Refinement vs plan §A:** the map stores `minDistance` only (`AncestorInfo`); display paths come from the separate `ancestorPaths()`, not stored per-ancestor — avoids exponential path storage under pedigree collapse. Consumers needing distances use the map; consumers needing a path string call `ancestorPaths`.
 
+**`src/analysis/classify.ts`** (CP2.2, `f0a253f`):
+
+```ts
+export type RelKind =
+  | "self"
+  | "direct-lineage"
+  | "siblings"
+  | "avuncular"
+  | "cousins"
+  | "unrelated";
+export interface PairClass {
+  kind: RelKind;
+  cousinDegree?: number;
+  removal?: number;
+  lines: number;
+  closest: CommonAncestor | null;
+  label: string;
+}
+export function classifyPair(
+  commons: CommonAncestor[],
+  lines: number,
+): PairClass; // pure
+export function countIndependentLines(
+  tree: FamilyTree,
+  commons: CommonAncestor[],
+): number; // needs tree (D-3)
+```
+
+cousinDegree = min−1, removal = |distA−distB|; degree ≥ 4 ⇒ "Distant cousins"; `lines` ⇒ Double/Triple prefix.
+
 ### Planned (not yet built; signatures may refine at implementation)
 
-- `src/analysis/classify.ts` — `classifyPair(commons: CommonAncestor[]): { kind, cousinDegree?, removal?, lines, closest }`.
 - `src/analysis/confidence.ts` — `ancestryCompleteness(tree, personId, depth)`; `classifyConfidence(link): { level, reasons[] }`.
 - `src/analysis/marriages.ts` — `classifyMarriage(tree, familyId)`; `classifyAllMarriages(tree)`; `parentsRelated(tree, personId)`.
 - `src/analysis/chains.ts` — up/down cousin chain + repeated-pattern depth.
