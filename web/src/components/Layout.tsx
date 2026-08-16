@@ -25,11 +25,11 @@ export function Layout({ current, children, fullBleed }: LayoutProps) {
           {children}
         </main>
       ) : (
-        <main
-          id="main-content"
-          className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto px-4 py-8 sm:px-6"
-        >
-          {children}
+        // The scroll container is the full-width <main> so its scrollbar rides the window's right
+        // edge, not the right edge of a clamped max-w-3xl box (which parks it mid-page on wide
+        // screens). An inner wrapper keeps the content centered and readable. See PHASE 1.
+        <main id="main-content" className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">{children}</div>
         </main>
       )}
       {!fullBleed && <Footer />}
