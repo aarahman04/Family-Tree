@@ -4,7 +4,7 @@
 
 - **Plan (immutable):** `docs/superpowers/plans/2026-08-16-family-tree-insights-v2.md`
 - **Source spec:** `family_tree_insight_phased_plan.md` (repo root)
-- **Last updated:** 2026-08-16 — after CP2.4.
+- **Last updated:** 2026-08-16 — after CP2.5.
 
 ---
 
@@ -31,7 +31,7 @@ Legend: ⬜ not-started · 🟡 in-progress · ✅ done
 | 2.2                    | `analysis/classify.ts`                                | ✅     | `f0a253f`                    | 10 tests; root suite 252 green. Review batch A = 2.1+2.2+2.3                                                                             |
 | 2.3                    | `analysis/confidence.ts`                              | ✅     | `2aabefe`                    | 6 tests; root suite 258 green. **D-12 evidence captured** (see Results below)                                                            |
 | 2.4                    | `analysis/marriages.ts`                               | ✅     | `336b9ae`                    | 7 tests; suite 265 green. **Golden 31=31** vs verify.ts. D-11 comment added. Review batch B = 2.4+2.5                                    |
-| 2.5                    | `analysis/chains.ts`                                  | ⬜     | —                            | batchable w/ 2.4 (review batch B)                                                                                                        |
+| 2.5                    | `analysis/chains.ts`                                  | ✅     | `2c1d8b9`                    | 5 tests; suite 270 green. Review batch B = 2.4+2.5                                                                                       |
 | 2.6                    | `analysis/index.ts` `analyzeTree` + `useTreeAnalysis` | ⬜     | —                            | **benchmark on 473-sample first**; decide sync vs Web Worker (D-6). **HARD STOP after this CP** — interface handoff to a different model |
 | 2.7–2.9, 3.x, 4.x, 5.x | Phase 2 UI, Phases 3–5                                | ⬜     | —                            | not yet in scope of the current run                                                                                                      |
 
@@ -169,10 +169,29 @@ export function parentsRelated(
 
 `mapOf` is an optional shared ancestor-map cache (a whole-tree pass computes each person's map once). Direct-lineage spouses are excluded from cousin classification.
 
+**`src/analysis/chains.ts`** (CP2.5, `2c1d8b9`):
+
+```ts
+export interface CousinChainInfo {
+  ancestralChainDepth: number;
+  continuesInDescendants: boolean;
+}
+export interface CousinChains {
+  byPerson: Map<UUID, CousinChainInfo>;
+  maxChainDepth: number;
+}
+export function analyzeCousinChains(
+  tree,
+  marriages: Map<UUID, MarriageAnalysis>,
+): CousinChains;
+export function cousinChainInfo(tree, personId, marriages): CousinChainInfo; // single lookup
+```
+
+Cheap DP over the family graph; takes the marriages map as input (compute once in CP2.6, feed here).
+
 ### Planned (not yet built; signatures may refine at implementation)
 
-- `src/analysis/chains.ts` — up/down cousin chain + repeated-pattern depth.
-- `src/analysis/index.ts` — `analyzeTree(tree): TreeAnalysis`; web `useTreeAnalysis(tree)` memo.
+- `src/analysis/index.ts` — `analyzeTree(tree): TreeAnalysis`; web `useTreeAnalysis(tree)` memo. **CP2.6 = final CP of this run (hard stop after).**
 
 Update this section with the **actual** exported types/signatures as each file lands.
 
