@@ -5,10 +5,10 @@ import type { TreeInsights } from "../../lib/insights.js";
 function Stat({ label, value, estimate }: { label: string; value: string; estimate?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-2 py-1">
-      <dt className="text-xs text-slate-500">{label}</dt>
-      <dd className="flex items-center gap-1.5 text-right text-sm font-medium text-slate-900">
+      <dt className="text-xs text-slate-500 dark:text-slate-400">{label}</dt>
+      <dd className="flex items-center gap-1.5 text-right text-sm font-medium text-slate-900 dark:text-slate-100">
         {estimate && (
-          <span className="rounded bg-amber-100 px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+          <span className="rounded bg-amber-100 px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-400/15 dark:text-amber-300">
             est.
           </span>
         )}
@@ -20,8 +20,8 @@ function Stat({ label, value, estimate }: { label: string; value: string; estima
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="border-t border-slate-100 pt-2 first:border-t-0 first:pt-0">
-      <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+    <div className="border-t border-slate-100 pt-2 first:border-t-0 first:pt-0 dark:border-slate-800">
+      <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-400">
         {title}
       </h3>
       <dl>{children}</dl>
@@ -39,23 +39,23 @@ export function InsightsPanel({ insights }: { insights: TreeInsights }) {
   const i = insights;
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white">
+    <div className="rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-slate-800"
+        className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-slate-800 dark:text-slate-100"
       >
         <span className="flex items-center gap-1.5">
           <span aria-hidden="true">✨</span> Insights
         </span>
-        <span aria-hidden="true" className="text-slate-400">
+        <span aria-hidden="true" className="text-slate-400 dark:text-slate-500">
           {open ? "▲" : "▼"}
         </span>
       </button>
 
       {open && (
-        <div className="flex flex-col gap-3 border-t border-slate-200 p-3">
+        <div className="flex flex-col gap-3 border-t border-slate-200 p-3 dark:border-slate-800">
           <Section title="People">
             <Stat label="Total members" value={String(i.totalMembers)} />
             <Stat label="Male" value={`${i.maleCount} (${i.malePercent}%)`} />
@@ -144,9 +144,11 @@ export function InsightsPanel({ insights }: { insights: TreeInsights }) {
             </Section>
           )}
 
-          <p className="text-[11px] text-slate-400">
-            Figures marked <span className="font-semibold text-amber-700">est.</span> are estimated
-            from available dates and generation depth (~30 years per generation), not exact records.
+          <p className="text-[11px] text-slate-400 dark:text-slate-400">
+            Figures marked{" "}
+            <span className="font-semibold text-amber-700 dark:text-amber-300">est.</span> are
+            estimated from available dates and generation depth (~30 years per generation), not
+            exact records.
           </p>
         </div>
       )}

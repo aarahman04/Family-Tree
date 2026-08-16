@@ -33,12 +33,12 @@ function guardNavigation(e: MouseEvent<HTMLAnchorElement>, target: Route, curren
 
 export function Header({ current }: HeaderProps) {
   return (
-    <header className="border-b border-slate-200 bg-white">
+    <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-4 sm:px-6">
         <a
           href={routeHref("home")}
           onClick={(e) => guardNavigation(e, "home", current)}
-          className="text-sm font-semibold text-slate-900 sm:text-base"
+          className="text-sm font-semibold text-slate-900 sm:text-base dark:text-slate-100"
         >
           FTZ → GEDCOM
         </a>
@@ -53,8 +53,8 @@ export function Header({ current }: HeaderProps) {
                     aria-current={current === link.route ? "page" : undefined}
                     className={
                       current === link.route
-                        ? "font-semibold text-blue-700"
-                        : "text-slate-600 hover:text-slate-900"
+                        ? "font-semibold text-blue-700 dark:text-blue-400"
+                        : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
                     }
                   >
                     {link.label}

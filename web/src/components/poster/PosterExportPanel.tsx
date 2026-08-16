@@ -128,20 +128,22 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
   const isScaledForPdf = page.pdfScale < 1;
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4">
+    <div className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
       <div>
-        <h2 className="text-sm font-semibold text-slate-800">Print poster</h2>
-        <p className="mt-1 text-xs text-slate-600">
+        <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Print poster</h2>
+        <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
           One continuous page sized to fit the whole tree at a readable name size — no A4 splitting,
           no shrinking to fit.{" "}
-          <strong className="font-semibold text-slate-800">Download the SVG</strong> and take it
-          straight to a print shop: it is fully vector, has no size limit, and prints crisp at any
-          width, however long the tree needs to be.
+          <strong className="font-semibold text-slate-800 dark:text-slate-100">
+            Download the SVG
+          </strong>{" "}
+          and take it straight to a print shop: it is fully vector, has no size limit, and prints
+          crisp at any width, however long the tree needs to be.
         </p>
       </div>
 
       <fieldset className="flex flex-col gap-1.5">
-        <legend className="text-xs font-medium text-slate-700">Layout</legend>
+        <legend className="text-xs font-medium text-slate-700 dark:text-slate-300">Layout</legend>
         <div className="flex flex-wrap gap-2">
           {(
             [
@@ -157,8 +159,8 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
               key={mode}
               className={`flex-1 min-w-[180px] cursor-pointer rounded-md border px-3 py-2 text-xs ${
                 layoutMode === mode
-                  ? "border-blue-500 bg-blue-50 text-slate-900"
-                  : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                  ? "border-blue-500 bg-blue-50 text-slate-900 dark:border-blue-500 dark:bg-blue-950/40 dark:text-slate-100"
+                  : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
               }`}
             >
               <input
@@ -170,29 +172,35 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
                 className="sr-only"
               />
               <span className="font-semibold">{label}</span>
-              {layoutMode === mode && <span className="ml-1 text-blue-700">✓</span>}
-              <span className="mt-0.5 block text-slate-500">{hint}</span>
+              {layoutMode === mode && (
+                <span className="ml-1 text-blue-700 dark:text-blue-400">✓</span>
+              )}
+              <span className="mt-0.5 block text-slate-500 dark:text-slate-400">{hint}</span>
             </label>
           ))}
         </div>
       </fieldset>
 
-      <dl className="grid grid-cols-3 gap-x-3 gap-y-1 text-xs text-slate-600">
+      <dl className="grid grid-cols-3 gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
         <dt>People</dt>
-        <dd className="col-span-2 font-medium text-slate-900">{layout.nodes.length}</dd>
+        <dd className="col-span-2 font-medium text-slate-900 dark:text-slate-100">
+          {layout.nodes.length}
+        </dd>
         <dt>Generations</dt>
-        <dd className="col-span-2 font-medium text-slate-900">{layout.generationCount}</dd>
+        <dd className="col-span-2 font-medium text-slate-900 dark:text-slate-100">
+          {layout.generationCount}
+        </dd>
         <dt>Poster size</dt>
-        <dd className="col-span-2 font-medium text-slate-900">
+        <dd className="col-span-2 font-medium text-slate-900 dark:text-slate-100">
           {formatMeters(page.widthMm)} × {formatMeters(page.heightMm)}
-          <span className="ml-1 text-slate-500">
+          <span className="ml-1 text-slate-500 dark:text-slate-400">
             ({page.widthIn.toFixed(1)}in × {page.heightIn.toFixed(1)}in)
           </span>
         </dd>
       </dl>
 
       {isScaledForPdf && (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
           This tree needs a poster larger than the PDF format's own page-size limit (200in / 5.08m
           per side), so the PDF download is generated at{" "}
           <strong>{Math.round(page.pdfScale * 10000) / 100}% scale</strong> — fully vector, so a
@@ -203,12 +211,12 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
         </p>
       )}
 
-      <details className="rounded-md border border-slate-200 bg-slate-50 text-sm">
-        <summary className="cursor-pointer select-none px-3 py-2 font-medium text-slate-700 hover:text-slate-900">
+      <details className="rounded-md border border-slate-200 bg-slate-50 text-sm dark:border-slate-700 dark:bg-slate-800">
+        <summary className="cursor-pointer select-none px-3 py-2 font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100">
           Customize appearance
         </summary>
-        <div className="grid grid-cols-2 gap-3 border-t border-slate-200 px-3 py-3">
-          <label className="flex flex-col gap-1 text-xs text-slate-600">
+        <div className="grid grid-cols-2 gap-3 border-t border-slate-200 px-3 py-3 dark:border-slate-700">
+          <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
             Name font size (pt)
             <input
               type="number"
@@ -216,10 +224,10 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
               max={24}
               value={style.nameFontSize}
               onChange={(e) => updateStyle("nameFontSize", Number(e.target.value))}
-              className="rounded border border-slate-300 px-2 py-1"
+              className="rounded border border-slate-300 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-600">
+          <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
             Min box width (pt)
             <input
               type="number"
@@ -227,10 +235,10 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
               max={400}
               value={style.nodeMinWidth}
               onChange={(e) => updateStyle("nodeMinWidth", Number(e.target.value))}
-              className="rounded border border-slate-300 px-2 py-1"
+              className="rounded border border-slate-300 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-600">
+          <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
             Max box width before wrapping (pt)
             <input
               type="number"
@@ -238,10 +246,10 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
               max={600}
               value={style.nodeMaxWidth}
               onChange={(e) => updateStyle("nodeMaxWidth", Number(e.target.value))}
-              className="rounded border border-slate-300 px-2 py-1"
+              className="rounded border border-slate-300 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-600">
+          <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
             Spacing between boxes (pt)
             <input
               type="number"
@@ -249,10 +257,10 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
               max={100}
               value={style.horizontalSpacing}
               onChange={(e) => updateStyle("horizontalSpacing", Number(e.target.value))}
-              className="rounded border border-slate-300 px-2 py-1"
+              className="rounded border border-slate-300 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-600">
+          <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
             Generation spacing (pt)
             <input
               type="number"
@@ -260,10 +268,10 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
               max={200}
               value={style.generationSpacing}
               onChange={(e) => updateStyle("generationSpacing", Number(e.target.value))}
-              className="rounded border border-slate-300 px-2 py-1"
+              className="rounded border border-slate-300 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-600">
+          <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
             Line thickness (pt)
             <input
               type="number"
@@ -272,10 +280,10 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
               step={0.25}
               value={style.lineThickness}
               onChange={(e) => updateStyle("lineThickness", Number(e.target.value))}
-              className="rounded border border-slate-300 px-2 py-1"
+              className="rounded border border-slate-300 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-600">
+          <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
             Margin (pt)
             <input
               type="number"
@@ -283,30 +291,30 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
               max={144}
               value={style.marginPt}
               onChange={(e) => updateStyle("marginPt", Number(e.target.value))}
-              className="rounded border border-slate-300 px-2 py-1"
+              className="rounded border border-slate-300 px-2 py-1 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-600">
+          <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
             Text color
             <input
               type="color"
               value={style.textColor}
               onChange={(e) => updateStyle("textColor", e.target.value)}
-              className="h-8 rounded border border-slate-300"
+              className="h-8 rounded border border-slate-300 dark:border-slate-500"
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-slate-600">
+          <label className="flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-400">
             Line color
             <input
               type="color"
               value={style.lineColor}
               onChange={(e) => updateStyle("lineColor", e.target.value)}
-              className="h-8 rounded border border-slate-300"
+              className="h-8 rounded border border-slate-300 dark:border-slate-500"
             />
           </label>
 
-          <div className="col-span-2 flex flex-col gap-2 border-t border-slate-200 pt-3">
-            <label className="flex items-center gap-2 text-xs font-medium text-slate-700">
+          <div className="col-span-2 flex flex-col gap-2 border-t border-slate-200 pt-3 dark:border-slate-700">
+            <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300">
               <input
                 type="checkbox"
                 checked={includePhotos}
@@ -316,7 +324,7 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
             </label>
             {includePhotos && (
               <div className="flex flex-col gap-2 pl-1">
-                <div className="flex items-center gap-3 text-xs text-slate-600">
+                <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
                   <span>Shape:</span>
                   {(["square", "rounded", "circle"] as PhotoShape[]).map((s) => (
                     <label key={s} className="flex items-center gap-1 capitalize">
@@ -330,7 +338,7 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
                     </label>
                   ))}
                 </div>
-                <div className="flex items-center gap-3 text-xs text-slate-600">
+                <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
                   <label className="flex items-center gap-1">
                     <input
                       type="radio"
@@ -359,7 +367,7 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
       {warnMissingPrint && (
         <p
           role="alert"
-          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
         >
           {missingPrintCount} photo{missingPrintCount === 1 ? "" : "s"} can't be exported at high
           quality — their print-resolution version wasn't kept after the last reload, so{" "}
@@ -372,7 +380,7 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <label htmlFor="poster-zoom" className="text-xs text-slate-600">
+        <label htmlFor="poster-zoom" className="text-xs text-slate-600 dark:text-slate-400">
           Preview zoom
         </label>
         <input
@@ -384,23 +392,28 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
           onChange={(e) => setZoomPercent(Number(e.target.value))}
           className="w-32"
         />
-        <span className="w-10 text-xs tabular-nums text-slate-600">{zoomPercent}%</span>
+        <span className="w-10 text-xs tabular-nums text-slate-600 dark:text-slate-400">
+          {zoomPercent}%
+        </span>
         <button
           type="button"
           onClick={handleFitToPage}
-          className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+          className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
         >
           Fit to view
         </button>
         <button
           type="button"
           onClick={() => setZoomPercent(100)}
-          className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+          className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
         >
           Actual size
         </button>
       </div>
 
+      {/* Theme-exempt: the preview swatch stays paper-white in both themes so it is WYSIWYG with
+          the printed poster (plan decision #4). The panel chrome darkens around it; this frame does
+          not — same principle as the editor canvas backdrop vs. the poster sheet. */}
       <div
         ref={previewRef}
         className="max-h-[60vh] overflow-auto rounded border border-slate-200 bg-slate-50"
@@ -424,6 +437,9 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {/* Saturated filled accent: theme-independent, so no dark: variant (the fill supplies its
+            own contrast on any backdrop). The light-blue "Recommended" tint beside it is NOT
+            theme-independent and darkens like every other tint. */}
         <button
           type="button"
           onClick={handleDownloadSvg}
@@ -431,14 +447,14 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
         >
           Download SVG
         </button>
-        <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[11px] font-medium text-blue-700">
+        <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-400">
           Recommended for printing
         </span>
         <button
           type="button"
           onClick={handleDownloadPdf}
           disabled={pdfStage === "generating"}
-          className="rounded-md border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+          className="rounded-md border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800 dark:disabled:text-slate-600"
         >
           {pdfStage === "generating"
             ? "Generating PDF…"
@@ -449,7 +465,7 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
       </div>
 
       {pdfStage === "error" && (
-        <p className="text-xs text-red-700" role="alert">
+        <p className="text-xs text-red-700 dark:text-red-400" role="alert">
           Couldn't generate the PDF{pdfError ? `: ${pdfError}` : "."} Try the SVG download instead —
           most print shops and vector editors accept it directly.
         </p>

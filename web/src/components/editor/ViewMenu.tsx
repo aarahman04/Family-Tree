@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { useCloseOnEscape } from "../../lib/useCloseOnEscape.js";
+import { AnchoredPanel, useAnchoredDropdown } from "../../lib/useAnchoredDropdown.js";
 
 interface ViewMenuProps {
   focusMode: boolean;
@@ -22,12 +22,12 @@ interface ViewMenuProps {
  * rendering implementation. Every action is transform-only; none recompute the layout.
  */
 export function ViewMenu(props: ViewMenuProps) {
-  const [open, setOpen] = useState(false);
-  useCloseOnEscape(open, () => setOpen(false));
+  const { open, toggle, close, triggerRef, panelRef, pos } = useAnchoredDropdown();
+  useCloseOnEscape(open, close);
 
   const run = (fn: () => void) => () => {
     fn();
-    setOpen(false);
+    close();
   };
 
   const items: { label: string; onClick: () => void; checked?: boolean }[] = [
@@ -50,49 +50,42 @@ export function ViewMenu(props: ViewMenuProps) {
   ];
 
   return (
-    <div className="relative">
+    <>
       <button
+        ref={triggerRef}
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className="rounded border border-slate-300 px-2 py-1 text-sm text-slate-700 hover:bg-slate-50"
+        onClick={toggle}
+        className="rounded border border-slate-300 px-2 py-1 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
       >
         View ▾
       </button>
-      {open && (
-        <>
+      <AnchoredPanel
+        open={open}
+        pos={pos}
+        panelRef={panelRef}
+        onClose={close}
+        className="w-52 rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800"
+      >
+        {items.map((item) => (
           <button
+            key={item.label}
             type="button"
-            aria-hidden="true"
-            tabIndex={-1}
-            className="fixed inset-0 z-10 cursor-default"
-            onClick={() => setOpen(false)}
-          />
-          <div
-            role="menu"
-            className="absolute left-0 z-20 mt-1 w-52 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+            role="menuitemcheckbox"
+            aria-checked={item.checked ?? false}
+            onClick={run(item.onClick)}
+            className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 dark:text-slate-300 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300"
           >
-            {items.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                role="menuitemcheckbox"
-                aria-checked={item.checked ?? false}
-                onClick={run(item.onClick)}
-                className="flex w-full items-center justify-between px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
-              >
-                {item.label}
-                {item.checked && (
-                  <span aria-hidden="true" className="text-emerald-600">
-                    ✓
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+            {item.label}
+            {item.checked && (
+              <span aria-hidden="true" className="text-emerald-600 dark:text-emerald-400">
+                ✓
+              </span>
+            )}
+          </button>
+        ))}
+      </AnchoredPanel>
+    </>
   );
 }

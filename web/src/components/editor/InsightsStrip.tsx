@@ -2,10 +2,10 @@ import type { TreeInsights } from "../../lib/insights.js";
 
 function Chip({ icon, label, value }: { icon: string; label: string; value: string }) {
   return (
-    <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">
+    <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
       <span aria-hidden="true">{icon}</span>
-      <span className="font-semibold text-slate-900">{value}</span>
-      <span className="text-slate-400">{label}</span>
+      <span className="font-semibold text-slate-900 dark:text-slate-100">{value}</span>
+      <span className="text-slate-400 dark:text-slate-400">{label}</span>
     </span>
   );
 }
@@ -16,7 +16,7 @@ export function InsightsStrip({ insights }: { insights: TreeInsights }) {
   const i = insights;
   return (
     <div
-      className="flex items-center gap-2 overflow-x-auto border-b border-slate-200 bg-white px-4 py-1.5"
+      className="flex items-center gap-2 overflow-x-auto border-b border-slate-200 bg-white px-4 py-1.5 dark:border-slate-800 dark:bg-slate-900"
       aria-label="Tree insights summary"
     >
       <Chip icon="👥" label="members" value={String(i.totalMembers)} />

@@ -63,11 +63,11 @@ export function UploadArea({
           }}
           className={`flex min-h-52 cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-8 text-center transition-colors ${
             isDragOver
-              ? "border-emerald-500 bg-emerald-50"
-              : "border-emerald-300 bg-emerald-50/40 hover:border-emerald-400 hover:bg-emerald-50"
+              ? "border-emerald-500 bg-emerald-50 dark:border-emerald-400 dark:bg-emerald-950/40"
+              : "border-emerald-300 bg-emerald-50/40 hover:border-emerald-400 hover:bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/40"
           } ${disabled ? "pointer-events-none opacity-50" : ""}`}
         >
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
             <svg
               aria-hidden="true"
               className="h-7 w-7"
@@ -83,16 +83,16 @@ export function UploadArea({
               />
             </svg>
           </span>
-          <p className="text-base font-semibold text-slate-800">
+          <p className="text-base font-semibold text-slate-800 dark:text-slate-100">
             Drag &amp; drop your file here, or{" "}
-            <span className="text-emerald-700 underline">browse</span>
+            <span className="text-emerald-700 underline dark:text-emerald-300">browse</span>
           </p>
-          <p className="text-sm text-slate-600">{hint}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{hint}</p>
         </label>
       ) : (
-        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-3 overflow-hidden">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
               <svg
                 aria-hidden="true"
                 className="h-5 w-5"
@@ -109,10 +109,15 @@ export function UploadArea({
               </svg>
             </span>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-800" title={currentFile.name}>
+              <p
+                className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100"
+                title={currentFile.name}
+              >
                 {currentFile.name}
               </p>
-              <p className="text-xs text-slate-600">{formatFileSize(currentFile.size)} · loaded</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                {formatFileSize(currentFile.size)} · loaded
+              </p>
             </div>
           </div>
           <div className="flex shrink-0 gap-2">
@@ -120,7 +125,7 @@ export function UploadArea({
               type="button"
               onClick={openPicker}
               disabled={disabled}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               Replace file
             </button>
@@ -128,7 +133,7 @@ export function UploadArea({
               type="button"
               onClick={onClear}
               disabled={disabled}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               Clear
             </button>
