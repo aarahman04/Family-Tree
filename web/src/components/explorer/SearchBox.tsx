@@ -1,5 +1,5 @@
 import { useId, useMemo, useState } from "react";
-import type { FamilyTree, UUID } from "../../../../models/types.js";
+import type { FamilyTree, UUID } from "../../../../src/models/types.js";
 import { type SearchIndex, searchPeople } from "../../lib/search.js";
 
 interface SearchBoxProps {

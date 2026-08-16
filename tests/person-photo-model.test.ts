@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_POSTER_STYLE } from "../poster/types.js";
-import type { PersonPhoto } from "../models/types.js";
+import { DEFAULT_POSTER_STYLE } from "../src/poster/types.js";
+import type { PersonPhoto } from "../src/models/types.js";
 
 describe("person photo model + appearance defaults", () => {
   it("DEFAULT_POSTER_STYLE keeps compact defaults for backwards compatibility", () => {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import type { ValidationIssue } from "../../../models/types.js";
+import type { ValidationIssue } from "../../../src/models/types.js";
 import { useAutoFocus } from "../hooks/useAutoFocus.js";
 import { TechnicalDetails } from "./TechnicalDetails.js";
 

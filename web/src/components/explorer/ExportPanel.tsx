@@ -1,4 +1,4 @@
-import type { FamilyTree } from "../../../../models/types.js";
+import type { FamilyTree } from "../../../../src/models/types.js";
 import type { ExportState } from "../../hooks/useExport.js";
 import { ConversionProgress } from "../ConversionProgress.js";
 import { DownloadPanel } from "../DownloadPanel.js";

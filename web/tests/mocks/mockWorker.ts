@@ -4,8 +4,8 @@
  * still calls the REAL parseFtzFile/exportGedcom, so tests exercise the actual production
  * pipeline, just not across a real thread boundary.
  */
-import { parseFtzFile } from "../../../parser/index.js";
-import { exportGedcom } from "../../../gedcom/export.js";
+import { parseFtzFile } from "../../../src/parser/index.js";
+import { exportGedcom } from "../../../src/gedcom/export.js";
 import type { WorkerRequest, WorkerResponse } from "../../src/worker/protocol.js";
 
 type MessageHandler = ((ev: { data: WorkerResponse }) => void) | null;

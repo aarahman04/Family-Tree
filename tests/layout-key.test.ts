@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { posterLayoutKey } from "../poster/layoutKey.js";
-import { computePersonBox } from "../poster/boxSizing.js";
-import { DEFAULT_POSTER_STYLE } from "../poster/types.js";
-import type { FamilyTree } from "../models/types.js";
+import { posterLayoutKey } from "../src/poster/layoutKey.js";
+import { computePersonBox } from "../src/poster/boxSizing.js";
+import { DEFAULT_POSTER_STYLE } from "../src/poster/types.js";
+import type { FamilyTree } from "../src/models/types.js";
 
 function tree(): FamilyTree {
   return {

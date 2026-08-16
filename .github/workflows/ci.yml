@@ -36,7 +36,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Root package (parser/validation/editor/gedcom)
+      - name: Root package (src/ core)
         run: npm run typecheck
       - name: Web app
         working-directory: web

@@ -1,5 +1,5 @@
-import type { PosterNode } from "../../../poster/types.js";
-import type { UUID } from "../../../models/types.js";
+import type { PosterNode } from "../../../src/poster/types.js";
+import type { UUID } from "../../../src/models/types.js";
 
 /**
  * Returns the id of the node whose box contains the given point, or undefined. Point

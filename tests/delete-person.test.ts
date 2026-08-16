@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { Family, FamilyTree, Person, UUID } from "../models/types.js";
-import { deletePerson } from "../editor/operations.js";
-import { applyEdit } from "../editor/index.js";
+import type { Family, FamilyTree, Person, UUID } from "../src/models/types.js";
+import { deletePerson } from "../src/editor/operations.js";
+import { applyEdit } from "../src/editor/index.js";
 
 function P(id: string, opts: Partial<Person> = {}): Person {
   return { id, name: id, gender: "unknown", notes: [], media: [], famsIds: [], ...opts };

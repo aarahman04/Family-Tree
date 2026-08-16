@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { exportGedcom } from "../gedcom/export.js";
-import { verifyRoundTrip } from "../gedcom/verify.js";
-import { parseNodeFtt } from "../parser/index.js";
+import { exportGedcom } from "../src/gedcom/export.js";
+import { verifyRoundTrip } from "../src/gedcom/verify.js";
+import { parseNodeFtt } from "../src/parser/index.js";
 import { buildNodeFtt, familyRow, personRow } from "./helpers.js";
 
 /**

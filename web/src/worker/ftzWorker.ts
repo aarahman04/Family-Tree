@@ -4,8 +4,8 @@
  * calls into ../../../parser and ../../../gedcom, the same modules covered by
  * docs/parser-implementation.md and docs/gedcom-exporter.md.
  */
-import { parseFtzFile } from "../../../parser/index.js";
-import { exportGedcom } from "../../../gedcom/export.js";
+import { parseFtzFile } from "../../../src/parser/index.js";
+import { exportGedcom } from "../../../src/gedcom/export.js";
 import type { WorkerRequest, WorkerResponse } from "./protocol.js";
 
 function post(message: WorkerResponse): void {

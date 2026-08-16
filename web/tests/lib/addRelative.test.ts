@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { FamilyTree, Person, UUID } from "../../../models/types.js";
+import type { FamilyTree, Person, UUID } from "../../../src/models/types.js";
 import { addRelative } from "../../src/lib/addRelative.js";
 
 function base(): FamilyTree {

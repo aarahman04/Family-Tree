@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { FamilyTree } from "../../../../models/types.js";
+import type { FamilyTree } from "../../../../src/models/types.js";
 import { ExportMenu } from "../../../src/components/editor/ExportMenu.js";
 
 const tree: FamilyTree = {

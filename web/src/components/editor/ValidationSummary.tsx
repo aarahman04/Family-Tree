@@ -1,4 +1,4 @@
-import type { UUID, ValidationIssue } from "../../../../models/types.js";
+import type { UUID, ValidationIssue } from "../../../../src/models/types.js";
 
 interface ValidationSummaryProps {
   issues: ValidationIssue[];

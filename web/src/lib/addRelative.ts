@@ -1,11 +1,11 @@
-import type { FamilyTree, UUID } from "../../../models/types.js";
+import type { FamilyTree, UUID } from "../../../src/models/types.js";
 import {
   addChildToPerson,
   addSpouse,
   createPerson,
   setFather,
   setMother,
-} from "../../../editor/operations.js";
+} from "../../../src/editor/operations.js";
 
 export type RelativeKind = "father" | "mother" | "parent" | "spouse" | "child" | "independent";
 

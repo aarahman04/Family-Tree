@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
-import type { FamilyTree, ValidationState } from "../../../models/types.js";
-import { importGedcom } from "../../../gedcom/import.js";
-import { GedcomImportError } from "../../../gedcom/errors.js";
+import type { FamilyTree, ValidationState } from "../../../src/models/types.js";
+import { importGedcom } from "../../../src/gedcom/import.js";
+import { GedcomImportError } from "../../../src/gedcom/errors.js";
 import { runWorkerTask } from "../worker/workerClient.js";
 
 export interface FileMeta {

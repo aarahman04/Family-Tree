@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { FamilyTree } from "../../../../models/types.js";
+import type { FamilyTree } from "../../../../src/models/types.js";
 import type { ExportState } from "../../hooks/useExport.js";
 import { ExportPanel } from "../explorer/ExportPanel.js";
 import { PosterExportPanel } from "../poster/PosterExportPanel.js";

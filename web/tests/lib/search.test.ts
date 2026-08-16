@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildSearchIndex, searchPeople } from "../../src/lib/search.js";
-import { parseNodeFtt } from "../../../parser/index.js";
+import { parseNodeFtt } from "../../../src/parser/index.js";
 import { buildNodeFtt, personRow } from "../../../tests/helpers.js";
 
 function tree() {

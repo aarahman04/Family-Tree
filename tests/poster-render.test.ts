@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { Family, FamilyTree, Person, UUID } from "../models/types.js";
-import { computePosterLayout } from "../poster/layout.js";
-import { computePosterPageSize } from "../poster/pageSize.js";
-import { renderPosterSvg } from "../poster/renderSvg.js";
-import { DEFAULT_POSTER_STYLE, PDF_MAX_DIMENSION_PT } from "../poster/types.js";
+import type { Family, FamilyTree, Person, UUID } from "../src/models/types.js";
+import { computePosterLayout } from "../src/poster/layout.js";
+import { computePosterPageSize } from "../src/poster/pageSize.js";
+import { renderPosterSvg } from "../src/poster/renderSvg.js";
+import { DEFAULT_POSTER_STYLE, PDF_MAX_DIMENSION_PT } from "../src/poster/types.js";
 
 function person(id: UUID, opts: Partial<Person> = {}): Person {
   return { id, name: id, gender: "unknown", notes: [], media: [], famsIds: [], ...opts };

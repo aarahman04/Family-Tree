@@ -1,4 +1,4 @@
-import type { FamilyTree } from "../../../models/types.js";
+import type { FamilyTree } from "../../../src/models/types.js";
 
 /**
  * Best-effort autosave of the current editing session to localStorage, so an accidental tab

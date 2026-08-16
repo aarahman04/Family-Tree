@@ -1,6 +1,6 @@
 import { useCallback, useReducer } from "react";
-import type { FamilyTree } from "../../../models/types.js";
-import { applyEdit } from "../../../editor/index.js";
+import type { FamilyTree } from "../../../src/models/types.js";
+import { applyEdit } from "../../../src/editor/index.js";
 
 interface EditorState {
   originalTree: FamilyTree; // never mutated — proves "the original uploaded data remains unchanged"

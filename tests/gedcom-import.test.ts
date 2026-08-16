@@ -3,10 +3,10 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { exportGedcom } from "../gedcom/export.js";
-import { importGedcom, parseGedcomDate } from "../gedcom/import.js";
-import { GedcomImportError } from "../gedcom/errors.js";
-import { parseFtzFile } from "../parser/index.js";
+import { exportGedcom } from "../src/gedcom/export.js";
+import { importGedcom, parseGedcomDate } from "../src/gedcom/import.js";
+import { GedcomImportError } from "../src/gedcom/errors.js";
+import { parseFtzFile } from "../src/parser/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FTZ_SAMPLE = path.join(__dirname, "..", "Family Tree FTZ", "FamilyTree.ftz");

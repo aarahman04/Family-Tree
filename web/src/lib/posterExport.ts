@@ -1,4 +1,4 @@
-import type { PosterPageSize } from "../../../poster/types.js";
+import type { PosterPageSize } from "../../../src/poster/types.js";
 
 /**
  * jsPDF + svg2pdf.js are dynamically imported so their ~100KB+ (gzipped) footprint only

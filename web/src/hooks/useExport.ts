@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
-import type { ValidationIssue } from "../../../models/types.js";
-import type { FamilyTree } from "../../../models/types.js";
+import type { ValidationIssue } from "../../../src/models/types.js";
+import type { FamilyTree } from "../../../src/models/types.js";
 import { exportGedcomViaWorker } from "../lib/exportGedcomViaWorker.js";
 
 export type ExportState =

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { GedcomWriter } from "../gedcom/writer.js";
-import { formatGedcomDate } from "../gedcom/date.js";
+import { GedcomWriter } from "../src/gedcom/writer.js";
+import { formatGedcomDate } from "../src/gedcom/date.js";
 
 describe("GedcomWriter", () => {
   it("splits embedded newlines into CONT lines", () => {

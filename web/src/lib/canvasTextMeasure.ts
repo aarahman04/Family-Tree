@@ -1,4 +1,4 @@
-import type { TextMeasurer } from "../../../poster/textMeasure.js";
+import type { TextMeasurer } from "../../../src/poster/textMeasure.js";
 
 /**
  * Pixel-accurate text measurement for the poster layout engine, backed by a real

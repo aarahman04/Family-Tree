@@ -1,4 +1,4 @@
-import type { FamilyTree, UUID } from "../../../models/types.js";
+import type { FamilyTree, UUID } from "../../../src/models/types.js";
 
 /**
  * Pure, framework-free analysis of a family tree for the editor's "Insights" panel. Every

@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Family, FamilyTree, Person, UUID } from "../../../models/types.js";
-import { computeBalancedPosterLayout } from "../../../poster/layoutBalanced.js";
-import { computePosterPageSize } from "../../../poster/pageSize.js";
-import { renderPosterSvg } from "../../../poster/renderSvg.js";
-import { DEFAULT_POSTER_STYLE } from "../../../poster/types.js";
+import type { Family, FamilyTree, Person, UUID } from "../../../src/models/types.js";
+import { computeBalancedPosterLayout } from "../../../src/poster/layoutBalanced.js";
+import { computePosterPageSize } from "../../../src/poster/pageSize.js";
+import { renderPosterSvg } from "../../../src/poster/renderSvg.js";
+import { DEFAULT_POSTER_STYLE } from "../../../src/poster/types.js";
 import { applyTheme } from "../../src/lib/theme.js";
 
 // The load-bearing dark-mode invariant: the poster renderer is theme-blind. It takes no theme

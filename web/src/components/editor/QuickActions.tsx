@@ -1,4 +1,4 @@
-import type { FamilyTree, UUID } from "../../../../models/types.js";
+import type { FamilyTree, UUID } from "../../../../src/models/types.js";
 import { addRelative, type RelativeKind } from "../../lib/addRelative.js";
 
 interface QuickActionsProps {

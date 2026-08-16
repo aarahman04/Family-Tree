@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseNodeFtt } from "../parser/index.js";
+import { parseNodeFtt } from "../src/parser/index.js";
 import { buildNodeFtt, familyRow, personRow } from "./helpers.js";
 
 describe("validation engine", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildTree } from "../parser/build.js";
-import { parseFamilyRow, parsePersonRow } from "../parser/rows.js";
+import { buildTree } from "../src/parser/build.js";
+import { parseFamilyRow, parsePersonRow } from "../src/parser/rows.js";
 import { familyRow, personRow } from "./helpers.js";
 
 function build(persons: string[], families: string[]) {

@@ -1,4 +1,4 @@
-import type { FamilyTree, ValidationIssue } from "../../../models/types.js";
+import type { FamilyTree, ValidationIssue } from "../../../src/models/types.js";
 import { runWorkerTask } from "../worker/workerClient.js";
 
 export type ExportOutcome =

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
-import type { FamilyTree } from "../../../models/types.js";
+import type { FamilyTree } from "../../../src/models/types.js";
 
 /** One imported family tree plus the name of the file it came from. */
 export interface TreeSession {

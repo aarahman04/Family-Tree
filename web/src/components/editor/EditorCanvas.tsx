@@ -9,12 +9,12 @@ import {
   useRef,
   useState,
 } from "react";
-import type { FamilyTree, UUID } from "../../../../models/types.js";
-import { computeBalancedPosterLayout } from "../../../../poster/layoutBalanced.js";
-import { computePosterPageSize } from "../../../../poster/pageSize.js";
-import { renderPosterSvg } from "../../../../poster/renderSvg.js";
-import { posterLayoutKey } from "../../../../poster/layoutKey.js";
-import type { PosterNode } from "../../../../poster/types.js";
+import type { FamilyTree, UUID } from "../../../../src/models/types.js";
+import { computeBalancedPosterLayout } from "../../../../src/poster/layoutBalanced.js";
+import { computePosterPageSize } from "../../../../src/poster/pageSize.js";
+import { renderPosterSvg } from "../../../../src/poster/renderSvg.js";
+import { posterLayoutKey } from "../../../../src/poster/layoutKey.js";
+import type { PosterNode } from "../../../../src/poster/types.js";
 import { makeCanvasTextMeasurer } from "../../lib/canvasTextMeasure.js";
 import { hitTestNode } from "../../lib/canvasHitTest.js";
 import { immediateRelatives } from "../../lib/relatives.js";

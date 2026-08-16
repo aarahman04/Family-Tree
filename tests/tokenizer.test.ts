@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { tokenizeNodeFtt } from "../parser/tokenizer.js";
-import { FtzParseError } from "../parser/errors.js";
+import { tokenizeNodeFtt } from "../src/parser/tokenizer.js";
+import { FtzParseError } from "../src/parser/errors.js";
 import { buildNodeFtt, familyRow, personRow } from "./helpers.js";
 
 describe("tokenizeNodeFtt", () => {

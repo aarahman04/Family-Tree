@@ -1,6 +1,6 @@
-import type { DatePart, FamilyTree, Gender } from "../../../models/types.js";
-import { createPerson, updatePersonFields } from "../../../editor/operations.js";
-import { runIntegrityChecks } from "../../../validation/integrity.js";
+import type { DatePart, FamilyTree, Gender } from "../../../src/models/types.js";
+import { createPerson, updatePersonFields } from "../../../src/editor/operations.js";
+import { runIntegrityChecks } from "../../../src/validation/integrity.js";
 
 export interface NewTreeInput {
   name: string;
