@@ -4,7 +4,7 @@
 
 - **Plan (immutable):** `docs/superpowers/plans/2026-08-16-family-tree-insights-v2.md`
 - **Source spec:** `family_tree_insight_phased_plan.md` (repo root)
-- **Last updated:** 2026-08-16 — after CP2.7+CP2.8 (batched review).
+- **Last updated:** 2026-08-16 — after CP2.9 (standalone review in progress).
 
 ---
 
@@ -35,8 +35,8 @@ Legend: ⬜ not-started · 🟡 in-progress · ✅ done
 | 2.6                    | `analysis/index.ts` `analyzeTree` + `useTreeAnalysis` | ✅     | `dfb5df9`                    | root 272 + web build/test green. **D-6: 4.71ms median → SYNC useMemo, no worker.**                                                      |
 | 2.7                    | `PersonInspector` relationship-intelligence section   | ✅     | `34b0ebd`                    | Batched review with 2.8. Parents-related + per-spouse classification, confidence tags, common-ancestor path, chain depth.               |
 | 2.8                    | Inline relationship badges (panel header)             | ✅     | `34b0ebd`                    | Batched with 2.7. "Parents Related" + per-cousin-marriage label pills near the person heading, reusing the accent-tint pair.            |
-| 2.9                    | Editor transient ancestry-highlight overlay           | ⬜     | —                            | **NEXT.** Touches `EditorCanvas` → standalone review.                                                                                   |
-| 3.x, 4.x, 5.x          | Phases 3–5                                            | ⬜     | —                            | Not started.                                                                                                                              |
+| 2.9                    | Editor transient ancestry-highlight overlay           | ✅     | `d261890`                    | Both-workspace gates green; standalone review dispatched (touches `EditorCanvas`) — see review note below before treating as final.      |
+| 3.x, 4.x, 5.x          | Phases 3–5                                            | ⬜     | —                            | Not started. **NEXT.**                                                                                                                    |
 
 **Refactor-merge gate (satisfied):** the repo-structure refactor **PR #11** (`refactor/repo-structure-src`) is **confirmed merged into `main`** (2026-08-16 13:43 UTC). `src/analysis/` is being created in its post-refactor final location on branch `feat/insights-v2` (off `main`, which also carries the PR #12 scroll fix).
 
@@ -244,7 +244,7 @@ interface PersonInspectorProps {
 - **New section** "Relationship intelligence" (after "Extended family", before the closing `</fieldset>`): renders `parentRel` (if both parents known) and one row per `marriages[]` entry (the person's own unions), each as `relationSummary()` (one of the spec §6 four canonical lines) + a `ConfidenceTag` (confirmed/likely/possible/unknown, semantic-role text color on a `bg-slate-100`/`dark:bg-slate-800` pill — reuses the "est." badge shape) + a `commonAncestorPath()` explanation string (built from two single-path `ancestorPaths(..., cap=1)` calls stitched at the shared ancestor) when a common ancestor exists. Chain depth line renders only when `ancestralChainDepth > 0 || continuesInDescendants`.
 - **New inline badges** (CP2.8, in the header row, right under the name): `RelationshipBadge` pills for "Parents Related" (when `parentRel?.related`) and one per cousin-marriage the person is in (label = the marriage's own `relation.label`, e.g. "First cousins"). Styled with the documented "Selected/accent tint" pair (`bg-blue-50 border-blue-500` / dark `bg-blue-950/40 dark:border-blue-500`) + "Link/accent" text pair — no new token pairs introduced, so `theme-contrast.test.ts` needed no changes.
 - **Test fixture added** (`PersonInspector.test.tsx`): `cousinTree()` — Grandpa/Grandma → DadA/DadB → CousinA×CousinB (first cousins) → their child GrandchildAB (parents-related, chain depth 1). Reused verbatim from the shape of `tests/analysis-index.test.ts`'s fixture, plus the one extra child generation.
-- **CP2.9 (next)** should follow the same rule: `EditorCanvas` receives `analysis` as an **optional** prop (so the many existing `EditorCanvas` tests that don't pass it keep working unchanged) and reads `analysis.marriages` / calls `parentsRelated` directly — never recomputes `analyzeTree` itself.
+- **CP2.9 landed (`d261890`):** `EditorCanvas` gained an optional `analysis?: TreeAnalysis` prop (existing call sites/tests that omit it are unaffected — no highlight, no behavior change). A new module-level pure function `ancestryHighlightIds(tree, personId, analysis)` computes the set of people (excluding the selected person) on the ancestry loop that explains a cousin-marriage link — via `parentsRelated(tree, personId)` for "parents are cousins" and a loop over `tree.persons[personId].famsIds` checking `analysis.marriages.get(famId)?.isCousinMarriage` for the person's own union(s) — walking each side's path to the closest common ancestor with `ancestorPaths(..., cap=1)`. Rendered as amber (`ring-amber-500`, no dark variant — matching the existing selection/pulse ring precedent, since these overlays sit on the theme-exempt paper-white sheet) ring `<div>`s in the same screen-space `overlayRect()` pattern as the pre-existing selection/pulse rings, `data-testid="ancestry-highlight"`, `pointer-events-none`, `aria-hidden`. Purely derived from `selectedPersonId` (ephemeral UI state) — never written into the `FamilyTree` data model, never passed into `renderPosterSvg` or any export path (Invariant 1 upheld the same way `focus-dim` already does).
 
 ---
 
