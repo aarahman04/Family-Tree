@@ -58,6 +58,7 @@ describe("analysis/index — analyzeTree", () => {
     // Grandpa is the primary anchor; CousinA's family is the bridge that creates the overlap.
     expect(a.branches.primaryRootId).toBeDefined();
     expect(a.summary.branchOverlapPercent).toBe(a.branches.overlapPercent);
+    expect(a.influence.mostInfluentialAncestor).toBeDefined();
   });
 });
 

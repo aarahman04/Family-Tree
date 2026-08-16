@@ -2,6 +2,7 @@ import type { FamilyTree, UUID } from "../models/types.js";
 import { type BranchAnalysis, analyzeBranches } from "./branches.js";
 import { type CousinChains, analyzeCousinChains } from "./chains.js";
 import type { Confidence } from "./confidence.js";
+import { type InfluenceAnalysis, analyzeInfluence } from "./influence.js";
 import { type MarriageAnalysis, classifyAllMarriages } from "./marriages.js";
 import { type PedigreeAnalysis, analyzePedigreeCollapse } from "./pedigree.js";
 
@@ -19,6 +20,7 @@ export * from "./marriages.js";
 export * from "./chains.js";
 export * from "./pedigree.js";
 export * from "./branches.js";
+export * from "./influence.js";
 
 export interface TreeAnalysisSummary {
   /** Couples with both spouses recorded. */
@@ -52,6 +54,8 @@ export interface TreeAnalysis {
   pedigree: PedigreeAnalysis;
   /** Branch overlap / vitality analysis. */
   branches: BranchAnalysis;
+  /** Most-influential ancestor + most-connected person headlines. */
+  influence: InfluenceAnalysis;
   /** Headline counts for the insights panel/strip. */
   summary: TreeAnalysisSummary;
 }
@@ -80,6 +84,7 @@ export function analyzeTree(tree: FamilyTree): TreeAnalysis {
   const chains = analyzeCousinChains(tree, marriages);
   const pedigree = analyzePedigreeCollapse(tree);
   const branches = analyzeBranches(tree);
+  const influence = analyzeInfluence(tree);
   const totalMarriages = marriages.size;
   const cousinMarriageCount = cousinMarriages.length;
 
@@ -89,6 +94,7 @@ export function analyzeTree(tree: FamilyTree): TreeAnalysis {
     chains,
     pedigree,
     branches,
+    influence,
     summary: {
       totalMarriages,
       cousinMarriageCount,
