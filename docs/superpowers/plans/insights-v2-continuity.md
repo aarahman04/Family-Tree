@@ -4,7 +4,7 @@
 
 - **Plan (immutable):** `docs/superpowers/plans/2026-08-16-family-tree-insights-v2.md`
 - **Source spec:** `family_tree_insight_phased_plan.md` (repo root)
-- **Last updated:** 2026-08-16 — after CP2.5.
+- **Last updated:** 2026-08-16 — after CP2.6 (**HARD STOP — Phase 2 core complete; interface locked for model handoff**).
 
 ---
 
@@ -24,16 +24,16 @@
 
 Legend: ⬜ not-started · 🟡 in-progress · ✅ done
 
-| CP                     | Deliverable                                           | Status | Landing SHA / PR             | Notes                                                                                                                                    |
-| ---------------------- | ----------------------------------------------------- | ------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **1.1**                | Audit `insights.ts` vs spec §3A; coverage note        | ✅     | (doc-only; no source change) | See "CP1.1 coverage note" below — **full coverage, nothing to build**                                                                    |
-| 2.1                    | `analysis/ancestry.ts`                                | ✅     | `f0196ba`                    | 6 tests; root suite 242 green. Branch `feat/insights-v2` off `main`                                                                      |
-| 2.2                    | `analysis/classify.ts`                                | ✅     | `f0a253f`                    | 10 tests; root suite 252 green. Review batch A = 2.1+2.2+2.3                                                                             |
-| 2.3                    | `analysis/confidence.ts`                              | ✅     | `2aabefe`                    | 6 tests; root suite 258 green. **D-12 evidence captured** (see Results below)                                                            |
-| 2.4                    | `analysis/marriages.ts`                               | ✅     | `336b9ae`                    | 7 tests; suite 265 green. **Golden 31=31** vs verify.ts. D-11 comment added. Review batch B = 2.4+2.5                                    |
-| 2.5                    | `analysis/chains.ts`                                  | ✅     | `2c1d8b9`                    | 5 tests; suite 270 green. Review batch B = 2.4+2.5                                                                                       |
-| 2.6                    | `analysis/index.ts` `analyzeTree` + `useTreeAnalysis` | ⬜     | —                            | **benchmark on 473-sample first**; decide sync vs Web Worker (D-6). **HARD STOP after this CP** — interface handoff to a different model |
-| 2.7–2.9, 3.x, 4.x, 5.x | Phase 2 UI, Phases 3–5                                | ⬜     | —                            | not yet in scope of the current run                                                                                                      |
+| CP                     | Deliverable                                           | Status | Landing SHA / PR             | Notes                                                                                                                                   |
+| ---------------------- | ----------------------------------------------------- | ------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **1.1**                | Audit `insights.ts` vs spec §3A; coverage note        | ✅     | (doc-only; no source change) | See "CP1.1 coverage note" below — **full coverage, nothing to build**                                                                   |
+| 2.1                    | `analysis/ancestry.ts`                                | ✅     | `f0196ba`                    | 6 tests; root suite 242 green. Branch `feat/insights-v2` off `main`                                                                     |
+| 2.2                    | `analysis/classify.ts`                                | ✅     | `f0a253f`                    | 10 tests; root suite 252 green. Review batch A = 2.1+2.2+2.3                                                                            |
+| 2.3                    | `analysis/confidence.ts`                              | ✅     | `2aabefe`                    | 6 tests; root suite 258 green. **D-12 evidence captured** (see Results below)                                                           |
+| 2.4                    | `analysis/marriages.ts`                               | ✅     | `336b9ae`                    | 7 tests; suite 265 green. **Golden 31=31** vs verify.ts. D-11 comment added. Review batch B = 2.4+2.5                                   |
+| 2.5                    | `analysis/chains.ts`                                  | ✅     | `2c1d8b9`                    | 5 tests; suite 270 green. Review batch B = 2.4+2.5                                                                                      |
+| 2.6                    | `analysis/index.ts` `analyzeTree` + `useTreeAnalysis` | ✅     | `dfb5df9`                    | root 272 + web build/test green. **D-6: 4.71ms median → SYNC useMemo, no worker.** ⛔ **HARD STOP reached** — next model resumes at 2.7 |
+| 2.7–2.9, 3.x, 4.x, 5.x | Phase 2 UI, Phases 3–5                                | ⬜     | —                            | **NEXT: CP2.7** (PersonInspector relationship section). Not started.                                                                    |
 
 **Refactor-merge gate (satisfied):** the repo-structure refactor **PR #11** (`refactor/repo-structure-src`) is **confirmed merged into `main`** (2026-08-16 13:43 UTC). `src/analysis/` is being created in its post-refactor final location on branch `feat/insights-v2` (off `main`, which also carries the PR #12 scroll fix).
 
@@ -189,9 +189,40 @@ export function cousinChainInfo(tree, personId, marriages): CousinChainInfo; // 
 
 Cheap DP over the family graph; takes the marriages map as input (compute once in CP2.6, feed here).
 
-### Planned (not yet built; signatures may refine at implementation)
+**`src/analysis/index.ts`** (CP2.6, `dfb5df9`) — public API + memo boundary:
 
-- `src/analysis/index.ts` — `analyzeTree(tree): TreeAnalysis`; web `useTreeAnalysis(tree)` memo. **CP2.6 = final CP of this run (hard stop after).**
+```ts
+export * from "./ancestry.js";
+export * from "./classify.js";
+export * from "./confidence.js";
+export * from "./marriages.js";
+export * from "./chains.js";
+export interface TreeAnalysisSummary {
+  totalMarriages;
+  cousinMarriageCount;
+  consanguineousCount;
+  cousinMarriagePercent;
+  maxChainDepth;
+  byConfidence: Record<Confidence, number>;
+}
+export interface TreeAnalysis {
+  marriages: Map<UUID, MarriageAnalysis>;
+  cousinMarriages: MarriageAnalysis[];
+  chains: CousinChains;
+  summary: TreeAnalysisSummary;
+}
+export function analyzeTree(tree: FamilyTree): TreeAnalysis;
+```
+
+**`web/src/hooks/useTreeAnalysis.ts`** (CP2.6, `dfb5df9`):
+
+```ts
+export function useTreeAnalysis(tree: FamilyTree): TreeAnalysis; // useMemo(analyzeTree, [tree]) — SYNC (D-6)
+```
+
+### Interface for the next model (handoff)
+
+The `analysis/` package is complete and locked through CP2.6. The UI layer (CP2.7+) should consume **`useTreeAnalysis(tree)`** and the per-person helpers `parentsRelated(tree, personId)` and `cousinChainInfo(tree, personId, marriages)` — no new analysis logic needed. Poster visuals (Phase 5) thread through `renderPosterSvg`'s future `analytics` param (see Invariant 1), never a second renderer.
 
 Update this section with the **actual** exported types/signatures as each file lands.
 
@@ -218,7 +249,7 @@ Update this section with the **actual** exported types/signatures as each file l
 
 - **D-12 — real-sample confidence distribution (CP2.3, `2aabefe`).** Over the 473-person sample's **136 couples (31 related)**: `confirmed 0, likely 31, possible 0, unknown 105`. All 31 related couples are "likely" (real ancestry paths carry missing dates → never "confirmed" under the strict rule); the 105 non-relations are "unknown" (those couples lack ≥2 generations of ancestry to confidently declare no relation). Honest for sparse data; the 31 related count matches `verify.ts`'s cousin-marriage count.
 - **CP2.4 golden-agreement (`336b9ae`).** On the 473-sample, the UUID-based analysis module's shares-common-ancestor count = **31**, exactly matching `verify.ts`'s independent ftzId-based `cousinMarriageCountSource` = **31**. Two keyspaces + code paths agree. D-11 cross-reference comment added in `verify.ts`.
-- **CP2.6 benchmark (pending).** Will record expected `analyzeTree()` wall-clock on the 473-sample + the sync-vs-worker decision.
+- **CP2.6 benchmark / D-6 (`dfb5df9`).** `analyzeTree()` on the 473-person sample: **median 4.71ms** (min 2.80, max 6.82 over 7 runs) — imperceptible, well under one 16ms frame. **Decision: run SYNCHRONOUSLY via `useMemo`; no Web Worker.** Execution model locked. (Benchmark lives in `tests/analysis-index.test.ts`, skipIf the sample is absent.)
 
 ---
 
