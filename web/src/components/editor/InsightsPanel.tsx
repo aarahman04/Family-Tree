@@ -179,13 +179,13 @@ export function InsightsPanel({ insights, analysis, tree }: InsightsPanelProps) 
               {analysis.influence.mostInfluentialAncestor && (
                 <Stat
                   label="Most influential ancestor"
-                  value={`${nameOf(analysis.influence.mostInfluentialAncestor.personId)} (${analysis.influence.mostInfluentialAncestor.descendantCount} descendants)`}
+                  value={`${nameOf(analysis.influence.mostInfluentialAncestor.personId)} (${analysis.influence.mostInfluentialAncestor.descendantCount} descendant${analysis.influence.mostInfluentialAncestor.descendantCount === 1 ? "" : "s"})`}
                 />
               )}
               {analysis.influence.mostConnectedPerson && (
                 <Stat
                   label="Most connected person"
-                  value={`${nameOf(analysis.influence.mostConnectedPerson.personId)} (${analysis.influence.mostConnectedPerson.connectionCount} connections)`}
+                  value={`${nameOf(analysis.influence.mostConnectedPerson.personId)} (${analysis.influence.mostConnectedPerson.connectionCount} connection${analysis.influence.mostConnectedPerson.connectionCount === 1 ? "" : "s"})`}
                 />
               )}
             </Section>
