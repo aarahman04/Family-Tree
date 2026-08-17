@@ -48,6 +48,8 @@ export function InsightsPanel({ insights, analysis, tree }: InsightsPanelProps) 
   const [open, setOpen] = useState(true);
   const i = insights;
   const nameOf = (id: string) => tree?.persons[id]?.name.trim() || "(no name)";
+  const lowConfidenceCousinMarriages =
+    analysis?.cousinMarriages.filter((m) => m.confidence.level !== "confirmed").length ?? 0;
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -227,16 +229,12 @@ export function InsightsPanel({ insights, analysis, tree }: InsightsPanelProps) 
                   value={String(analysis.quality.suspiciousLoops.length)}
                 />
               )}
-              {(() => {
-                const lowConfidence = analysis.cousinMarriages.filter(
-                  (m) => m.confidence.level !== "confirmed"
-                ).length;
-                return (
-                  lowConfidence > 0 && (
-                    <Stat label="Low-confidence cousin marriages" value={String(lowConfidence)} />
-                  )
-                );
-              })()}
+              {lowConfidenceCousinMarriages > 0 && (
+                <Stat
+                  label="Low-confidence cousin marriages"
+                  value={String(lowConfidenceCousinMarriages)}
+                />
+              )}
             </Section>
           )}
 

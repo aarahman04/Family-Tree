@@ -70,7 +70,7 @@ function ConfidenceReasons({ reasons }: { reasons: string[] }) {
   return (
     <details className="text-xs text-slate-500 dark:text-slate-400">
       <summary className="cursor-pointer select-none">Why?</summary>
-      <ul className="ml-4 list-disc">
+      <ul className="mt-1 list-disc space-y-0.5 pl-4">
         {reasons.map((reason, i) => (
           <li key={i}>{reason}</li>
         ))}
