@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FamilyTree, UUID } from "../../../src/models/types.js";
 import { buildSearchIndex } from "../lib/search.js";
 import { computeTreeInsights } from "../lib/insights.js";
+import { useTreeAnalysis } from "../hooks/useTreeAnalysis.js";
 import { saveSession } from "../lib/autosave.js";
 import { setHasUnsavedEdits } from "../lib/unsavedEdits.js";
 import { useExport } from "../hooks/useExport.js";
@@ -74,6 +75,9 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
   );
   const [toast, setToast] = useState<string | null>(null);
   const [focusMode, setFocusMode] = useState(false);
+  // Insight mode (CP5.7) is a transient view state like focus mode, not a persisted appearance
+  // preference — the tree opens plain and the analysis overlay is opted into per session.
+  const [insightMode, setInsightMode] = useState(false);
   // Appearance is a per-user view preference, persisted separately from the tree (refinement 5).
   const [appearance, setAppearance] = useState<AppearancePrefs>(() => loadAppearancePrefs());
   const updateAppearance = useCallback((next: AppearancePrefs) => {
@@ -98,6 +102,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
 
   const searchIndex = useMemo(() => buildSearchIndex(tree), [tree]);
   const insights = useMemo(() => computeTreeInsights(tree), [tree]);
+  const analysis = useTreeAnalysis(tree);
   const errors = tree.validation.issues.filter((i) => i.severity === "error");
   const warnings = tree.validation.issues.filter((i) => i.severity === "warning");
 
@@ -230,6 +235,8 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
                 focusMode={focusMode}
                 showPhotos={appearance.displayMode === "photoCards"}
                 onToggleShowPhotos={toggleShowPhotos}
+                insightMode={insightMode}
+                onToggleInsightMode={() => setInsightMode((v) => !v)}
                 onFitTree={() => canvasRef.current?.fitTree()}
                 onFitWidth={() => canvasRef.current?.fitWidth()}
                 onFitHeight={() => canvasRef.current?.fitHeight()}
@@ -325,12 +332,14 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
             {sidebarOpen ? "Hide panel" : "Show panel"}
           </button>
         </div>
-        <InsightsStrip insights={insights} />
+        <InsightsStrip insights={insights} analysis={analysis} />
         <div className="min-h-0 flex-1">
           <EditorCanvas
             ref={canvasRef}
             tree={tree}
             appearance={appearance}
+            analysis={analysis}
+            insightMode={insightMode}
             selectedPersonId={selectedPersonId}
             onSelectPerson={setSelectedPersonId}
             focusPersonId={focusPersonId}
@@ -376,6 +385,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
                   tree={tree}
                   personId={selectedPersonId}
                   searchIndex={searchIndex}
+                  analysis={analysis}
                   onNavigate={goTo}
                   onEdit={edit}
                   onClose={() => setSelectedPersonId(undefined)}
@@ -403,7 +413,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
               Select a person on the canvas to view and edit their details.
             </p>
           )}
-          <InsightsPanel insights={insights} />
+          <InsightsPanel insights={insights} analysis={analysis} tree={tree} />
           <ExportMenu
             tree={tree}
             sourceFileName={session.fileName}

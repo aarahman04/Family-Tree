@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Event, Family, FamilyTree, Gender, Person, UUID } from "../../../src/models/types.js";
-import { computeTreeInsights } from "../../src/lib/insights.js";
+import { computeTreeInsights, isPresumedLiving } from "../../src/lib/insights.js";
 
 function ev(id: string, type: Event["type"], year: number): Event {
   return { id, type, date: { year } };
@@ -119,5 +119,47 @@ describe("computeTreeInsights", () => {
     expect(i.estimatedEarliestYear).toBeUndefined();
     expect(i.averageLifespan).toBeUndefined();
     expect(i.mostCommonSurname).toBeUndefined();
+  });
+});
+
+describe("isPresumedLiving", () => {
+  const P = (o: Partial<Person> = {}): Person => ({
+    id: "x",
+    name: "X",
+    gender: "unknown",
+    notes: [],
+    media: [],
+    famsIds: [],
+    ...o,
+  });
+
+  it("treats any recorded death event as deceased, dates or not (CP5.8)", () => {
+    expect(isPresumedLiving(P({ death: ev("d1", "death", 0) }), 2026)).toBe(false);
+  });
+
+  it("treats an implausible age as deceased even with no death event (CP5.8)", () => {
+    expect(isPresumedLiving(P({ birth: ev("b1", "birth", 1900) }), 2026)).toBe(false);
+    expect(isPresumedLiving(P({ birth: ev("b2", "birth", 1950) }), 2026)).toBe(true);
+  });
+
+  it("treats an unknown record with neither birth nor death as presumed living (CP5.8)", () => {
+    expect(isPresumedLiving(P(), 2026)).toBe(true);
+  });
+
+  it("agrees exactly with the livingCount computeTreeInsights reports (CP5.8)", () => {
+    // The export privacy policy and the displayed "Living (presumed)" stat must never drift.
+    const tree: FamilyTree = {
+      metadata: { sourceFormat: "manual", importedAt: "" },
+      persons: {
+        a: P({ id: "a" }),
+        b: P({ id: "b", death: ev("d1", "death", 0) }),
+        c: P({ id: "c", birth: ev("b3", "birth", 1800) }),
+      } as Record<UUID, Person>,
+      families: {} as Record<UUID, Family>,
+      validation: { validatedAt: "", issues: [], isValid: true },
+    };
+    const now = new Date().getFullYear();
+    const expected = Object.values(tree.persons).filter((p) => isPresumedLiving(p, now)).length;
+    expect(computeTreeInsights(tree).livingCount).toBe(expected);
   });
 });

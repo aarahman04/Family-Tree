@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Family, FamilyTree, Person, UUID } from "../../../../src/models/types.js";
+import { analyzeTree } from "../../../../src/analysis/index.js";
 import { EditorCanvas } from "../../../src/components/editor/EditorCanvas.js";
 import { DEFAULT_APPEARANCE_PREFS } from "../../../src/lib/appearancePrefs.js";
 
@@ -27,6 +28,39 @@ const tree: FamilyTree = {
   families: {
     f1: { id: "f1", husbandId: "gpa", childrenIds: ["dad"] },
     f2: { id: "f2", husbandId: "dad", childrenIds: ["kid"] },
+  } as Record<UUID, Family>,
+  validation: { validatedAt: "", issues: [], isValid: true },
+};
+
+// gpa/gma -> dadA/dadB (siblings) -> cousinA x cousinB, a first-cousin marriage, for the CP2.9
+// ancestry-highlight overlay.
+const cousinTree: FamilyTree = {
+  metadata: { sourceFormat: "manual", importedAt: "" },
+  persons: {
+    gpa: P("gpa", { name: "Gpa", gender: "male", famsIds: ["f1"] }),
+    gma: P("gma", { name: "Gma", gender: "female", famsIds: ["f1"] }),
+    dadA: P("dadA", { name: "DadA", gender: "male", famcId: "f1", famsIds: ["f2"] }),
+    dadB: P("dadB", { name: "DadB", gender: "male", famcId: "f1", famsIds: ["f3"] }),
+    momA: P("momA", { name: "MomA", gender: "female", famsIds: ["f2"] }),
+    cousinA: P("cousinA", {
+      name: "CousinA",
+      gender: "male",
+      famcId: "f2",
+      famsIds: ["f4"],
+    }),
+    momB: P("momB", { name: "MomB", gender: "female", famsIds: ["f3"] }),
+    cousinB: P("cousinB", {
+      name: "CousinB",
+      gender: "female",
+      famcId: "f3",
+      famsIds: ["f4"],
+    }),
+  } as Record<UUID, Person>,
+  families: {
+    f1: { id: "f1", husbandId: "gpa", wifeId: "gma", childrenIds: ["dadA", "dadB"] },
+    f2: { id: "f2", husbandId: "dadA", wifeId: "momA", childrenIds: ["cousinA"] },
+    f3: { id: "f3", husbandId: "dadB", wifeId: "momB", childrenIds: ["cousinB"] },
+    f4: { id: "f4", husbandId: "cousinA", wifeId: "cousinB", childrenIds: [] },
   } as Record<UUID, Family>,
   validation: { validatedAt: "", issues: [], isValid: true },
 };
@@ -169,6 +203,47 @@ describe("EditorCanvas", () => {
     expect(onSelect).toHaveBeenCalled();
   });
 
+  it("highlights the cousin-marriage ancestry loop when the selected person is in one", () => {
+    const analysis = analyzeTree(cousinTree);
+    render(
+      <EditorCanvas
+        tree={cousinTree}
+        appearance={DEFAULT_APPEARANCE_PREFS}
+        analysis={analysis}
+        selectedPersonId="cousinA"
+        onSelectPerson={vi.fn()}
+      />
+    );
+    // cousinB, dadA, dadB, and the shared grandparent (gpa or gma) — 4 people besides cousinA.
+    expect(screen.getAllByTestId("ancestry-highlight")).toHaveLength(4);
+  });
+
+  it("shows no ancestry highlight for a person with no cousin-marriage evidence", () => {
+    const analysis = analyzeTree(cousinTree);
+    render(
+      <EditorCanvas
+        tree={cousinTree}
+        appearance={DEFAULT_APPEARANCE_PREFS}
+        analysis={analysis}
+        selectedPersonId="gpa"
+        onSelectPerson={vi.fn()}
+      />
+    );
+    expect(screen.queryAllByTestId("ancestry-highlight")).toHaveLength(0);
+  });
+
+  it("shows no ancestry highlight when analysis is not supplied", () => {
+    render(
+      <EditorCanvas
+        tree={cousinTree}
+        appearance={DEFAULT_APPEARANCE_PREFS}
+        selectedPersonId="cousinA"
+        onSelectPerson={vi.fn()}
+      />
+    );
+    expect(screen.queryAllByTestId("ancestry-highlight")).toHaveLength(0);
+  });
+
   it("focus mode dims people outside the selected person's immediate family", async () => {
     render(
       <EditorCanvas
@@ -182,5 +257,45 @@ describe("EditorCanvas", () => {
     await userEvent.click(screen.getByRole("button", { name: /focus mode/i }));
     // Focusing "kid" keeps kid + dad opaque and dims the grandparent.
     expect(screen.getAllByTestId("focus-dim").length).toBeGreaterThan(0);
+  });
+
+  it("renders insight overlays into the SAME poster svg only when insightMode is on (CP5.7)", () => {
+    const analysis = analyzeTree(cousinTree);
+    const off = render(
+      <EditorCanvas
+        tree={cousinTree}
+        appearance={DEFAULT_APPEARANCE_PREFS}
+        analysis={analysis}
+        onSelectPerson={vi.fn()}
+      />
+    );
+    expect(off.container.querySelector('[data-role^="badge-"]')).toBeNull();
+    off.unmount();
+
+    const on = render(
+      <EditorCanvas
+        tree={cousinTree}
+        appearance={DEFAULT_APPEARANCE_PREFS}
+        analysis={analysis}
+        insightMode
+        onSelectPerson={vi.fn()}
+      />
+    );
+    // The badges live inside the poster svg itself, not in a separate React overlay layer —
+    // invariant 1: every persistent visual is emitted by renderPosterSvg.
+    const svg = on.container.querySelector("svg")!;
+    expect(svg.querySelector('[data-role="badge-cousin-marriage"]')).toBeTruthy();
+  });
+
+  it("renders no insight overlays with insightMode on but no analysis supplied (CP5.7)", () => {
+    const { container } = render(
+      <EditorCanvas
+        tree={cousinTree}
+        appearance={DEFAULT_APPEARANCE_PREFS}
+        insightMode
+        onSelectPerson={vi.fn()}
+      />
+    );
+    expect(container.querySelector('[data-role^="badge-"]')).toBeNull();
   });
 });

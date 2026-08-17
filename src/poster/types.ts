@@ -56,6 +56,7 @@ export interface PosterChip {
 export interface MarriageConnector {
   kind: "marriage";
   personIds: [UUID, UUID];
+  familyId: UUID;
 }
 
 /** One shared branch per sibling group: a stub down from the parent(s)' midpoint to a
@@ -152,6 +153,48 @@ export const DEFAULT_POSTER_STYLE: PosterStyleOptions = {
 /** PDF page geometry is capped at 14,400pt (200in) per side by the PDF format itself --
  * jsPDF silently clamps to this and would otherwise clip content. See pageSize.ts. */
 export const PDF_MAX_DIMENSION_PT = 14400;
+
+/**
+ * Optional analysis overlay for `renderPosterSvg` (Phase 5, CP5.1). Threading this through is
+ * purely additive: every consumer (CP5.2-5.8) looks up entries defensively (a missing family/node
+ * id means "no overlay"), and `renderPosterSvg` with `analytics` omitted entirely must produce
+ * byte-identical output to before this type existed -- CP5.1's own contract, proven against the
+ * existing `poster-render`/`poster-layout` test suites plus the real 473-person sample.
+ */
+export interface PosterFamilyAnalytics {
+  /** Cousin-marriage classification token (e.g. "first-cousins") for chip/connector styling.
+   * The exact value `BRANCH_MERGE_CLASS_NAME` additionally triggers the branch-merge glyph. */
+  className?: string;
+  /** Stroke/fill override for this family's marriage connector or chip. */
+  color?: string;
+}
+
+/** The `PosterFamilyAnalytics.className` token that flags a cousin marriage as reuniting two
+ * branches of the same family, drawing the branch-merge glyph in `renderPosterSvg`. A shared
+ * constant (not a repeated string literal) so analytics producer and renderer can't drift apart
+ * via a typo/casing mismatch. */
+export const BRANCH_MERGE_CLASS_NAME = "branch-merge";
+
+export interface PosterNodeAnalytics {
+  /** Badge glyphs rendered via the `renderCardExtras` extension point. One of
+   * `BADGE_INCOMPLETE_RECORD` / `BADGE_COUSIN_MARRIAGE`; unrecognized tokens are ignored. */
+  badges?: string[];
+  /** Card background tint override. */
+  tint?: string;
+}
+
+/** `PosterNodeAnalytics.badges` token: this person's record has missing/incomplete data
+ * (CP5.6). */
+export const BADGE_INCOMPLETE_RECORD = "incomplete-record";
+/** `PosterNodeAnalytics.badges` token: this person is a party to a cousin marriage (CP5.6). */
+export const BADGE_COUSIN_MARRIAGE = "cousin-marriage";
+
+export interface PosterAnalytics {
+  byFamily?: ReadonlyMap<UUID, PosterFamilyAnalytics>;
+  byNode?: ReadonlyMap<UUID, PosterNodeAnalytics>;
+  /** Whole-poster overlay toggles, e.g. generation bands. */
+  showGenerationBands?: boolean;
+}
 
 export interface PosterPageSize {
   /** The tree's true required size -- never capped, whatever it takes to keep names

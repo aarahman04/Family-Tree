@@ -7,6 +7,10 @@ interface ViewMenuProps {
    * state in Task 10; the item only appears once `onToggleShowPhotos` is provided. */
   showPhotos?: boolean;
   onToggleShowPhotos?: () => void;
+  /** "Insight mode" view toggle (CP5.7) — draws the analysis overlays into the poster SVG
+   * itself. Optional, matching "Show photos": the item only appears once a handler is wired. */
+  insightMode?: boolean;
+  onToggleInsightMode?: () => void;
   onFitTree: () => void;
   onFitWidth: () => void;
   onFitHeight: () => void;
@@ -41,6 +45,16 @@ export function ViewMenu(props: ViewMenuProps) {
             onClick: props.onToggleShowPhotos,
             toggle: true,
             checked: props.showPhotos ?? false,
+          },
+        ]
+      : []),
+    ...(props.onToggleInsightMode
+      ? [
+          {
+            label: "Insight mode",
+            onClick: props.onToggleInsightMode,
+            toggle: true,
+            checked: props.insightMode ?? false,
           },
         ]
       : []),

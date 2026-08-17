@@ -13,6 +13,8 @@ import {
 import { makeCanvasTextMeasurer } from "../../lib/canvasTextMeasure.js";
 import { buildPhotoMap, type PhotoQuality } from "../../lib/resolvePhoto.js";
 import { posterSvgToPdfBlob, posterSvgToSvgBlob } from "../../lib/posterExport.js";
+import { buildPosterAnalytics } from "../../lib/posterAnalytics.js";
+import { useTreeAnalysis } from "../../hooks/useTreeAnalysis.js";
 
 interface PosterExportPanelProps {
   tree: FamilyTree;
@@ -52,6 +54,13 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
   const [includePhotos, setIncludePhotos] = useState(false);
   const [exportShape, setExportShape] = useState<PhotoShape>("rounded");
   const [quality, setQuality] = useState<PhotoQuality>("thumb");
+  // Insight overlays are OFF by default, so the default export is byte-for-byte the plain poster
+  // it has always been (`analytics` is not passed at all).
+  const [showInsights, setShowInsights] = useState(false);
+  // The living-badge opt-in and the bands opt-in are both default-off; see the plan's
+  // "Badge visibility -- living vs deceased" position and D-13 respectively.
+  const [badgesForLiving, setBadgesForLiving] = useState(false);
+  const [generationBands, setGenerationBands] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
 
   // A canvas.measureText-backed measurer gives pixel-accurate box sizing against the actual
@@ -91,9 +100,23 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
     [tree, exportStyle, measurer, layoutMode]
   );
   const page = useMemo(() => computePosterPageSize(layout, exportStyle), [layout, exportStyle]);
+  const analysis = useTreeAnalysis(tree);
+  // Bands are row-layout only (D-13): a ticked box does NOT survive a switch back to balanced,
+  // so a band can never be emitted over a layout it cannot describe.
+  const bandsAvailable = layoutMode === "flat";
+  const analytics = useMemo(
+    () =>
+      showInsights
+        ? buildPosterAnalytics(tree, analysis, {
+            sensitiveBadgesForLiving: badgesForLiving,
+            generationBands: generationBands && bandsAvailable,
+          })
+        : undefined,
+    [showInsights, tree, analysis, badgesForLiving, generationBands, bandsAvailable]
+  );
   const svg = useMemo(
-    () => renderPosterSvg(layout, page, exportStyle, photos),
-    [layout, page, exportStyle, photos]
+    () => renderPosterSvg(layout, page, exportStyle, photos, analytics),
+    [layout, page, exportStyle, photos, analytics]
   );
 
   function updateStyle<K extends keyof PosterStyleOptions>(key: K, value: PosterStyleOptions[K]) {
@@ -179,6 +202,55 @@ export function PosterExportPanel({ tree, sourceFileName }: PosterExportPanelPro
             </label>
           ))}
         </div>
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className="text-xs font-medium text-slate-700 dark:text-slate-300">Insights</legend>
+        <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300">
+          <input
+            type="checkbox"
+            checked={showInsights}
+            onChange={(e) => setShowInsights(e.target.checked)}
+          />
+          Show insights
+        </label>
+        {showInsights && (
+          <div className="flex flex-col gap-1.5 pl-1">
+            <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+              <input
+                type="checkbox"
+                checked={badgesForLiving}
+                onChange={(e) => setBadgesForLiving(e.target.checked)}
+              />
+              Include relationship badges for living people
+            </label>
+            <p className="pl-6 text-xs text-slate-500 dark:text-slate-400">
+              Off by default: an export is a shareable file, and cousin marriage is a sensitive
+              attribute a living person retains an interest in. Data-quality badges always show.
+            </p>
+            <label
+              className={`flex items-center gap-2 text-xs ${
+                bandsAvailable
+                  ? "text-slate-600 dark:text-slate-400"
+                  : "text-slate-400 dark:text-slate-600"
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={generationBands && bandsAvailable}
+                disabled={!bandsAvailable}
+                onChange={(e) => setGenerationBands(e.target.checked)}
+              />
+              Generation bands
+            </label>
+            {!bandsAvailable && (
+              <p className="pl-6 text-xs text-slate-500 dark:text-slate-400">
+                Needs the “Single row” layout — the balanced layout stacks branches, so a generation
+                isn’t one horizontal row to shade.
+              </p>
+            )}
+          </div>
+        )}
       </fieldset>
 
       <dl className="grid grid-cols-3 gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">

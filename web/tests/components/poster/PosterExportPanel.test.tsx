@@ -112,3 +112,61 @@ describe("PosterExportPanel", () => {
     expect(document.querySelector('text[font-size="18"]')).not.toBeNull();
   });
 });
+
+describe("PosterExportPanel — insight overlays (CP5.8)", () => {
+  it("exports a plain poster by default: no analysis overlay in the svg", () => {
+    const { container } = render(
+      <PosterExportPanel tree={cousinMarriageTree()} sourceFileName="t.ftz" />
+    );
+    expect(screen.getByLabelText(/show insights/i)).not.toBeChecked();
+    expect(container.querySelector('[data-role^="badge-"]')).toBeNull();
+    expect(container.querySelector('[data-role="generation-band"]')).toBeNull();
+  });
+
+  it("draws overlays into the SAME svg the SVG/PDF downloads use once insights are on", async () => {
+    const { container } = render(
+      <PosterExportPanel tree={cousinMarriageTree()} sourceFileName="t.ftz" />
+    );
+    await userEvent.click(screen.getByLabelText(/show insights/i));
+    // CousinX/CousinY have no death event -> presumed living, so the SENSITIVE cousin-marriage
+    // badge stays off; the non-sensitive incomplete-record badge still renders.
+    expect(container.querySelector('[data-role="badge-incomplete-record"]')).toBeTruthy();
+    expect(container.querySelector('[data-role="badge-cousin-marriage"]')).toBeNull();
+  });
+
+  it("keeps relationship badges for living people OFF by default and opt-in only", async () => {
+    const { container } = render(
+      <PosterExportPanel tree={cousinMarriageTree()} sourceFileName="t.ftz" />
+    );
+    await userEvent.click(screen.getByLabelText(/show insights/i));
+    const livingToggle = screen.getByLabelText(/living/i);
+    expect(livingToggle).not.toBeChecked();
+
+    await userEvent.click(livingToggle);
+    expect(container.querySelector('[data-role="badge-cousin-marriage"]')).toBeTruthy();
+  });
+
+  it("disables the generation-bands toggle under the balanced layout and enables it for a single row (D-13)", async () => {
+    render(<PosterExportPanel tree={cousinMarriageTree()} sourceFileName="t.ftz" />);
+    await userEvent.click(screen.getByLabelText(/show insights/i));
+
+    // Balanced is the default layout — bands cannot be drawn meaningfully there.
+    expect(screen.getByLabelText(/generation bands/i)).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("radio", { name: /single row/i }));
+    expect(screen.getByLabelText(/generation bands/i)).toBeEnabled();
+  });
+
+  it("never emits generation bands while the balanced layout is selected, even if the box was ticked first (D-13)", async () => {
+    const { container } = render(
+      <PosterExportPanel tree={cousinMarriageTree()} sourceFileName="t.ftz" />
+    );
+    await userEvent.click(screen.getByLabelText(/show insights/i));
+    await userEvent.click(screen.getByRole("radio", { name: /single row/i }));
+    await userEvent.click(screen.getByLabelText(/generation bands/i));
+    expect(container.querySelector('[data-role="generation-band"]')).toBeTruthy();
+
+    await userEvent.click(screen.getByRole("radio", { name: /balanced/i }));
+    expect(container.querySelector('[data-role="generation-band"]')).toBeNull();
+  });
+});

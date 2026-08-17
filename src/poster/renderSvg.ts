@@ -11,7 +11,16 @@
 
 import type { UUID } from "../models/types.js";
 import { photoAreaHeight, CARD_DIVIDER_GAP, PHOTO_TOP_PAD } from "./boxSizing.js";
-import type { PosterChip, PosterLayout, PosterNode, PosterPageSize, PosterStyleOptions } from "./types.js";
+import { BADGE_COUSIN_MARRIAGE, BADGE_INCOMPLETE_RECORD, BRANCH_MERGE_CLASS_NAME } from "./types.js";
+import type {
+  PosterAnalytics,
+  PosterChip,
+  PosterLayout,
+  PosterNode,
+  PosterNodeAnalytics,
+  PosterPageSize,
+  PosterStyleOptions,
+} from "./types.js";
 
 function escapeXml(text: string): string {
   return text
@@ -119,23 +128,56 @@ function photoPlaceholder(x: number, y: number, side: number, clipAttr: string, 
 }
 
 // ─── CARD EXTENSION POINT (refinement 6) ───────────────────────────────────────
-/** Future optional card elements render here, BELOW the name/year block, without any change
- * to the photo/name geometry above. Intended for the future "detailed" mode:
- *   • Occupation   • Country   • Verification badge   • Notes indicator   • Document count
- * Return additional SVG strings when implementing them. Intentionally a no-op today — this is
- * the single, documented place to grow the card so nothing above needs a redesign. */
-function renderCardExtras(_node: PosterNode, _style: PosterStyleOptions): string {
-  return "";
+/** Optional per-person insight badges (CP5.6) -- one small glyph per recognized token in
+ * `nodeAnalytics.badges`, anchored inside the box's bottom-LEFT corner. Left is deliberate and
+ * NOT mirrored for RTL: the photo mode's living-dot is pinned to the box's right edge for every
+ * node regardless of `node.rtl`, so mirroring badges would land them on the identical point and
+ * paint over the living/deceased signal. (Mirroring the dot instead would change output when
+ * `analytics` is absent, which invariant 1 forbids.) Unrecognized tokens are silently ignored --
+ * forward-compatible with future badge kinds without a renderer change. Each badge is
+ * distinguished by SHAPE as well as color so it survives grayscale printing (AUD-5, matching the
+ * living-dot convention) -- including against `branchMergeGlyph`'s filled diamond, which uses the
+ * same accent color. This is the single, documented place to grow the card -- future non-badge
+ * extras (occupation, country, document count, ...) also render here. */
+function renderCardExtras(style: PosterStyleOptions, boxX: number, boxBottom: number, nodeAnalytics?: PosterNodeAnalytics): string {
+  const known = (nodeAnalytics?.badges ?? []).filter((b) => b === BADGE_INCOMPLETE_RECORD || b === BADGE_COUSIN_MARRIAGE);
+  if (known.length === 0) return "";
+  const r = 3;
+  const spacing = 9;
+  const cy = boxBottom - 8;
+  const parts: string[] = [];
+  known.forEach((badge, i) => {
+    const cx = boxX + 8 + spacing * i;
+    if (badge === BADGE_INCOMPLETE_RECORD) {
+      const color = escapeXml(style.lineColor);
+      parts.push(
+        `<g data-role="badge-incomplete-record"><title>Incomplete record</title>` +
+          `<circle cx="${num(cx)}" cy="${num(cy)}" r="${r}" fill="none" stroke="${color}" stroke-width="1.2"/>` +
+          `<line x1="${num(cx)}" y1="${num(cy - 1.4)}" x2="${num(cx)}" y2="${num(cy + 0.4)}" stroke="${color}" stroke-width="1.1" stroke-linecap="round"/>` +
+          `<circle cx="${num(cx)}" cy="${num(cy + 1.9)}" r="0.5" fill="${color}"/></g>`
+      );
+    } else {
+      // Two interlocking rings (the marriage convention), NOT a filled diamond -- `branchMergeGlyph`
+      // already owns that shape in this same accent color.
+      const color = escapeXml(style.chipBorderColor); // reuses the chip/cross-reference accent already meaning "cousin marriage" elsewhere on the poster
+      parts.push(
+        `<g data-role="badge-cousin-marriage"><title>Cousin marriage</title>` +
+          `<circle cx="${num(cx - 1.6)}" cy="${num(cy)}" r="${num(r - 0.8)}" fill="none" stroke="${color}" stroke-width="1.2"/>` +
+          `<circle cx="${num(cx + 1.6)}" cy="${num(cy)}" r="${num(r - 0.8)}" fill="none" stroke="${color}" stroke-width="1.2"/></g>`
+      );
+    }
+  });
+  return parts.join("");
 }
 // ────────────────────────────────────────────────────────────────────────────────
 
-function renderNode(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions, photoHref?: string): string {
-  if (style.displayMode === "photoCards") return renderPhotoCard(node, offsetX, offsetY, style, photoHref);
-  if (style.displayMode === "minimal") return renderMinimalNode(node, offsetX, offsetY, style);
-  return renderCompactNode(node, offsetX, offsetY, style); // the original renderNode body, unchanged
+function renderNode(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions, photoHref?: string, nodeAnalytics?: PosterNodeAnalytics): string {
+  if (style.displayMode === "photoCards") return renderPhotoCard(node, offsetX, offsetY, style, photoHref, nodeAnalytics);
+  if (style.displayMode === "minimal") return renderMinimalNode(node, offsetX, offsetY, style, nodeAnalytics);
+  return renderCompactNode(node, offsetX, offsetY, style, nodeAnalytics); // the original renderNode body, unchanged
 }
 
-function renderCompactNode(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions): string {
+function renderCompactNode(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions, nodeAnalytics?: PosterNodeAnalytics): string {
   const cx = offsetX + node.x;
   const cy = offsetY + node.y;
   const x = cx - node.width / 2;
@@ -143,7 +185,7 @@ function renderCompactNode(node: PosterNode, offsetX: number, offsetY: number, s
 
   const parts: string[] = [];
   parts.push(
-    `<rect x="${num(x)}" y="${num(y)}" width="${num(node.width)}" height="${num(node.height)}" rx="4" fill="${style.backgroundColor}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
+    `<rect x="${num(x)}" y="${num(y)}" width="${num(node.width)}" height="${num(node.height)}" rx="4" fill="${escapeXml(nodeAnalytics?.tint || style.backgroundColor)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
   );
   // Male/female get a gender glyph; unknown/unspecified keep the plain neutral edge stripe. Both
   // sit on the TRAILING edge for an RTL name (right), matching the text's own alignment (AUD-4).
@@ -187,10 +229,11 @@ function renderCompactNode(node: PosterNode, offsetX: number, offsetY: number, s
       })
     );
   }
+  parts.push(renderCardExtras(style, x, y + node.height, nodeAnalytics));
   return parts.join("");
 }
 
-function renderMinimalNode(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions): string {
+function renderMinimalNode(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions, nodeAnalytics?: PosterNodeAnalytics): string {
   const cx = offsetX + node.x;
   const cy = offsetY + node.y;
   const x = cx - node.width / 2;
@@ -198,7 +241,7 @@ function renderMinimalNode(node: PosterNode, offsetX: number, offsetY: number, s
 
   const parts: string[] = [];
   parts.push(
-    `<rect x="${num(x)}" y="${num(y)}" width="${num(node.width)}" height="${num(node.height)}" rx="4" fill="${style.backgroundColor}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
+    `<rect x="${num(x)}" y="${num(y)}" width="${num(node.width)}" height="${num(node.height)}" rx="4" fill="${escapeXml(nodeAnalytics?.tint || style.backgroundColor)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
   );
 
   const nameLineHeight = style.nameFontSize * 1.25;
@@ -210,10 +253,11 @@ function renderMinimalNode(node: PosterNode, offsetX: number, offsetY: number, s
     parts.push(textLine(cx, lineY, line, style.nameFontSize, style.textColor, style.fontFamily, node.rtl));
     lineY += nameLineHeight;
   }
+  parts.push(renderCardExtras(style, x, y + node.height, nodeAnalytics));
   return parts.join("");
 }
 
-function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions, photoHref?: string): string {
+function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions, photoHref?: string, nodeAnalytics?: PosterNodeAnalytics): string {
   const cx = offsetX + node.x;
   const cyTop = offsetY + node.y - node.height / 2;
   const x = cx - node.width / 2;
@@ -225,7 +269,7 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
 
   // Card outline.
   parts.push(
-    `<rect x="${num(x)}" y="${num(cyTop)}" width="${num(node.width)}" height="${num(node.height)}" rx="6" fill="${style.backgroundColor}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
+    `<rect x="${num(x)}" y="${num(cyTop)}" width="${num(node.width)}" height="${num(node.height)}" rx="6" fill="${escapeXml(nodeAnalytics?.tint || style.backgroundColor)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
   );
 
   // Photo (image or placeholder), clipped to the chosen shape. An absent OR empty href always
@@ -304,11 +348,11 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
     );
   }
 
-  parts.push(renderCardExtras(node, style));
+  parts.push(renderCardExtras(style, x, cardBottom, nodeAnalytics));
   return parts.join("");
 }
 
-function renderChip(chip: PosterChip, offsetX: number, offsetY: number, style: PosterStyleOptions): string {
+function renderChip(chip: PosterChip, offsetX: number, offsetY: number, style: PosterStyleOptions, borderColor: string): string {
   const cx = offsetX + chip.x;
   const cy = offsetY + chip.y;
   const x = cx - chip.width / 2;
@@ -318,7 +362,7 @@ function renderChip(chip: PosterChip, offsetX: number, offsetY: number, style: P
 
   const parts: string[] = [];
   parts.push(
-    `<rect x="${num(x)}" y="${num(y)}" width="${num(chip.width)}" height="${num(chip.height)}" rx="4" fill="${style.chipFillColor}" stroke="${style.chipBorderColor}" stroke-width="${num(style.lineThickness)}" stroke-dasharray="4,3"/>`
+    `<rect x="${num(x)}" y="${num(y)}" width="${num(chip.width)}" height="${num(chip.height)}" rx="4" fill="${style.chipFillColor}" stroke="${escapeXml(borderColor)}" stroke-width="${num(style.lineThickness)}" stroke-dasharray="4,3"/>`
   );
   let lineY = cy - (chip.lines.length * lineHeight) / 2 + lineHeight / 2;
   for (const line of chip.lines) {
@@ -328,11 +372,58 @@ function renderChip(chip: PosterChip, offsetX: number, offsetY: number, style: P
   return parts.join("");
 }
 
+/** A small diamond glyph marking a marriage connector flagged as a "branch-merge" (a marriage
+ * that reunites two branches of the same family, e.g. a cousin marriage) -- centered on the
+ * connector's midpoint, on top of the line. */
+function branchMergeGlyph(cx: number, cy: number, color: string): string {
+  const r = 4.5;
+  return `<path data-role="branch-merge" d="M ${num(cx)} ${num(cy - r)} L ${num(cx + r)} ${num(cy)} L ${num(cx)} ${num(cy + r)} L ${num(cx - r)} ${num(cy)} Z" fill="${escapeXml(color)}"/>`;
+}
+
+/** One shaded band per EVEN generation (odd ones show the plain background through), spanning
+ * the full page width -- a light visual grouping cue, opt-in via `analytics.showGenerationBands`
+ * (CP5.4, Open Decision O-8: default off). Band boundaries sit at the midpoint between adjacent
+ * generations' node edges, so the whole page height is covered with no gaps. */
+function renderGenerationBands(layout: PosterLayout, offsetY: number, pageWidthPt: number, pageHeightPt: number, style: PosterStyleOptions): string {
+  const bounds = new Map<number, { top: number; bottom: number }>();
+  function include(generation: number, y: number, height: number) {
+    const top = offsetY + y - height / 2;
+    const bottom = offsetY + y + height / 2;
+    const existing = bounds.get(generation);
+    if (existing) {
+      existing.top = Math.min(existing.top, top);
+      existing.bottom = Math.max(existing.bottom, bottom);
+    } else {
+      bounds.set(generation, { top, bottom });
+    }
+  }
+  // A chip (cousin-marriage annotation) can be taller than every real node in its row -- see
+  // layout.ts's rowMaxHeight, which already accounts for both. Bands must too, or a tall chip's
+  // row gets shaded a few points short of its true extent.
+  for (const node of layout.nodes) include(node.generation, node.y, node.height);
+  for (const chip of layout.chips) include(chip.generation, chip.y, chip.height);
+  const gens = [...bounds.keys()].sort((a, b) => a - b);
+  const parts: string[] = [];
+  for (let i = 0; i < gens.length; i++) {
+    if (gens[i]! % 2 !== 0) continue;
+    const raw = bounds.get(gens[i]!)!;
+    const top = i === 0 ? 0 : (bounds.get(gens[i - 1]!)!.bottom + raw.top) / 2;
+    const bottom = i === gens.length - 1 ? pageHeightPt : (raw.bottom + bounds.get(gens[i + 1]!)!.top) / 2;
+    parts.push(
+      `<rect data-role="generation-band" x="0" y="${num(top)}" width="${num(pageWidthPt)}" height="${num(bottom - top)}" fill="${escapeXml(style.lineColor)}" fill-opacity="0.05"/>`
+    );
+  }
+  return parts.join("");
+}
+
 export function renderPosterSvg(
   layout: PosterLayout,
   page: PosterPageSize,
   style: PosterStyleOptions,
   photos?: ReadonlyMap<UUID, string>,
+  // CP5.1: threaded through for CP5.2-5.8 to consume. With `analytics` absent, output stays
+  // byte-identical to before this param existed.
+  analytics?: PosterAnalytics,
 ): string {
   const offsetX = style.marginPt;
   const offsetY = style.marginPt;
@@ -354,6 +445,10 @@ export function renderPosterSvg(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${num(page.widthPt)}" height="${num(page.heightPt)}" viewBox="0 0 ${num(page.widthPt)} ${num(page.heightPt)}">`
   );
   svgParts.push(`<rect x="0" y="0" width="${num(page.widthPt)}" height="${num(page.heightPt)}" fill="${style.backgroundColor}"/>`);
+
+  if (analytics?.showGenerationBands) {
+    svgParts.push(renderGenerationBands(layout, offsetY, page.widthPt, page.heightPt, style));
+  }
 
   // Connectors and chips first so node boxes render on top of the lines that touch their edges.
   for (const connector of layout.connectors) {
@@ -386,6 +481,10 @@ export function renderPosterSvg(
       svgParts.push(
         `<line x1="${num(a.x)}" y1="${num(a.y)}" x2="${num(b.x)}" y2="${num(b.y)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
       );
+      const familyAnalytics = analytics?.byFamily?.get(connector.familyId);
+      if (familyAnalytics?.className === BRANCH_MERGE_CLASS_NAME) {
+        svgParts.push(branchMergeGlyph((a.x + b.x) / 2, (a.y + b.y) / 2, familyAnalytics.color ?? style.lineColor));
+      }
     } else {
       const parentPoints = connector.parentPersonIds.map((id) => nodeCenter.get(id)).filter((p): p is NonNullable<typeof p> => !!p);
       const childPoints = connector.childPersonIds.map((id) => nodeCenter.get(id)).filter((p): p is NonNullable<typeof p> => !!p);
@@ -417,16 +516,24 @@ export function renderPosterSvg(
     const anchor = nodeCenter.get(chip.anchorPersonId);
     const chipCx = offsetX + chip.x;
     const chipCy = offsetY + chip.y;
+    const chipFamilyAnalytics = analytics?.byFamily?.get(chip.familyId);
+    const chipColor = chipFamilyAnalytics?.color ?? style.chipBorderColor;
     if (anchor) {
       svgParts.push(
-        `<line x1="${num(anchor.x)}" y1="${num(anchor.y)}" x2="${num(chipCx)}" y2="${num(chipCy)}" stroke="${style.chipBorderColor}" stroke-width="${num(style.lineThickness)}"/>`
+        `<line x1="${num(anchor.x)}" y1="${num(anchor.y)}" x2="${num(chipCx)}" y2="${num(chipCy)}" stroke="${escapeXml(chipColor)}" stroke-width="${num(style.lineThickness)}"/>`
       );
+      // A blood-relative (e.g. cousin) marriage never produces a MarriageConnector -- both
+      // spouses have known parents, so layout.ts routes them through this chip instead (see
+      // isAdjacentHere). This is therefore the only reachable place to flag such a marriage.
+      if (chipFamilyAnalytics?.className === BRANCH_MERGE_CLASS_NAME) {
+        svgParts.push(branchMergeGlyph((anchor.x + chipCx) / 2, (anchor.y + chipCy) / 2, chipColor));
+      }
     }
-    svgParts.push(renderChip(chip, offsetX, offsetY, style));
+    svgParts.push(renderChip(chip, offsetX, offsetY, style, chipColor));
   }
 
   for (const node of layout.nodes) {
-    svgParts.push(renderNode(node, offsetX, offsetY, style, photos?.get(node.personId)));
+    svgParts.push(renderNode(node, offsetX, offsetY, style, photos?.get(node.personId), analytics?.byNode?.get(node.personId)));
   }
 
   svgParts.push(`</svg>`);

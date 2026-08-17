@@ -18,6 +18,15 @@ import {
   updatePersonFields,
 } from "../../../../src/editor/operations.js";
 import { getRelationships } from "../../../../src/parser/relationships.js";
+import {
+  DEPTH_CAP,
+  ancestorPaths,
+  parentsRelated,
+  type Confidence,
+  type CoupleRelation,
+  type MarriageAnalysis,
+  type TreeAnalysis,
+} from "../../../../src/analysis/index.js";
 import { isAcceptedPhotoType, processImageFile } from "../../lib/photo.js";
 import { photoAlt, resolvePhoto } from "../../lib/resolvePhoto.js";
 import type { SearchIndex } from "../../lib/search.js";
@@ -27,11 +36,127 @@ interface PersonInspectorProps {
   tree: FamilyTree;
   personId: UUID;
   searchIndex: SearchIndex;
+  /** Whole-tree relationship analysis (Insights v2). Omitted in contexts that don't need it —
+   * the relationship-intelligence section and inline badges simply don't render without it. */
+  analysis?: TreeAnalysis;
   onNavigate: (id: UUID) => void;
   onEdit: (mutate: (tree: FamilyTree) => FamilyTree) => void;
   onClose: () => void;
   /** True while a GEDCOM export is in flight — see EditorPage for why editing pauses then. */
   disabled?: boolean;
+}
+
+const CONFIDENCE_STYLE: Record<Confidence, string> = {
+  confirmed: "text-green-700 dark:text-green-400",
+  likely: "text-blue-700 dark:text-blue-400",
+  possible: "text-amber-700 dark:text-amber-300",
+  unknown: "text-slate-500 dark:text-slate-400",
+};
+
+function ConfidenceTag({ level }: { level: Confidence }) {
+  return (
+    <span
+      className={`shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide dark:bg-slate-800 ${CONFIDENCE_STYLE[level]}`}
+    >
+      {level}
+    </span>
+  );
+}
+
+/** Collapsed-by-default audit trail for why a classification was made (CP4.3, reasons[] from
+ * classifyConfidence). */
+function ConfidenceReasons({ reasons }: { reasons: string[] }) {
+  if (reasons.length === 0) return null;
+  return (
+    <details className="text-xs text-slate-500 dark:text-slate-400">
+      <summary className="cursor-pointer select-none">Why?</summary>
+      <ul className="mt-1 list-disc space-y-0.5 pl-4">
+        {reasons.map((reason, i) => (
+          <li key={i}>{reason}</li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+function RelationshipBadge({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center rounded-full border border-blue-500 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:border-blue-500 dark:bg-blue-950/40 dark:text-blue-400">
+      {label}
+    </span>
+  );
+}
+
+/** One of the spec's four canonical summary lines (§6) for a classified couple relation. */
+function relationSummary(rel: CoupleRelation): string {
+  if (rel.relation.kind === "unrelated") {
+    return rel.confidence.level === "unknown"
+      ? "Relationship unknown — ancestry too incomplete to tell"
+      : "No cousin-marriage evidence found";
+  }
+  if (rel.relation.kind === "direct-lineage") return "Direct ancestor/descendant match";
+  return rel.relation.label;
+}
+
+/**
+ * Mini lineage-path viewer (CP5.9). Replaces the single flat
+ * "Person → … → Common ancestor → … → Person" string, which merged both sides into one line and
+ * left the reader unable to tell where one descent ended and the other began. Instead it shows the
+ * shared ancestor once, then ONE LEG PER SIDE running from that ancestor down to each person — so
+ * the convergence that makes the couple related is the shape of the thing, not something to parse
+ * out of an arrow run. Legs wrap on narrow screens rather than scrolling the panel sideways.
+ */
+function LineagePath({
+  tree,
+  aId,
+  bId,
+  ancestorId,
+}: {
+  tree: FamilyTree;
+  aId: UUID;
+  bId: UUID;
+  ancestorId: UUID;
+}) {
+  const name = (id: UUID) => tree.persons[id]?.name.trim() || "(no name)";
+  // ancestorPaths runs person -> ancestor; reversed, each leg reads as a descent from the shared
+  // ancestor, which is the direction the convergence is easiest to follow in.
+  const legs = [aId, bId]
+    .map((id) => ancestorPaths(tree, id, ancestorId, DEPTH_CAP, 1)[0])
+    .filter((path): path is UUID[] => path !== undefined)
+    .map((path) => [...path].reverse());
+  if (legs.length < 2) return null;
+
+  return (
+    <div
+      role="group"
+      aria-label={`Lineage path through ${name(ancestorId)}`}
+      className="flex flex-col gap-0.5 text-xs text-slate-500 dark:text-slate-400"
+    >
+      <span>
+        Common ancestor:{" "}
+        <span className="font-medium text-slate-700 dark:text-slate-300">{name(ancestorId)}</span>
+      </span>
+      <ul className="flex list-none flex-col gap-0.5 pl-2">
+        {legs.map((leg, i) => (
+          <li key={i} className="flex flex-wrap items-baseline gap-x-1 break-words">
+            <span aria-hidden="true">↳</span>
+            {leg.map((id, step) => (
+              <span key={id}>
+                {step > 0 && <span aria-hidden="true"> → </span>}
+                <span
+                  className={
+                    step === 0 ? "font-medium text-slate-700 dark:text-slate-300" : undefined
+                  }
+                >
+                  {name(id)}
+                </span>
+              </span>
+            ))}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 interface Draft {
@@ -108,6 +233,7 @@ export function PersonInspector({
   tree,
   personId,
   searchIndex,
+  analysis,
   onNavigate,
   onEdit,
   onClose,
@@ -156,6 +282,15 @@ export function PersonInspector({
   const warnings: ValidationIssue[] = tree.validation.issues.filter((i) =>
     i.relatedIds.includes(personId)
   );
+
+  const parentRel = analysis ? parentsRelated(tree, personId) : undefined;
+  const marriages: MarriageAnalysis[] = analysis
+    ? person.famsIds
+        .map((famId) => analysis.marriages.get(famId))
+        .filter((m): m is MarriageAnalysis => m !== undefined)
+    : [];
+  const chain = analysis?.chains.byPerson.get(personId);
+  const cousinMarriages = marriages.filter((m) => m.isCousinMarriage);
 
   function saveDraft() {
     onEdit((t) =>
@@ -243,22 +378,32 @@ export function PersonInspector({
       aria-label={`Details for ${person.name || "selected person"}`}
       className="flex h-full flex-col gap-4 overflow-y-auto p-4"
     >
-      <div className="flex items-start justify-between">
-        <h2
-          ref={headingRef}
-          tabIndex={-1}
-          className="text-lg font-semibold text-slate-900 dark:text-slate-100"
-        >
-          {person.name.trim() || "(no name)"}
-        </h2>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close inspector"
-          className="inline-flex min-h-6 min-w-6 items-center justify-center text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
-        >
-          ✕
-        </button>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-start justify-between">
+          <h2
+            ref={headingRef}
+            tabIndex={-1}
+            className="text-lg font-semibold text-slate-900 dark:text-slate-100"
+          >
+            {person.name.trim() || "(no name)"}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close inspector"
+            className="inline-flex min-h-6 min-w-6 items-center justify-center text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+          >
+            ✕
+          </button>
+        </div>
+        {(parentRel?.related || cousinMarriages.length > 0) && (
+          <div className="flex flex-wrap gap-1.5">
+            {parentRel?.related && <RelationshipBadge label="Parents Related" />}
+            {cousinMarriages.map((m) => (
+              <RelationshipBadge key={m.familyId} label={m.relation.label} />
+            ))}
+          </div>
+        )}
       </div>
 
       {disabled && (
@@ -726,6 +871,72 @@ export function PersonInspector({
               )}
             </ul>
           </section>
+        )}
+
+        {analysis && (parentRel || marriages.length > 0) && (
+          <details
+            open
+            data-section="relationship-intelligence"
+            className="flex flex-col gap-3 border-t border-slate-200 pt-3 dark:border-slate-800"
+          >
+            <summary className="flex cursor-pointer select-none items-center text-sm font-semibold text-slate-800 [@media(pointer:coarse)]:min-h-11 dark:text-slate-100">
+              Relationship intelligence
+            </summary>
+
+            {parentRel && (
+              <div className="flex flex-col gap-1 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-slate-700 dark:text-slate-300">
+                    Parents: {relationSummary(parentRel)}
+                  </span>
+                  <ConfidenceTag level={parentRel.confidence.level} />
+                </div>
+                {parentRel.relation.closest && (
+                  <LineagePath
+                    tree={tree}
+                    aId={parentRel.fatherId}
+                    bId={parentRel.motherId}
+                    ancestorId={parentRel.relation.closest.ancestorId}
+                  />
+                )}
+                <ConfidenceReasons reasons={parentRel.confidence.reasons} />
+              </div>
+            )}
+
+            {marriages.map((m) => {
+              const spouseId = m.husbandId === personId ? m.wifeId : m.husbandId;
+              return (
+                <div key={m.familyId} className="flex flex-col gap-1 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-slate-700 dark:text-slate-300">
+                      {tree.persons[spouseId]?.name.trim() || "(no name)"}: {relationSummary(m)}
+                    </span>
+                    <ConfidenceTag level={m.confidence.level} />
+                  </div>
+                  {m.relation.closest && (
+                    <LineagePath
+                      tree={tree}
+                      aId={personId}
+                      bId={spouseId}
+                      ancestorId={m.relation.closest.ancestorId}
+                    />
+                  )}
+                  <ConfidenceReasons reasons={m.confidence.reasons} />
+                </div>
+              );
+            })}
+
+            {chain && (chain.ancestralChainDepth > 0 || chain.continuesInDescendants) && (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {chain.ancestralChainDepth > 0 &&
+                  `Cousin-marriage chain: ${chain.ancestralChainDepth} generation${
+                    chain.ancestralChainDepth === 1 ? "" : "s"
+                  } deep`}
+                {chain.ancestralChainDepth > 0 && chain.continuesInDescendants && " · "}
+                {chain.continuesInDescendants && "continues in descendants"}
+              </p>
+            )}
+          </details>
         )}
       </fieldset>
     </aside>
