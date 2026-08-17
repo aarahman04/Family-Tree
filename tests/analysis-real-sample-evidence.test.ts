@@ -53,6 +53,17 @@ confidence                 ${t.confidence}
 presumed living            ${living}
 presumed deceased          ${people.length - living}
 
+-- cousin marriage breakdown --
+by degree                  ${JSON.stringify(a.cousinBreakdown.byDegree)}
+once-removed or more       ${a.cousinBreakdown.onceRemoved}
+multi-generation chains    ${a.cousinBreakdown.multiGenerationChains}
+branches repeating         ${a.cousinBreakdown.branchesWithRepeats}
+pattern spans              ${a.cousinBreakdown.generationsSpanned} generations
+deepest chain              ${a.cousinBreakdown.deepestChain}
+avuncular marriages        ${a.cousinBreakdown.avuncularTotal}  (uncle-niece ${a.cousinBreakdown.uncleNiece}, aunt-nephew ${a.cousinBreakdown.auntNephew})
+half-sibling pairs married ${[...a.marriages.values()].filter((m) => m.category === "half-siblings").length}
+sibling pairs married      ${[...a.marriages.values()].filter((m) => m.category === "siblings").length}
+
 -- relationships --
 total marriages            ${a.summary.totalMarriages}
 cousin marriages           ${a.summary.cousinMarriageCount} (${a.summary.cousinMarriagePercent}%)

@@ -34,8 +34,15 @@ export function InsightsStrip({
         <Chip icon="♂" label="male" value={String(i.maleCount)} />
         <Chip icon="♀" label="female" value={String(i.femaleCount)} />
         <Chip icon="🌳" label="generations" value={String(i.generationCount)} />
-        {i.estimatedEarliestDecade !== undefined && (
-          <Chip icon="🕰️" label="est. earliest" value={`~${i.estimatedEarliestDecade}s`} />
+        {/* One source of truth for the timeline: analysis.timeline, which measures the tree's own
+            generation gap. The old computeTreeInsights estimate assumed 30 years and could
+            disagree with the figure shown in the panel. */}
+        {analysis?.timeline.earliestBirthRange && (
+          <Chip
+            icon="🕰️"
+            label="est. earliest"
+            value={`~${analysis.timeline.earliestBirthRange.from}s`}
+          />
         )}
         {analysis && analysis.summary.cousinMarriageCount > 0 && (
           <Chip

@@ -22,10 +22,6 @@ const insights: TreeInsights = {
   averageChildrenPerFamily: 1.5,
   largestFamily: { parents: "Bob Smith & Mary Jones", childCount: 2 },
   disconnectedGroups: 1,
-  estimatedEarliestYear: 1900,
-  estimatedEarliestDecade: 1900,
-  latestKnownYear: 1970,
-  estimatedSpanYears: 70,
   averageLifespan: 70,
   longestLived: { name: "John Smith", years: 70 },
   oldestLiving: { name: "Mary Smith", age: 95 },
@@ -62,8 +58,9 @@ describe("InsightsPanel", () => {
   it("renders headline figures and labels estimates", () => {
     render(<InsightsPanel insights={insights} />);
     expect(screen.getByText("Total members")).toBeInTheDocument();
-    expect(screen.getByText("~1900s")).toBeInTheDocument();
-    expect(screen.getByText("~70 years")).toBeInTheDocument();
+    // Timeline figures now come solely from analysis.timeline, so a panel rendered without an
+    // analysis shows no timeline at all rather than a second, differently-derived estimate.
+    expect(screen.queryByText(/reaches back to/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Smith \(5\)/)).toBeInTheDocument();
     // Estimated figures are badged.
     expect(screen.getAllByText(/^est\.$/i).length).toBeGreaterThan(0);

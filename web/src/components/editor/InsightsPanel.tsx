@@ -190,46 +190,34 @@ export function InsightsPanel({ insights, analysis, tree }: InsightsPanelProps) 
             )}
           </Section>
 
-          {(i.estimatedEarliestDecade !== undefined ||
-            i.estimatedSpanYears !== undefined ||
-            analysis) && (
+          {analysis && (
             <Section title="Timeline">
-              {i.estimatedEarliestDecade !== undefined && (
-                <Stat label="Reaches back to" value={`~${i.estimatedEarliestDecade}s`} estimate />
+              <Stat
+                label="Generation gap"
+                value={`${analysis.timeline.generationGap} years`}
+                estimate={analysis.timeline.gapIsFallback}
+              />
+              <Stat
+                label="Recorded birth years"
+                value={`${analysis.timeline.recordedBirthCount} of ${analysis.timeline.totalPeople}`}
+              />
+              {analysis.timeline.earliestBirthRange && (
+                <Stat
+                  label="Oldest ancestor born"
+                  value={`~${analysis.timeline.earliestBirthRange.from}–${analysis.timeline.earliestBirthRange.to}`}
+                  estimate
+                />
               )}
-              {i.estimatedSpanYears !== undefined && (
-                <Stat label="Tree spans" value={`~${i.estimatedSpanYears} years`} estimate />
-              )}
-              {analysis && (
-                <>
-                  <Stat
-                    label="Generation gap"
-                    value={`${analysis.timeline.generationGap} years`}
-                    estimate={analysis.timeline.gapIsFallback}
-                  />
-                  <Stat
-                    label="Recorded birth years"
-                    value={`${analysis.timeline.recordedBirthCount} of ${analysis.timeline.totalPeople}`}
-                  />
-                  {analysis.timeline.earliestBirthRange && (
-                    <Stat
-                      label="Oldest ancestor born"
-                      value={`~${analysis.timeline.earliestBirthRange.from}–${analysis.timeline.earliestBirthRange.to}`}
-                      estimate
-                    />
-                  )}
-                  {/* The estimate's footing, stated rather than implied — on a mostly-undated tree
+              {/* The estimate's footing, stated rather than implied — on a mostly-undated tree
                       these numbers are the difference between a figure and a guess. */}
-                  {/* A <div>, not a <p>: this sits inside a <dl>, which only permits dt/dd
+              {/* A <div>, not a <p>: this sits inside a <dl>, which only permits dt/dd
                       groups and <div> (axe rule: definition-list). */}
-                  <div className="pt-1 text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">
-                    {analysis.timeline.gapIsFallback
-                      ? `Generation gap assumed (only ${analysis.timeline.gapSampleSize} parent-child pair${analysis.timeline.gapSampleSize === 1 ? "" : "s"} have both birth years).`
-                      : `Generation gap measured from ${analysis.timeline.gapSampleSize} parent-child pairs.`}{" "}
-                    Confidence in the timeline: {analysis.timeline.confidence}.
-                  </div>
-                </>
-              )}
+              <div className="pt-1 text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">
+                {analysis.timeline.gapIsFallback
+                  ? `Generation gap assumed (only ${analysis.timeline.gapSampleSize} parent-child pair${analysis.timeline.gapSampleSize === 1 ? "" : "s"} have both birth years).`
+                  : `Generation gap measured from ${analysis.timeline.gapSampleSize} parent-child pairs.`}{" "}
+                Confidence in the timeline: {analysis.timeline.confidence}.
+              </div>
             </Section>
           )}
 
@@ -311,6 +299,42 @@ export function InsightsPanel({ insights, analysis, tree }: InsightsPanelProps) 
                 <Stat
                   label="Cousin marriages"
                   value={`${analysis.summary.cousinMarriageCount} of ${analysis.summary.totalMarriages} (${analysis.summary.cousinMarriagePercent}%)`}
+                />
+              )}
+              {/* A single "31 cousin marriages" figure flattens a tree of distant third-cousin
+                  ties and one where first cousins marry three generations running. */}
+              {Object.keys(analysis.cousinBreakdown.byDegree)
+                .map(Number)
+                .sort((a, b) => a - b)
+                .map((degree) => (
+                  <Stat
+                    key={degree}
+                    label={`${degree === 1 ? "First" : degree === 2 ? "Second" : degree === 3 ? "Third" : `${degree}th`}-cousin marriages`}
+                    value={String(analysis.cousinBreakdown.byDegree[degree])}
+                  />
+                ))}
+              {analysis.cousinBreakdown.onceRemoved > 0 && (
+                <Stat
+                  label="Of those, removed a generation"
+                  value={String(analysis.cousinBreakdown.onceRemoved)}
+                />
+              )}
+              {analysis.cousinBreakdown.multiGenerationChains > 0 && (
+                <Stat
+                  label="Multi-generation chains"
+                  value={String(analysis.cousinBreakdown.multiGenerationChains)}
+                />
+              )}
+              {analysis.cousinBreakdown.branchesWithRepeats > 0 && (
+                <Stat
+                  label="Branches marrying cousins more than once"
+                  value={String(analysis.cousinBreakdown.branchesWithRepeats)}
+                />
+              )}
+              {analysis.cousinBreakdown.generationsSpanned > 0 && (
+                <Stat
+                  label="Pattern spans"
+                  value={`${analysis.cousinBreakdown.generationsSpanned} generation${analysis.cousinBreakdown.generationsSpanned === 1 ? "" : "s"}`}
                 />
               )}
               {analysis.summary.maxChainDepth > 0 && (

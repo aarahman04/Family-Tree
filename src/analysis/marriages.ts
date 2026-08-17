@@ -23,6 +23,11 @@ import { type ConfidenceResult, classifyConfidence } from "./confidence.js";
 
 export interface CoupleRelation {
   relation: PairClass;
+  /** Coarse bucket for counting/filtering — see `RelationCategory`. */
+  category: RelationCategory;
+  /** For an avuncular link, the spouse standing a generation above the other. */
+  elderId?: UUID;
+  youngerId?: UUID;
   confidence: ConfidenceResult;
   /** True when the two people share at least one common ancestor (verify.ts parity metric). */
   sharesCommonAncestor: boolean;
@@ -61,6 +66,42 @@ export interface PairRelation extends CoupleRelation {
   commonAncestors: CommonAncestor[];
   /** True when the pair are linked through more than one independent ancestral line. */
   multiplePaths: boolean;
+  /**
+   * For a generationally lopsided link (aunt/uncle to niece/nephew), which of the two stands
+   * closer to the shared ancestor. Without this the app can say "avuncular" but not whether
+   * someone married their NIECE or their UNCLE -- and those read very differently.
+   * Undefined when both sides sit the same distance from the ancestor, or when unrelated.
+   */
+  elderId?: UUID;
+  youngerId?: UUID;
+  /** Coarse bucket for counting and filtering marriages by kind. */
+  category: RelationCategory;
+}
+
+export type RelationCategory =
+  | "cousins"
+  | "avuncular"
+  | "siblings"
+  | "half-siblings"
+  | "direct"
+  | "unrelated";
+
+function categoryOf(kind: PairRelation["relation"]["kind"]): RelationCategory {
+  switch (kind) {
+    case "cousins":
+      return "cousins";
+    case "avuncular":
+      return "avuncular";
+    case "siblings":
+      return "siblings";
+    case "half-siblings":
+      return "half-siblings";
+    case "direct-lineage":
+    case "self":
+      return "direct";
+    default:
+      return "unrelated";
+  }
 }
 
 export function relatePair(
@@ -77,6 +118,8 @@ export function relatePair(
       Math.min(x.distA, x.distB) - Math.min(y.distA, y.distB) ||
       Math.max(x.distA, x.distB) - Math.max(y.distA, y.distB),
   );
+  // elder/younger and category already come from classifyCouple, so the calculator and the
+  // marriage analysis can never disagree about who the aunt is.
   return {
     ...base,
     aId,
@@ -110,6 +153,15 @@ function classifyCouple(
   const mapB = mapOf(bId);
   const commons = findCommonAncestors(mapA, mapB);
 
+  // Full vs half siblings turns on how many PARENTS are shared, which `lines` cannot express
+  // (D-3 counts a shared parent couple as one line either way).
+  const parentsA = new Set(
+    [fatherOf(tree, aId), motherOf(tree, aId)].filter((id): id is UUID => !!id),
+  );
+  const sharedParentCount = [fatherOf(tree, bId), motherOf(tree, bId)].filter(
+    (id): id is UUID => !!id && parentsA.has(id),
+  ).length;
+
   let relation: PairClass;
   if (isDirectLineage(aId, bId, mapA, mapB)) {
     // One is an ancestor of the other — excluded from "cousin" classification (spec §9).
@@ -120,7 +172,11 @@ function classifyCouple(
       label: "Direct ancestor / descendant",
     };
   } else {
-    relation = classifyPair(commons, countIndependentLines(tree, commons));
+    relation = classifyPair(
+      commons,
+      countIndependentLines(tree, commons),
+      sharedParentCount,
+    );
   }
 
   const confidence = classifyConfidence({
@@ -131,8 +187,20 @@ function classifyCouple(
     closest: relation.closest,
   });
 
+  const closest = relation.closest;
+  let elderId: UUID | undefined;
+  let youngerId: UUID | undefined;
+  if (closest && closest.distA !== closest.distB) {
+    const aIsElder = closest.distA < closest.distB;
+    elderId = aIsElder ? aId : bId;
+    youngerId = aIsElder ? bId : aId;
+  }
+
   return {
     relation,
+    category: categoryOf(relation.kind),
+    elderId,
+    youngerId,
     confidence,
     sharesCommonAncestor: commons.length > 0,
     isCousinMarriage: relation.kind === "cousins",

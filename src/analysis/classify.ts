@@ -12,6 +12,7 @@ export type RelKind =
   | "self"
   | "direct-lineage"
   | "siblings"
+  | "half-siblings"
   | "avuncular"
   | "cousins"
   | "unrelated";
@@ -30,7 +31,31 @@ export interface PairClass {
   label: string;
 }
 
-const ORDINALS = ["", "First", "Second", "Third"];
+const ORDINALS = [
+  "",
+  "First",
+  "Second",
+  "Third",
+  "Fourth",
+  "Fifth",
+  "Sixth",
+  "Seventh",
+];
+
+/**
+ * D-19 (supersedes D-1's label collapse): name the degree however deep it goes. D-1 folded
+ * everything past third cousins into "Distant cousins", which hides precisely the distinction
+ * someone tracing repeated cousin marriages across generations is looking for. Past the written
+ * ordinals a numeric one keeps the label honest rather than vague. D-1's DEPTH_CAP still stands.
+ */
+function ordinal(n: number): string {
+  const word = ORDINALS[n];
+  if (word) return word;
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  const suffix = { 1: "st", 2: "nd", 3: "rd" }[n % 10] ?? "th";
+  return `${n}${suffix}`;
+}
 const MULTIPLICITY = ["", "", "Double ", "Triple "];
 
 function removalSuffix(removal: number): string {
@@ -69,6 +94,13 @@ function closestOf(commons: CommonAncestor[]): CommonAncestor | null {
 export function classifyPair(
   commons: CommonAncestor[],
   lines: number,
+  /**
+   * How many PARENTS the two people share. Only meaningful for a sibling-distance pair, where it
+   * separates full siblings from half-siblings -- a materially different relationship that
+   * `lines` cannot express, since D-3 counts a shared parent COUPLE as a single line either way.
+   * Callers without the tree to hand omit it and keep the previous full-sibling reading.
+   */
+  sharedParentCount?: number,
 ): PairClass {
   const closest = closestOf(commons);
   if (!closest)
@@ -89,8 +121,11 @@ export function classifyPair(
       closest,
       label: "Direct ancestor / descendant",
     };
-  if (m === 1 && M === 1)
-    return { kind: "siblings", lines, closest, label: "Siblings" };
+  if (m === 1 && M === 1) {
+    return sharedParentCount === 1
+      ? { kind: "half-siblings", lines, closest, label: "Half-siblings" }
+      : { kind: "siblings", lines, closest, label: "Siblings" };
+  }
   if (m === 1)
     return {
       kind: "avuncular",
@@ -102,13 +137,7 @@ export function classifyPair(
   const cousinDegree = m - 1;
   const removal = M - m;
   const prefix = MULTIPLICITY[lines] ?? "";
-  let base: string;
-  if (cousinDegree >= 4) {
-    // D-1: 4th cousins and beyond collapse to "Distant cousins".
-    base = "Distant cousins";
-  } else {
-    base = `${ORDINALS[cousinDegree]} cousins`;
-  }
+  const base = `${ordinal(cousinDegree)} cousins`;
   // "Double"/"Triple" reads naturally only on a lowercased ordinal ("Double first cousins").
   const labelBody = prefix
     ? prefix + base[0]!.toLowerCase() + base.slice(1)

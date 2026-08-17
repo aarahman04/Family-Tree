@@ -136,3 +136,36 @@ describe("relatePair (S-1)", () => {
     expect(relatePair(t, id(t, "cousinA"), "nobody").relation.kind).toBe("unrelated");
   });
 });
+
+describe("relatePair — avuncular direction and marriage category", () => {
+  it("identifies WHICH of the two is the elder in an aunt/uncle link", () => {
+    const t = family();
+    // aunt is a child of gpa/gma; cousinA is a grandchild. The aunt is the elder side.
+    const r = relatePair(t, id(t, "cousinA"), id(t, "aunt"));
+    expect(r.relation.kind).toBe("avuncular");
+    expect(r.elderId).toBe(id(t, "aunt"));
+    expect(r.youngerId).toBe(id(t, "cousinA"));
+  });
+
+  it("keeps the elder the same whichever order the pair is given", () => {
+    const t = family();
+    const ab = relatePair(t, id(t, "aunt"), id(t, "cousinA"));
+    const ba = relatePair(t, id(t, "cousinA"), id(t, "aunt"));
+    expect(ab.elderId).toBe(ba.elderId);
+  });
+
+  it("leaves elder/younger unset when neither side is generationally above the other", () => {
+    const t = family();
+    expect(relatePair(t, id(t, "cousinA"), id(t, "cousinB")).elderId).toBeUndefined();
+    expect(relatePair(t, id(t, "cousinA"), id(t, "stranger")).elderId).toBeUndefined();
+  });
+
+  it("categorises the pair so a marriage can be counted by kind", () => {
+    const t = family();
+    expect(relatePair(t, id(t, "cousinA"), id(t, "cousinB")).category).toBe("cousins");
+    expect(relatePair(t, id(t, "cousinA"), id(t, "aunt")).category).toBe("avuncular");
+    expect(relatePair(t, id(t, "dadA"), id(t, "dadB")).category).toBe("siblings");
+    expect(relatePair(t, id(t, "gpa"), id(t, "cousinA")).category).toBe("direct");
+    expect(relatePair(t, id(t, "cousinA"), id(t, "stranger")).category).toBe("unrelated");
+  });
+});
