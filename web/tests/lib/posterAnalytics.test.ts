@@ -41,9 +41,9 @@ const cousinTree: FamilyTree = {
 };
 
 /** The private, on-screen editor shows every relationship badge (plan: "Badge visibility"). */
-const EDITOR_OPTS = { sensitiveBadgesForLiving: true, now: 2026 };
+const EDITOR_OPTS = { sensitiveBadgesForLiving: true };
 /** The export boundary withholds them for presumed-living people unless opted in (CP5.8). */
-const EXPORT_OPTS = { sensitiveBadgesForLiving: false, now: 2026 };
+const EXPORT_OPTS = { sensitiveBadgesForLiving: false };
 
 describe("buildPosterAnalytics", () => {
   it("colors a cousin-marriage family and leaves unrelated families untouched (CP5.7)", () => {
@@ -187,5 +187,67 @@ describe("buildPosterAnalytics", () => {
       "cousinA"
     )?.badges;
     expect(badges?.filter((b) => b === BADGE_COUSIN_MARRIAGE)).toHaveLength(1);
+  });
+
+  it("withholds the sensitive overlay from anyone with NO recorded death, however old the birth year (CP5.10)", () => {
+    // The gate used to reuse isPresumedLiving's 110-year cap, so a person born long enough ago
+    // was treated as deceased and had the badge exported — while poster/layout.ts, which caps
+    // nothing, still drew them a green "Living" dot on the very same card. The export gate is now
+    // strictly "no recorded death => withhold", which both closes that disclosure and makes the
+    // gate agree with the dot by construction.
+    const ancient: FamilyTree = {
+      ...cousinTree,
+      persons: {
+        ...cousinTree.persons,
+        cousinA: {
+          ...cousinTree.persons["cousinA"]!,
+          birth: { id: "bA", type: "birth", date: { year: 1850 } },
+        },
+        cousinB: {
+          ...cousinTree.persons["cousinB"]!,
+          birth: { id: "bB", type: "birth", date: { year: 1850 } },
+        },
+      },
+    };
+    const analysis = analyzeTree(ancient);
+    const a = buildPosterAnalytics(ancient, analysis, EXPORT_OPTS);
+
+    expect(a.byNode?.get("cousinA")?.badges ?? []).not.toContain(BADGE_COUSIN_MARRIAGE);
+    expect(a.byFamily?.get("f4")).toBeUndefined();
+    // A recorded death is what unlocks it — not the passage of time.
+    const withDeath: FamilyTree = {
+      ...ancient,
+      persons: {
+        ...ancient.persons,
+        cousinA: { ...ancient.persons["cousinA"]!, death: { id: "dA", type: "death" } },
+        cousinB: { ...ancient.persons["cousinB"]!, death: { id: "dB", type: "death" } },
+      },
+    };
+    expect(
+      buildPosterAnalytics(withDeath, analyzeTree(withDeath), EXPORT_OPTS).byNode?.get("cousinA")
+        ?.badges
+    ).toContain(BADGE_COUSIN_MARRIAGE);
+  });
+
+  it("agrees with the poster's own living-dot rule for every person in the tree (CP5.10)", () => {
+    // poster/layout.ts derives `living: person?.death === undefined`. If the export gate ever
+    // disagrees, a card can show a "Living" dot and a sensitive badge at once.
+    const mixed: FamilyTree = {
+      ...cousinTree,
+      persons: {
+        ...cousinTree.persons,
+        gpa: {
+          ...cousinTree.persons["gpa"]!,
+          birth: { id: "bg", type: "birth", date: { year: 1800 } },
+        },
+        gma: { ...cousinTree.persons["gma"]!, death: { id: "dg", type: "death" } },
+      },
+    };
+    const a = buildPosterAnalytics(mixed, analyzeTree(mixed), EXPORT_OPTS);
+    for (const person of Object.values(mixed.persons)) {
+      const posterSaysLiving = person.death === undefined;
+      const gateExported = (a.byNode?.get(person.id)?.badges ?? []).includes(BADGE_COUSIN_MARRIAGE);
+      expect(posterSaysLiving && gateExported).toBe(false);
+    }
   });
 });

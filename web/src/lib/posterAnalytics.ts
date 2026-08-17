@@ -1,5 +1,4 @@
 import type { FamilyTree, UUID } from "../../../src/models/types.js";
-import { isPresumedLiving } from "./insights.js";
 import type { TreeAnalysis } from "../../../src/analysis/index.js";
 import {
   BADGE_COUSIN_MARRIAGE,
@@ -12,9 +11,9 @@ import {
 
 export interface PosterAnalyticsOptions {
   /**
-   * Whether the relationship overlay may be drawn for people who are only PRESUMED living
-   * (`isPresumedLiving`). Deliberately required, not defaulted: this is a privacy control, and a
-   * new call site that forgets it should fail to compile rather than silently leak.
+   * Whether the relationship overlay may be drawn for people with NO RECORDED DEATH. Deliberately
+   * required, not defaulted: this is a privacy control, and a new call site that forgets it should
+   * fail to compile rather than silently leak.
    *
    * It covers EVERY visual that announces the sensitive fact, not just the per-person badge: the
    * cousin/consanguinity accent colour and the branch-merge glyph name the same couple just as
@@ -27,16 +26,13 @@ export interface PosterAnalyticsOptions {
    * retains an interest that a deceased person, as historical record, does not. Non-sensitive
    * data-quality badges (incomplete record) are never withheld.
    *
-   * D-2 known limitation: this rests on a heuristic, so a living person misclassified as deceased
-   * (e.g. a missing death record) can still have a sensitive overlay exported. `poster/layout.ts`
-   * derives its own living dot from `death === undefined` with no age cap, so the two can disagree
-   * for a person born over `MAX_PLAUSIBLE_AGE` ago with no death record — see the continuity doc.
+   * D-2 residual: a deceased person whose death was never recorded is treated as living and has
+   * their overlay withheld. That is the safe direction — the gate now errs only toward showing
+   * less, never more.
    */
   sensitiveBadgesForLiving: boolean;
   /** Opt in to generation bands. Only pass `true` under the ROW layout (D-13). */
   generationBands?: boolean;
-  /** Current year, for the presumptive-living rule. Defaults to now. */
-  now?: number;
 }
 
 /** Cousin-closeness accents, closest first. Poster palette (warm, keyed to `chipBorderColor`
@@ -72,12 +68,18 @@ export function buildPosterAnalytics(
   analysis: TreeAnalysis,
   options: PosterAnalyticsOptions
 ): PosterAnalytics {
-  const now = options.now ?? new Date().getFullYear();
   const badgeAllowed = (personId: UUID) => {
     if (options.sensitiveBadgesForLiving) return true;
     const person = tree.persons[personId];
+    // A RECORDED DEATH is what unlocks the sensitive overlay -- not the passage of time. This is
+    // deliberately stricter than `isPresumedLiving`, which the "Living (presumed)" stat still
+    // uses: that heuristic also calls someone deceased once their recorded birth year passes
+    // MAX_PLAUSIBLE_AGE, which let a genuinely living centenarian's cousin marriage out of an
+    // export whose opt-in was OFF, and disagreed with `poster/layout.ts`'s own living dot
+    // (`death === undefined`, uncapped) so the same card could show "Living" AND the badge. Using
+    // the presence of a death record makes the gate agree with that dot by construction.
     // An unknown id is treated as living: withholding is the safe direction for a privacy gate.
-    return person !== undefined && !isPresumedLiving(person, now);
+    return person?.death !== undefined;
   };
   // Every family-level overlay is gated on BOTH spouses, since one glyph/colour names the couple
   // as a unit — unlike a per-person badge, it cannot be shown for only the deceased half.
