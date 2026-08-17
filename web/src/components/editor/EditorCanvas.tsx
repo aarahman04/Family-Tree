@@ -26,6 +26,7 @@ import { hitTestNode } from "../../lib/canvasHitTest.js";
 import { immediateRelatives } from "../../lib/relatives.js";
 import { buildPhotoMap, resolvePhoto, photoAlt } from "../../lib/resolvePhoto.js";
 import { appearanceToStyle, type AppearancePrefs } from "../../lib/appearancePrefs.js";
+import { buildPosterAnalytics } from "../../lib/posterAnalytics.js";
 
 interface EditorCanvasProps {
   tree: FamilyTree;
@@ -34,6 +35,11 @@ interface EditorCanvasProps {
   /** Whole-tree relationship analysis (Insights v2). Optional: the ancestry-highlight overlay
    * simply doesn't render without it. */
   analysis?: TreeAnalysis;
+  /** "Insight mode" (CP5.7): draws the analysis overlays — cousin-loop colouring, branch-merge
+   * glyphs, per-person badges — into the poster SVG itself via the shared `analytics` param, so
+   * the editor and every export render them from one code path (invariant 1). No effect without
+   * `analysis`. */
+  insightMode?: boolean;
   selectedPersonId?: UUID;
   onSelectPerson: (id: UUID | undefined) => void;
   /** When this changes, the canvas re-centers on that person and briefly pulses them. */
@@ -110,6 +116,7 @@ export const EditorCanvas = memo(
       tree,
       appearance,
       analysis,
+      insightMode,
       selectedPersonId,
       onSelectPerson,
       focusPersonId,
@@ -186,9 +193,15 @@ export const EditorCanvas = memo(
       () => (style.displayMode === "photoCards" ? buildPhotoMap(tree, "thumb") : undefined),
       [tree, style.displayMode]
     );
+    // Built only when insight mode is on, so the plain editor pays nothing for the analysis
+    // overlay and `renderPosterSvg` receives no `analytics` at all (byte-identical output).
+    const analytics = useMemo(
+      () => (insightMode && analysis ? buildPosterAnalytics(tree, analysis) : undefined),
+      [insightMode, analysis, tree]
+    );
     const svg = useMemo(
-      () => (layout && page ? renderPosterSvg(layout, page, style, photos) : ""),
-      [layout, page, style, photos]
+      () => (layout && page ? renderPosterSvg(layout, page, style, photos, analytics) : ""),
+      [layout, page, style, photos, analytics]
     );
 
     const nodeById = useMemo(() => {

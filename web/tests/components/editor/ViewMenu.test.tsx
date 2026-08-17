@@ -52,4 +52,38 @@ describe("ViewMenu", () => {
       "true"
     );
   });
+
+  it("offers an Insight mode checkbox reflecting the current state and toggling it (CP5.7)", async () => {
+    const onToggleInsightMode = vi.fn();
+    render(
+      <ViewMenu
+        focusMode={false}
+        showPhotos={false}
+        insightMode
+        onToggleInsightMode={onToggleInsightMode}
+        onToggleShowPhotos={vi.fn()}
+        onFitTree={vi.fn()}
+        onFitWidth={vi.fn()}
+        onFitHeight={vi.fn()}
+        onPosterScale={vi.fn()}
+        onCenterSelection={vi.fn()}
+        onToggleFocus={vi.fn()}
+        onResetView={vi.fn()}
+      />
+    );
+    await userEvent.click(screen.getByRole("button", { name: /view/i }));
+
+    const item = screen.getByRole("menuitemcheckbox", { name: /insight mode/i });
+    expect(item).toHaveAttribute("aria-checked", "true");
+    await userEvent.click(item);
+    expect(onToggleInsightMode).toHaveBeenCalledOnce();
+  });
+
+  it("hides the Insight mode item when no handler is wired (CP5.7)", async () => {
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: /view/i }));
+    expect(
+      screen.queryByRole("menuitemcheckbox", { name: /insight mode/i })
+    ).not.toBeInTheDocument();
+  });
 });

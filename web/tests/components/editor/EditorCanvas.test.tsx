@@ -258,4 +258,44 @@ describe("EditorCanvas", () => {
     // Focusing "kid" keeps kid + dad opaque and dims the grandparent.
     expect(screen.getAllByTestId("focus-dim").length).toBeGreaterThan(0);
   });
+
+  it("renders insight overlays into the SAME poster svg only when insightMode is on (CP5.7)", () => {
+    const analysis = analyzeTree(cousinTree);
+    const off = render(
+      <EditorCanvas
+        tree={cousinTree}
+        appearance={DEFAULT_APPEARANCE_PREFS}
+        analysis={analysis}
+        onSelectPerson={vi.fn()}
+      />
+    );
+    expect(off.container.querySelector('[data-role^="badge-"]')).toBeNull();
+    off.unmount();
+
+    const on = render(
+      <EditorCanvas
+        tree={cousinTree}
+        appearance={DEFAULT_APPEARANCE_PREFS}
+        analysis={analysis}
+        insightMode
+        onSelectPerson={vi.fn()}
+      />
+    );
+    // The badges live inside the poster svg itself, not in a separate React overlay layer —
+    // invariant 1: every persistent visual is emitted by renderPosterSvg.
+    const svg = on.container.querySelector("svg")!;
+    expect(svg.querySelector('[data-role="badge-cousin-marriage"]')).toBeTruthy();
+  });
+
+  it("renders no insight overlays with insightMode on but no analysis supplied (CP5.7)", () => {
+    const { container } = render(
+      <EditorCanvas
+        tree={cousinTree}
+        appearance={DEFAULT_APPEARANCE_PREFS}
+        insightMode
+        onSelectPerson={vi.fn()}
+      />
+    );
+    expect(container.querySelector('[data-role^="badge-"]')).toBeNull();
+  });
 });

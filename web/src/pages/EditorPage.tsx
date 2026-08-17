@@ -75,6 +75,9 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
   );
   const [toast, setToast] = useState<string | null>(null);
   const [focusMode, setFocusMode] = useState(false);
+  // Insight mode (CP5.7) is a transient view state like focus mode, not a persisted appearance
+  // preference — the tree opens plain and the analysis overlay is opted into per session.
+  const [insightMode, setInsightMode] = useState(false);
   // Appearance is a per-user view preference, persisted separately from the tree (refinement 5).
   const [appearance, setAppearance] = useState<AppearancePrefs>(() => loadAppearancePrefs());
   const updateAppearance = useCallback((next: AppearancePrefs) => {
@@ -232,6 +235,8 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
                 focusMode={focusMode}
                 showPhotos={appearance.displayMode === "photoCards"}
                 onToggleShowPhotos={toggleShowPhotos}
+                insightMode={insightMode}
+                onToggleInsightMode={() => setInsightMode((v) => !v)}
                 onFitTree={() => canvasRef.current?.fitTree()}
                 onFitWidth={() => canvasRef.current?.fitWidth()}
                 onFitHeight={() => canvasRef.current?.fitHeight()}
@@ -334,6 +339,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
             tree={tree}
             appearance={appearance}
             analysis={analysis}
+            insightMode={insightMode}
             selectedPersonId={selectedPersonId}
             onSelectPerson={setSelectedPersonId}
             focusPersonId={focusPersonId}
