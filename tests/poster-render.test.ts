@@ -3,7 +3,7 @@ import type { Family, FamilyTree, Person, UUID } from "../src/models/types.js";
 import { computePosterLayout } from "../src/poster/layout.js";
 import { computePosterPageSize } from "../src/poster/pageSize.js";
 import { renderPosterSvg } from "../src/poster/renderSvg.js";
-import { DEFAULT_POSTER_STYLE, PDF_MAX_DIMENSION_PT } from "../src/poster/types.js";
+import { BADGE_COUSIN_MARRIAGE, BADGE_INCOMPLETE_RECORD, DEFAULT_POSTER_STYLE, PDF_MAX_DIMENSION_PT } from "../src/poster/types.js";
 
 function person(id: UUID, opts: Partial<Person> = {}): Person {
   return { id, name: id, gender: "unknown", notes: [], media: [], famsIds: [], ...opts };
@@ -273,5 +273,145 @@ describe("renderPosterSvg", () => {
     // the glyph must come from the chip path. One glyph per chip (2 chips, per the CP5.2 test).
     const glyphCount = (flagged.match(/data-role="branch-merge"/g) ?? []).length;
     expect(glyphCount).toBe(2);
+  });
+
+  it("draws no generation bands by default, even with analytics present but the flag unset (CP5.4)", () => {
+    const tree = buildTree(
+      [person("a1", { gender: "male" }), person("a2", { gender: "female" }), person("c1", { famcId: "f1" }), person("g1", { famcId: "f2" })],
+      [family("f1", "a1", "a2", ["c1"]), family("f2", "c1", undefined, ["g1"])]
+    );
+    const layout = computePosterLayout(tree);
+    const page = computePosterPageSize(layout, DEFAULT_POSTER_STYLE);
+
+    expect(renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE)).not.toContain('data-role="generation-band"');
+    expect(renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE, undefined, { byFamily: new Map() })).not.toContain(
+      'data-role="generation-band"'
+    );
+  });
+
+  it("draws one band per even generation, spanning the full page width, when analytics.showGenerationBands is true (CP5.4)", () => {
+    const tree = buildTree(
+      [person("a1", { gender: "male" }), person("a2", { gender: "female" }), person("c1", { famcId: "f1" }), person("g1", { famcId: "f2" })],
+      [family("f1", "a1", "a2", ["c1"]), family("f2", "c1", undefined, ["g1"])]
+    );
+    const layout = computePosterLayout(tree);
+    const page = computePosterPageSize(layout, DEFAULT_POSTER_STYLE);
+    expect(layout.generationCount).toBe(3); // generations 0,1,2 -- bands shade the even ones (0, 2)
+
+    const svg = renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE, undefined, { showGenerationBands: true });
+    const bandMatches = [...svg.matchAll(/<rect data-role="generation-band"[^>]*width="([\d.]+)"/g)];
+    expect(bandMatches).toHaveLength(2);
+    for (const m of bandMatches) expect(Number(m[1])).toBe(page.widthPt); // full page width, not per-generation
+  });
+
+  it("a generation band covers a chip taller than any node in its own row, not just the nodes (CP5.4 regression)", () => {
+    // shortHusband (blood, both spouses blood -> husband anchors) is at gen 2 -- a MIDDLE shaded
+    // band, so its top/bottom both come from real midpoint math (unlike gen 0, clamped to 0, or
+    // the last generation, clamped to page height, either of which would hide this bug). The
+    // chip hosted there (naming longWife, whose OWN blood line puts her at an unrelated gen 4)
+    // is taller than any real node in gen 2's row -- nothing else in that row is long-named.
+    const longName = "Alexandra Bartholomew Cassandra Dumfries Evangeline Fitzgerald Gwendolyn Hawthorne Isabella";
+    const tree = buildTree(
+      [
+        person("rootX", { gender: "male" }),
+        person("rootY", { gender: "female" }),
+        person("mid", { famcId: "fRoot" }),
+        person("shortHusband", { famcId: "fMid", gender: "male" }),
+        person("gg1", { gender: "male" }),
+        person("gg2", { gender: "female" }),
+        person("w1", { famcId: "fGG" }),
+        person("w2", { famcId: "fW1" }),
+        person("w3", { famcId: "fW2" }),
+        person("longWife", { famcId: "fW3", gender: "female", name: longName }),
+      ],
+      [
+        family("fRoot", "rootX", "rootY", ["mid"]),
+        family("fMid", "mid", undefined, ["shortHusband"]),
+        family("fGG", "gg1", "gg2", ["w1"]),
+        family("fW1", "w1", undefined, ["w2"]),
+        family("fW2", "w2", undefined, ["w3"]),
+        family("fW3", "w3", undefined, ["longWife"]),
+        family("fMarriage", "shortHusband", "longWife", []),
+      ]
+    );
+    const layout = computePosterLayout(tree);
+    const page = computePosterPageSize(layout, DEFAULT_POSTER_STYLE);
+    expect(layout.generationCount).toBe(5);
+
+    const offsetY = DEFAULT_POSTER_STYLE.marginPt;
+    function rawBoundsOf(gen: number) {
+      const spans = [
+        ...layout.nodes.filter((n) => n.generation === gen).map((n) => ({ top: offsetY + n.y - n.height / 2, bottom: offsetY + n.y + n.height / 2 })),
+        ...layout.chips.filter((c) => c.generation === gen).map((c) => ({ top: offsetY + c.y - c.height / 2, bottom: offsetY + c.y + c.height / 2 })),
+      ];
+      return { top: Math.min(...spans.map((s) => s.top)), bottom: Math.max(...spans.map((s) => s.bottom)) };
+    }
+    const gen1 = rawBoundsOf(1);
+    const gen2 = rawBoundsOf(2);
+    const gen3 = rawBoundsOf(3);
+    // Sanity check: the fixture actually exercises the gap this test targets (the chip, not any
+    // node, drives gen 2's true lower bound).
+    const gen2NodeBottoms = layout.nodes.filter((n) => n.generation === 2).map((n) => offsetY + n.y + n.height / 2);
+    expect(gen2.bottom).toBeGreaterThan(Math.max(...gen2NodeBottoms));
+
+    const svg = renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE, undefined, { showGenerationBands: true });
+    const bands = [...svg.matchAll(/<rect data-role="generation-band" x="0" y="([\d.]+)" width="[\d.]+" height="([\d.]+)"/g)].map((m) => ({
+      top: Number(m[1]),
+      bottom: Number(m[1]) + Number(m[2]),
+    }));
+    expect(bands).toHaveLength(3); // gens 0, 2, 4
+    const gen2Band = bands[1]!; // sorted by generation ascending, gen2 is the middle one
+    // The exact midpoint math renderGenerationBands should produce once chip bounds (not just
+    // node bounds) feed into it -- distinguishes the fix from the nodes-only bug precisely,
+    // rather than a loose bound the bug could still satisfy by accident.
+    expect(gen2Band.top).toBeCloseTo((gen1.bottom + gen2.top) / 2, 5);
+    expect(gen2Band.bottom).toBeCloseTo((gen2.bottom + gen3.top) / 2, 5);
+  });
+
+  it("overrides a node's card fill with analytics.byNode tint, leaving unflagged nodes at the default backgroundColor (CP5.5)", () => {
+    const tree = buildTree(
+      [person("dad", { gender: "male" }), person("mom", { gender: "female" }), person("kid", { famcId: "fam1" })],
+      [family("fam1", "dad", "mom", ["kid"])]
+    );
+    const layout = computePosterLayout(tree);
+    const page = computePosterPageSize(layout, DEFAULT_POSTER_STYLE);
+    const analytics = { byNode: new Map([["kid", { tint: "#ffec99" }]]) };
+
+    const plain = renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE);
+    const tinted = renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE, undefined, analytics);
+
+    expect(plain).not.toContain(`fill="#ffec99"`);
+    expect(tinted).toContain(`fill="#ffec99"`);
+    // "dad"/"mom" are unflagged -- the default backgroundColor still appears on their cards
+    // (rx="4" identifies a person-card rect, excluding the page-background rect which also
+    // uses backgroundColor).
+    expect((tinted.match(new RegExp(`rx="4" fill="${DEFAULT_POSTER_STYLE.backgroundColor}"`, "g")) ?? []).length).toBe(2);
+  });
+
+  it("renders an incomplete-record badge and a cousin-marriage badge for a node flagged via analytics.byNode.badges, and nothing for an unflagged node (CP5.6)", () => {
+    const tree = buildTree(
+      [person("dad", { gender: "male" }), person("mom", { gender: "female" }), person("kid", { famcId: "fam1" })],
+      [family("fam1", "dad", "mom", ["kid"])]
+    );
+    const layout = computePosterLayout(tree);
+    const page = computePosterPageSize(layout, DEFAULT_POSTER_STYLE);
+    const analytics = { byNode: new Map([["kid", { badges: [BADGE_INCOMPLETE_RECORD, BADGE_COUSIN_MARRIAGE] }]]) };
+
+    const plain = renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE);
+    const badged = renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE, undefined, analytics);
+
+    expect(plain).not.toContain("data-role=\"badge-");
+    expect((badged.match(/data-role="badge-incomplete-record"/g) ?? []).length).toBe(1);
+    expect((badged.match(/data-role="badge-cousin-marriage"/g) ?? []).length).toBe(1);
+  });
+
+  it("ignores unrecognized badge tokens rather than throwing or rendering an unknown glyph (CP5.6)", () => {
+    const tree = buildTree([person("solo")], []);
+    const layout = computePosterLayout(tree);
+    const page = computePosterPageSize(layout, DEFAULT_POSTER_STYLE);
+    const analytics = { byNode: new Map([["solo", { badges: ["some-future-badge-type"] }]]) };
+
+    const svg = renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE, undefined, analytics);
+    expect(svg).not.toContain('data-role="badge-');
   });
 });

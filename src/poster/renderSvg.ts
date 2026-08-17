@@ -11,12 +11,13 @@
 
 import type { UUID } from "../models/types.js";
 import { photoAreaHeight, CARD_DIVIDER_GAP, PHOTO_TOP_PAD } from "./boxSizing.js";
-import { BRANCH_MERGE_CLASS_NAME } from "./types.js";
+import { BADGE_COUSIN_MARRIAGE, BADGE_INCOMPLETE_RECORD, BRANCH_MERGE_CLASS_NAME } from "./types.js";
 import type {
   PosterAnalytics,
   PosterChip,
   PosterLayout,
   PosterNode,
+  PosterNodeAnalytics,
   PosterPageSize,
   PosterStyleOptions,
 } from "./types.js";
@@ -127,23 +128,50 @@ function photoPlaceholder(x: number, y: number, side: number, clipAttr: string, 
 }
 
 // ─── CARD EXTENSION POINT (refinement 6) ───────────────────────────────────────
-/** Future optional card elements render here, BELOW the name/year block, without any change
- * to the photo/name geometry above. Intended for the future "detailed" mode:
- *   • Occupation   • Country   • Verification badge   • Notes indicator   • Document count
- * Return additional SVG strings when implementing them. Intentionally a no-op today — this is
- * the single, documented place to grow the card so nothing above needs a redesign. */
-function renderCardExtras(_node: PosterNode, _style: PosterStyleOptions): string {
-  return "";
+/** Optional per-person insight badges (CP5.6) -- one small glyph per recognized token in
+ * `nodeAnalytics.badges`, anchored inside the box's bottom LEADING corner (opposite the photo
+ * mode's living-dot, which sits bottom-trailing, so the two never collide). Unrecognized tokens
+ * are silently ignored -- forward-compatible with future badge kinds without a renderer change.
+ * Distinguished by SHAPE as well as color so they survive grayscale printing (AUD-5, matching
+ * the living-dot convention). This is the single, documented place to grow the card -- future
+ * non-badge extras (occupation, country, document count, ...) also render here. */
+function renderCardExtras(node: PosterNode, style: PosterStyleOptions, boxX: number, boxBottom: number, boxWidth: number, nodeAnalytics?: PosterNodeAnalytics): string {
+  const known = (nodeAnalytics?.badges ?? []).filter((b) => b === BADGE_INCOMPLETE_RECORD || b === BADGE_COUSIN_MARRIAGE);
+  if (known.length === 0) return "";
+  const r = 3;
+  const spacing = 9;
+  const cy = boxBottom - 8;
+  const startX = node.rtl ? boxX + boxWidth - 8 : boxX + 8;
+  const step = node.rtl ? -spacing : spacing;
+  const parts: string[] = [];
+  known.forEach((badge, i) => {
+    const cx = startX + step * i;
+    if (badge === BADGE_INCOMPLETE_RECORD) {
+      const color = escapeXml(style.lineColor);
+      parts.push(
+        `<g data-role="badge-incomplete-record"><title>Incomplete record</title>` +
+          `<circle cx="${num(cx)}" cy="${num(cy)}" r="${r}" fill="none" stroke="${color}" stroke-width="1.2"/>` +
+          `<line x1="${num(cx)}" y1="${num(cy - 1.4)}" x2="${num(cx)}" y2="${num(cy + 0.4)}" stroke="${color}" stroke-width="1.1" stroke-linecap="round"/>` +
+          `<circle cx="${num(cx)}" cy="${num(cy + 1.9)}" r="0.5" fill="${color}"/></g>`
+      );
+    } else {
+      const color = escapeXml(style.chipBorderColor); // reuses the chip/cross-reference accent already meaning "cousin marriage" elsewhere on the poster
+      parts.push(
+        `<path data-role="badge-cousin-marriage" d="M ${num(cx)} ${num(cy - r)} L ${num(cx + r)} ${num(cy)} L ${num(cx)} ${num(cy + r)} L ${num(cx - r)} ${num(cy)} Z" fill="${color}"><title>Cousin marriage</title></path>`
+      );
+    }
+  });
+  return parts.join("");
 }
 // ────────────────────────────────────────────────────────────────────────────────
 
-function renderNode(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions, photoHref?: string): string {
-  if (style.displayMode === "photoCards") return renderPhotoCard(node, offsetX, offsetY, style, photoHref);
-  if (style.displayMode === "minimal") return renderMinimalNode(node, offsetX, offsetY, style);
-  return renderCompactNode(node, offsetX, offsetY, style); // the original renderNode body, unchanged
+function renderNode(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions, photoHref?: string, nodeAnalytics?: PosterNodeAnalytics): string {
+  if (style.displayMode === "photoCards") return renderPhotoCard(node, offsetX, offsetY, style, photoHref, nodeAnalytics);
+  if (style.displayMode === "minimal") return renderMinimalNode(node, offsetX, offsetY, style, nodeAnalytics);
+  return renderCompactNode(node, offsetX, offsetY, style, nodeAnalytics); // the original renderNode body, unchanged
 }
 
-function renderCompactNode(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions): string {
+function renderCompactNode(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions, nodeAnalytics?: PosterNodeAnalytics): string {
   const cx = offsetX + node.x;
   const cy = offsetY + node.y;
   const x = cx - node.width / 2;
@@ -151,7 +179,7 @@ function renderCompactNode(node: PosterNode, offsetX: number, offsetY: number, s
 
   const parts: string[] = [];
   parts.push(
-    `<rect x="${num(x)}" y="${num(y)}" width="${num(node.width)}" height="${num(node.height)}" rx="4" fill="${style.backgroundColor}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
+    `<rect x="${num(x)}" y="${num(y)}" width="${num(node.width)}" height="${num(node.height)}" rx="4" fill="${escapeXml(nodeAnalytics?.tint ?? style.backgroundColor)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
   );
   // Male/female get a gender glyph; unknown/unspecified keep the plain neutral edge stripe. Both
   // sit on the TRAILING edge for an RTL name (right), matching the text's own alignment (AUD-4).
@@ -195,10 +223,11 @@ function renderCompactNode(node: PosterNode, offsetX: number, offsetY: number, s
       })
     );
   }
+  parts.push(renderCardExtras(node, style, x, y + node.height, node.width, nodeAnalytics));
   return parts.join("");
 }
 
-function renderMinimalNode(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions): string {
+function renderMinimalNode(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions, nodeAnalytics?: PosterNodeAnalytics): string {
   const cx = offsetX + node.x;
   const cy = offsetY + node.y;
   const x = cx - node.width / 2;
@@ -206,7 +235,7 @@ function renderMinimalNode(node: PosterNode, offsetX: number, offsetY: number, s
 
   const parts: string[] = [];
   parts.push(
-    `<rect x="${num(x)}" y="${num(y)}" width="${num(node.width)}" height="${num(node.height)}" rx="4" fill="${style.backgroundColor}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
+    `<rect x="${num(x)}" y="${num(y)}" width="${num(node.width)}" height="${num(node.height)}" rx="4" fill="${escapeXml(nodeAnalytics?.tint ?? style.backgroundColor)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
   );
 
   const nameLineHeight = style.nameFontSize * 1.25;
@@ -218,10 +247,11 @@ function renderMinimalNode(node: PosterNode, offsetX: number, offsetY: number, s
     parts.push(textLine(cx, lineY, line, style.nameFontSize, style.textColor, style.fontFamily, node.rtl));
     lineY += nameLineHeight;
   }
+  parts.push(renderCardExtras(node, style, x, y + node.height, node.width, nodeAnalytics));
   return parts.join("");
 }
 
-function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions, photoHref?: string): string {
+function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, style: PosterStyleOptions, photoHref?: string, nodeAnalytics?: PosterNodeAnalytics): string {
   const cx = offsetX + node.x;
   const cyTop = offsetY + node.y - node.height / 2;
   const x = cx - node.width / 2;
@@ -233,7 +263,7 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
 
   // Card outline.
   parts.push(
-    `<rect x="${num(x)}" y="${num(cyTop)}" width="${num(node.width)}" height="${num(node.height)}" rx="6" fill="${style.backgroundColor}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
+    `<rect x="${num(x)}" y="${num(cyTop)}" width="${num(node.width)}" height="${num(node.height)}" rx="6" fill="${escapeXml(nodeAnalytics?.tint ?? style.backgroundColor)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
   );
 
   // Photo (image or placeholder), clipped to the chosen shape. An absent OR empty href always
@@ -312,7 +342,7 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
     );
   }
 
-  parts.push(renderCardExtras(node, style));
+  parts.push(renderCardExtras(node, style, x, cardBottom, node.width, nodeAnalytics));
   return parts.join("");
 }
 
@@ -344,6 +374,42 @@ function branchMergeGlyph(cx: number, cy: number, color: string): string {
   return `<path data-role="branch-merge" d="M ${num(cx)} ${num(cy - r)} L ${num(cx + r)} ${num(cy)} L ${num(cx)} ${num(cy + r)} L ${num(cx - r)} ${num(cy)} Z" fill="${escapeXml(color)}"/>`;
 }
 
+/** One shaded band per EVEN generation (odd ones show the plain background through), spanning
+ * the full page width -- a light visual grouping cue, opt-in via `analytics.showGenerationBands`
+ * (CP5.4, Open Decision O-8: default off). Band boundaries sit at the midpoint between adjacent
+ * generations' node edges, so the whole page height is covered with no gaps. */
+function renderGenerationBands(layout: PosterLayout, offsetY: number, pageWidthPt: number, pageHeightPt: number, style: PosterStyleOptions): string {
+  const bounds = new Map<number, { top: number; bottom: number }>();
+  function include(generation: number, y: number, height: number) {
+    const top = offsetY + y - height / 2;
+    const bottom = offsetY + y + height / 2;
+    const existing = bounds.get(generation);
+    if (existing) {
+      existing.top = Math.min(existing.top, top);
+      existing.bottom = Math.max(existing.bottom, bottom);
+    } else {
+      bounds.set(generation, { top, bottom });
+    }
+  }
+  // A chip (cousin-marriage annotation) can be taller than every real node in its row -- see
+  // layout.ts's rowMaxHeight, which already accounts for both. Bands must too, or a tall chip's
+  // row gets shaded a few points short of its true extent.
+  for (const node of layout.nodes) include(node.generation, node.y, node.height);
+  for (const chip of layout.chips) include(chip.generation, chip.y, chip.height);
+  const gens = [...bounds.keys()].sort((a, b) => a - b);
+  const parts: string[] = [];
+  for (let i = 0; i < gens.length; i++) {
+    if (gens[i]! % 2 !== 0) continue;
+    const raw = bounds.get(gens[i]!)!;
+    const top = i === 0 ? 0 : (bounds.get(gens[i - 1]!)!.bottom + raw.top) / 2;
+    const bottom = i === gens.length - 1 ? pageHeightPt : (raw.bottom + bounds.get(gens[i + 1]!)!.top) / 2;
+    parts.push(
+      `<rect data-role="generation-band" x="0" y="${num(top)}" width="${num(pageWidthPt)}" height="${num(bottom - top)}" fill="${escapeXml(style.lineColor)}" fill-opacity="0.05"/>`
+    );
+  }
+  return parts.join("");
+}
+
 export function renderPosterSvg(
   layout: PosterLayout,
   page: PosterPageSize,
@@ -373,6 +439,10 @@ export function renderPosterSvg(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${num(page.widthPt)}" height="${num(page.heightPt)}" viewBox="0 0 ${num(page.widthPt)} ${num(page.heightPt)}">`
   );
   svgParts.push(`<rect x="0" y="0" width="${num(page.widthPt)}" height="${num(page.heightPt)}" fill="${style.backgroundColor}"/>`);
+
+  if (analytics?.showGenerationBands) {
+    svgParts.push(renderGenerationBands(layout, offsetY, page.widthPt, page.heightPt, style));
+  }
 
   // Connectors and chips first so node boxes render on top of the lines that touch their edges.
   for (const connector of layout.connectors) {
@@ -457,7 +527,7 @@ export function renderPosterSvg(
   }
 
   for (const node of layout.nodes) {
-    svgParts.push(renderNode(node, offsetX, offsetY, style, photos?.get(node.personId)));
+    svgParts.push(renderNode(node, offsetX, offsetY, style, photos?.get(node.personId), analytics?.byNode?.get(node.personId)));
   }
 
   svgParts.push(`</svg>`);

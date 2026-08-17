@@ -176,11 +176,18 @@ export interface PosterFamilyAnalytics {
 export const BRANCH_MERGE_CLASS_NAME = "branch-merge";
 
 export interface PosterNodeAnalytics {
-  /** Badge glyphs rendered via the `renderCardExtras` extension point. */
+  /** Badge glyphs rendered via the `renderCardExtras` extension point. One of
+   * `BADGE_INCOMPLETE_RECORD` / `BADGE_COUSIN_MARRIAGE`; unrecognized tokens are ignored. */
   badges?: string[];
   /** Card background tint override. */
   tint?: string;
 }
+
+/** `PosterNodeAnalytics.badges` token: this person's record has missing/incomplete data
+ * (CP5.6). */
+export const BADGE_INCOMPLETE_RECORD = "incomplete-record";
+/** `PosterNodeAnalytics.badges` token: this person is a party to a cousin marriage (CP5.6). */
+export const BADGE_COUSIN_MARRIAGE = "cousin-marriage";
 
 export interface PosterAnalytics {
   byFamily?: ReadonlyMap<UUID, PosterFamilyAnalytics>;
