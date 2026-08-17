@@ -329,11 +329,14 @@ describe("PersonInspector", () => {
         onClose={vi.fn()}
       />
     );
-    expect(screen.getByText(/cousinb: first cousins/i)).toBeInTheDocument();
+    // The card titles the couple and states the classification on its own line, rather than
+    // running "<spouse>: <label>" together as one string (CP6.5).
+    expect(screen.getAllByRole("button", { name: /view cousinb/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/first cousins/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/common ancestor:/i)).toBeInTheDocument();
     expect(screen.getByText("likely")).toBeInTheDocument();
-    // Inline badge near the heading.
-    expect(screen.getByText("First cousins")).toBeInTheDocument();
+    // Inline badge near the heading, plus the card body — both legitimately say it now.
+    expect(screen.getAllByText("First cousins").length).toBeGreaterThan(0);
   });
 
   it("shows the parents-related summary, badge, and chain depth for a cousin marriage's child", () => {
@@ -350,9 +353,9 @@ describe("PersonInspector", () => {
         onClose={vi.fn()}
       />
     );
-    expect(screen.getByText(/parents: first cousins/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/first cousins/i).length).toBeGreaterThan(0);
     expect(screen.getByText("Parents Related")).toBeInTheDocument();
-    expect(screen.getByText(/chain: 1 generation deep/i)).toBeInTheDocument();
+    expect(screen.getByText(/cousin-marriage chain: 1 generation/i)).toBeInTheDocument();
   });
 
   it("shows the confidence audit trail (reasons[]) for a classified relationship (CP4.3)", () => {
@@ -456,5 +459,204 @@ describe("PersonInspector", () => {
     expect(details).toHaveAttribute("open"); // open by default — collapsing is opt-in
     const summary = details!.querySelector("summary")!;
     expect(summary.className).toMatch(/\[@media\(pointer:coarse\)\]:min-h-11/);
+  });
+
+  it("separates the parents' relationship from the person's own marriages under distinct headings (CP6.5)", () => {
+    // The old layout stacked both as bare siblings with no divider, so "Parents: ..." and
+    // "<spouse>: ..." read as one continuous sentence.
+    const t = cousinTree();
+    render(
+      <PersonInspector
+        tree={t}
+        personId={idOf(t, "CousinA")}
+        searchIndex={buildSearchIndex(t)}
+        analysis={analyzeTree(t)}
+        onNavigate={vi.fn()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    expect(screen.getByRole("heading", { name: /their parents/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /their marriage/i })).toBeInTheDocument();
+  });
+
+  it("renders each couple as its own card, so two facts never read as one (CP6.5)", () => {
+    const t = cousinTree();
+    const { container } = render(
+      <PersonInspector
+        tree={t}
+        personId={idOf(t, "CousinA")}
+        searchIndex={buildSearchIndex(t)}
+        analysis={analyzeTree(t)}
+        onNavigate={vi.fn()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    const cards = container.querySelectorAll("[data-role='relationship-card']");
+    expect(cards.length).toBeGreaterThanOrEqual(1);
+    // Each card carries its own confidence tag rather than one shared tag for the section.
+    for (const card of cards) {
+      expect(card.querySelector("[data-role='confidence-tag']")).toBeTruthy();
+    }
+  });
+
+  it("shows the kinship coefficient alongside the degree label for a cousin marriage (S-2)", () => {
+    const t = cousinTree();
+    render(
+      <PersonInspector
+        tree={t}
+        personId={idOf(t, "CousinA")}
+        searchIndex={buildSearchIndex(t)}
+        analysis={analyzeTree(t)}
+        onNavigate={vi.fn()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    // First cousins => 1/16 => 6.25%, displayed with its meaning rather than as a bare number.
+    expect(screen.getByText(/6\.25%/)).toBeInTheDocument();
+  });
+
+  it("hedges when one spouse's ancestry is too shallow to rule a link out (D-16)", () => {
+    // DadA x MomA are unrelated, but MomA has no recorded parents at all, so the tree cannot
+    // support a confident negative. The honest answer says so rather than claiming either way.
+    const t = cousinTree();
+    render(
+      <PersonInspector
+        tree={t}
+        personId={idOf(t, "DadA")}
+        searchIndex={buildSearchIndex(t)}
+        analysis={analyzeTree(t)}
+        onNavigate={vi.fn()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    expect(screen.getAllByText(/too shallow to be sure/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/relationship unknown/i)).not.toBeInTheDocument();
+  });
+
+  it("states a confident negative when BOTH lines are deep enough to earn it (D-16)", () => {
+    // Two unrelated people who each have grandparents on file: the analysis genuinely checked
+    // both lines and found nothing, so it may say so plainly.
+    const deep = parseNodeFtt(
+      buildNodeFtt(
+        [
+          personRow({ id: 1, name: "HisGpa", gender: 1 }),
+          personRow({ id: 2, name: "HisGma", gender: 2 }),
+          personRow({ id: 3, name: "HisDad", famc: 10, gender: 1 }),
+          personRow({ id: 4, name: "HisMom", gender: 2 }),
+          personRow({ id: 5, name: "Husband", famc: 20, gender: 1 }),
+          personRow({ id: 6, name: "HerGpa", gender: 1 }),
+          personRow({ id: 7, name: "HerGma", gender: 2 }),
+          personRow({ id: 8, name: "HerDad", famc: 30, gender: 1 }),
+          personRow({ id: 9, name: "HerMom", gender: 2 }),
+          personRow({ id: 10, name: "Wife", famc: 40, gender: 2 }),
+        ],
+        [
+          familyRow({ id: 10, husband: 1, wife: 2 }),
+          familyRow({ id: 20, husband: 3, wife: 4 }),
+          familyRow({ id: 30, husband: 6, wife: 7 }),
+          familyRow({ id: 40, husband: 8, wife: 9 }),
+          familyRow({ id: 50, husband: 5, wife: 10 }),
+        ]
+      )
+    ).tree;
+
+    render(
+      <PersonInspector
+        tree={deep}
+        personId={idOf(deep, "Husband")}
+        searchIndex={buildSearchIndex(deep)}
+        analysis={analyzeTree(deep)}
+        onNavigate={vi.fn()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    expect(screen.getByText(/not a cousin marriage/i)).toBeInTheDocument();
+  });
+
+  it("flags a multi-generation cousin-marriage chain as its own callout (CP6.5)", () => {
+    const t = cousinTree();
+    render(
+      <PersonInspector
+        tree={t}
+        personId={idOf(t, "GrandchildAB")}
+        searchIndex={buildSearchIndex(t)}
+        analysis={analyzeTree(t)}
+        onNavigate={vi.fn()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    expect(screen.getByText(/cousin-marriage chain/i)).toBeInTheDocument();
+  });
+
+  it("answers how the selected person relates to any other person picked (S-1)", async () => {
+    const t = cousinTree();
+    render(
+      <PersonInspector
+        tree={t}
+        personId={idOf(t, "CousinA")}
+        searchIndex={buildSearchIndex(t)}
+        analysis={analyzeTree(t)}
+        onNavigate={vi.fn()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    const calc = screen.getByTestId("relationship-calculator");
+    await userEvent.click(within(calc).getByRole("button", { name: /pick someone to compare/i }));
+    await userEvent.type(within(calc).getByRole("textbox", { name: /compare with/i }), "Grandpa");
+    await userEvent.click(await within(calc).findByRole("button", { name: /^Grandpa$/ }));
+
+    const result = await screen.findByTestId("relationship-result");
+    // CousinA's grandparent — a direct line, not a cousin link.
+    expect(result).toHaveTextContent(/direct ancestor/i);
+  });
+
+  it("names a cousin link between two arbitrary people, with confidence (S-1)", async () => {
+    const t = cousinTree();
+    render(
+      <PersonInspector
+        tree={t}
+        personId={idOf(t, "CousinA")}
+        searchIndex={buildSearchIndex(t)}
+        analysis={analyzeTree(t)}
+        onNavigate={vi.fn()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    const calc = screen.getByTestId("relationship-calculator");
+    await userEvent.click(within(calc).getByRole("button", { name: /pick someone to compare/i }));
+    await userEvent.type(within(calc).getByRole("textbox", { name: /compare with/i }), "CousinB");
+    await userEvent.click(await within(calc).findByRole("button", { name: /^CousinB$/ }));
+
+    const result = await screen.findByTestId("relationship-result");
+    expect(result).toHaveTextContent(/first cousins/i);
+    expect(result.querySelector("[data-role='confidence-tag']")).toBeTruthy();
+  });
+
+  it("shows an estimated birth-year RANGE rather than a bare year (S-1 age estimation)", () => {
+    const t = cousinTree();
+    render(
+      <PersonInspector
+        tree={t}
+        personId={idOf(t, "CousinA")}
+        searchIndex={buildSearchIndex(t)}
+        analysis={analyzeTree(t, 2026)}
+        onNavigate={vi.fn()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    // No dates anywhere in this fixture, so nothing can be estimated and the panel must say so
+    // rather than inventing a window.
+    expect(screen.queryByTestId("birth-estimate")).toBeNull();
   });
 });

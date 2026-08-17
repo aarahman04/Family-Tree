@@ -13,6 +13,7 @@ import { EditorCanvas, type EditorCanvasHandle } from "../components/editor/Edit
 import { ExportMenu } from "../components/editor/ExportMenu.js";
 import { AddPersonMenu } from "../components/editor/AddPersonMenu.js";
 import { ViewMenu } from "../components/editor/ViewMenu.js";
+import { CousinMarriagesPanel } from "../components/editor/CousinMarriagesPanel.js";
 import { AppearanceMenu } from "../components/editor/AppearanceMenu.js";
 import {
   loadAppearancePrefs,
@@ -414,6 +415,7 @@ function EditorWorkspace({ session }: { session: TreeSession }) {
             </p>
           )}
           <InsightsPanel insights={insights} analysis={analysis} tree={tree} />
+          <CousinMarriagesPanel tree={tree} analysis={analysis} onSelect={goTo} />
           <ExportMenu
             tree={tree}
             sourceFileName={session.fileName}

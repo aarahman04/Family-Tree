@@ -651,3 +651,42 @@ describe("poster node fields — living (AUD-3) + birth-unknown year line (AUD-7
     expect(nodeFor(person({ id: "b3", birthYear: 1974, deathYear: 2022 })).yearLine).toBe("1974–2022");
   });
 });
+
+describe("computePosterLayout — living/deceased presumption (CP6.2)", () => {
+  const nodeFor = (layout: PosterLayout, id: UUID) =>
+    layout.nodes.find((n) => n.personId === id)!;
+
+  function soloTree(opts: PersonOpts): FamilyTree {
+    return buildTree([person(opts)], []);
+  }
+
+  it("presumes someone older than the shared cap is deceased, even with no death record", () => {
+    // Before CP6.2 the poster capped nothing, so this person drew a green "Living" disc while the
+    // insights panel counted them as deceased. One rule now backs both.
+    const t = soloTree({ id: "old", birthYear: 1900 });
+    expect(nodeFor(computePosterLayout(t, DEFAULT_POSTER_STYLE, undefined, 2026), "old").living).toBe(false);
+  });
+
+  it("still presumes someone within the cap is living", () => {
+    const t = soloTree({ id: "young", birthYear: 1990 });
+    expect(nodeFor(computePosterLayout(t, DEFAULT_POSTER_STYLE, undefined, 2026), "young").living).toBe(true);
+  });
+
+  it("presumes someone with no dates at all is living — an absent record is not evidence of death", () => {
+    const t = soloTree({ id: "undated" });
+    expect(nodeFor(computePosterLayout(t, DEFAULT_POSTER_STYLE, undefined, 2026), "undated").living).toBe(true);
+  });
+
+  it("keeps a recorded death decisive regardless of age (AUD-3 behaviour preserved)", () => {
+    const t = soloTree({ id: "dead", birthYear: 1990, deathYear: 2020 });
+    expect(nodeFor(computePosterLayout(t, DEFAULT_POSTER_STYLE, undefined, 2026), "dead").living).toBe(false);
+  });
+
+  it("is a pure function of (tree, style, now) — pinning `now` pins the output", () => {
+    // The cap makes the poster clock-dependent by nature, so `now` is injectable: the same tree
+    // renders identically for a given `now`, and only crossing the cap changes a dot.
+    const t = soloTree({ id: "boundary", birthYear: 1920 });
+    expect(nodeFor(computePosterLayout(t, DEFAULT_POSTER_STYLE, undefined, 2020), "boundary").living).toBe(true);
+    expect(nodeFor(computePosterLayout(t, DEFAULT_POSTER_STYLE, undefined, 2021), "boundary").living).toBe(false);
+  });
+});

@@ -116,3 +116,49 @@ describe("analysis/chains", () => {
     expect(chains.byPerson.get(idByName(t, "K"))?.ancestralChainDepth).toBe(2);
   });
 });
+
+describe("analysis/chains — longest chain reconstruction (CP6.3)", () => {
+  it("names the families in the longest chain, oldest first, not just its depth", () => {
+    // The panel needs to say WHO, so the DP has to keep the winning path rather than the max.
+    const t = lineageTree();
+    const famG = famWithHusband(t, "G1");
+    const famP = famWithHusband(t, "H1");
+    const chains = analyzeCousinChains(t, marriagesMarking(t, [famG, famP]));
+
+    expect(chains.maxChainDepth).toBe(2);
+    expect(chains.longestChains).toHaveLength(1);
+    // Oldest first, so it reads the way the generations run.
+    expect(chains.longestChains[0]).toEqual({ familyIds: [famG, famP], depth: 2 });
+  });
+
+  it("reports every family that ties for the longest chain, not an arbitrary winner", () => {
+    const t = lineageTree();
+    const famG = famWithHusband(t, "G1");
+    const famP = famWithHusband(t, "H1");
+    // Two independent depth-1 chains: neither is deeper, so both must be listed.
+    const chains = analyzeCousinChains(t, marriagesMarking(t, [famG]));
+    expect(chains.maxChainDepth).toBe(1);
+    expect(chains.longestChains).toEqual([{ familyIds: [famG], depth: 1 }]);
+
+    const both = analyzeCousinChains(t, marriagesMarking(t, [famP]));
+    expect(both.longestChains).toEqual([{ familyIds: [famP], depth: 1 }]);
+  });
+
+  it("returns no chains at all when the tree has no cousin marriages", () => {
+    const t = lineageTree();
+    const chains = analyzeCousinChains(t, marriagesMarking(t, []));
+    expect(chains.maxChainDepth).toBe(0);
+    expect(chains.longestChains).toEqual([]);
+  });
+
+  it("lists only the deepest chain, not every cousin marriage that feeds it", () => {
+    // famG -> famP is a 2-chain. The 2-chain ENDS at famP, so famP alone is the reported chain
+    // head; famG must not also appear as its own separate depth-1 entry.
+    const t = lineageTree();
+    const famG = famWithHusband(t, "G1");
+    const famP = famWithHusband(t, "H1");
+    const chains = analyzeCousinChains(t, marriagesMarking(t, [famG, famP]));
+    expect(chains.longestChains).toHaveLength(1);
+    expect(chains.longestChains[0]!.familyIds).toContain(famG);
+  });
+});
