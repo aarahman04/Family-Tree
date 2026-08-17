@@ -21,6 +21,7 @@ import { getRelationships } from "../../../../src/parser/relationships.js";
 import {
   DEPTH_CAP,
   ancestorPaths,
+  kinshipCoefficient,
   parentsRelated,
   type Confidence,
   type CoupleRelation,
@@ -56,6 +57,7 @@ const CONFIDENCE_STYLE: Record<Confidence, string> = {
 function ConfidenceTag({ level }: { level: Confidence }) {
   return (
     <span
+      data-role="confidence-tag"
       className={`shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide dark:bg-slate-800 ${CONFIDENCE_STYLE[level]}`}
     >
       {level}
@@ -87,15 +89,49 @@ function RelationshipBadge({ label }: { label: string }) {
   );
 }
 
-/** One of the spec's four canonical summary lines (§6) for a classified couple relation. */
+/**
+ * The couple's relationship in one line (D-16).
+ *
+ * A negative result splits on how much ancestry the tree actually holds, rather than collapsing
+ * both cases into "unknown". `classifyConfidence` has already made exactly this judgement — it
+ * returns "confirmed" for a negative only when BOTH people have at least two generations on file
+ * — so the level is reused here instead of recomputing depth. On the reference tree this matters
+ * a lot: 105 of 136 couples land in the negative bucket, and most of them genuinely cannot be
+ * ruled either way.
+ */
 function relationSummary(rel: CoupleRelation): string {
   if (rel.relation.kind === "unrelated") {
-    return rel.confidence.level === "unknown"
-      ? "Relationship unknown — ancestry too incomplete to tell"
-      : "No cousin-marriage evidence found";
+    return rel.confidence.level === "confirmed"
+      ? "Not a cousin marriage — checked both lines, no shared ancestor"
+      : "No shared ancestor found, but their recorded ancestry is too shallow to be sure";
   }
   if (rel.relation.kind === "direct-lineage") return "Direct ancestor/descendant match";
   return rel.relation.label;
+}
+
+/** φ as a percentage, e.g. 0.0625 -> "6.25%". */
+function kinshipPercent(phi: number): string {
+  return `${(phi * 100).toFixed(2).replace(/\.?0+$/, "")}%`;
+}
+
+/**
+ * S-6: neutral, non-jurisdictional context. Deliberately makes NO legal claim — cousin-marriage
+ * law varies by country and over time, and this app describes what is in the user's data rather
+ * than advising on it (D-14).
+ */
+function ConsanguinityNote() {
+  return (
+    <details className="text-xs text-slate-500 dark:text-slate-400">
+      <summary className="cursor-pointer select-none [@media(pointer:coarse)]:min-h-11">
+        About cousin marriage
+      </summary>
+      <p className="mt-1 leading-relaxed">
+        Marriage between cousins is common in many cultures and its legal status varies between
+        countries and over time. This panel describes only the relationships found in your own data
+        — it does not provide legal or medical guidance.
+      </p>
+    </details>
+  );
 }
 
 /**
@@ -155,6 +191,81 @@ function LineagePath({
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * One couple, as a self-contained card (CP6.5). Previously the parents' line and each marriage
+ * line were bare siblings in a flex column, so two unrelated facts ran together as one sentence.
+ * A bordered card with its own title, badge row and confidence tag makes the boundary obvious.
+ */
+function RelationshipCard({
+  tree,
+  title,
+  titleIds,
+  rel,
+  aId,
+  bId,
+  onNavigate,
+}: {
+  tree: FamilyTree;
+  title: string;
+  titleIds: UUID[];
+  rel: CoupleRelation;
+  aId: UUID;
+  bId: UUID;
+  onNavigate: (id: UUID) => void;
+}) {
+  const isCousinLink = rel.relation.kind === "cousins";
+  const phi = isCousinLink ? kinshipCoefficient(tree, aId, bId) : 0;
+  return (
+    <div
+      data-role="relationship-card"
+      className="flex flex-col gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/60"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+          {titleIds.map((id, i) => (
+            <span key={id}>
+              {i > 0 && <span className="text-slate-400 dark:text-slate-500"> × </span>}
+              <button
+                type="button"
+                onClick={() => onNavigate(id)}
+                // Labelled "View <name>" rather than bare "<name>": the sidebar already has
+                // navigation buttons carrying the plain name, and a screen reader (or a test)
+                // cannot tell two same-named buttons apart.
+                aria-label={`View ${tree.persons[id]?.name.trim() || "(no name)"}`}
+                className="rounded text-blue-700 underline-offset-2 hover:underline dark:text-blue-400"
+              >
+                {tree.persons[id]?.name.trim() || "(no name)"}
+              </button>
+            </span>
+          ))}
+          <span className="sr-only">{title}</span>
+        </p>
+        <ConfidenceTag level={rel.confidence.level} />
+      </div>
+
+      <p className="text-sm text-slate-700 dark:text-slate-300">{relationSummary(rel)}</p>
+
+      {isCousinLink && (
+        <p
+          className="text-xs text-slate-500 dark:text-slate-400"
+          title="Kinship coefficient φ: the chance a gene taken at random from each of them is inherited from the same ancestor. Assumes their shared ancestors were not themselves related, so it is a slight under-estimate."
+        >
+          Kinship {kinshipPercent(phi)}
+          <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-400/15 dark:text-amber-300">
+            est.
+          </span>
+        </p>
+      )}
+
+      {rel.relation.closest && (
+        <LineagePath tree={tree} aId={aId} bId={bId} ancestorId={rel.relation.closest.ancestorId} />
+      )}
+      <ConfidenceReasons reasons={rel.confidence.reasons} />
+      {isCousinLink && <ConsanguinityNote />}
     </div>
   );
 }
@@ -873,7 +984,7 @@ export function PersonInspector({
           </section>
         )}
 
-        {analysis && (parentRel || marriages.length > 0) && (
+        {analysis && (
           <details
             open
             data-section="relationship-intelligence"
@@ -883,57 +994,69 @@ export function PersonInspector({
               Relationship intelligence
             </summary>
 
-            {parentRel && (
-              <div className="flex flex-col gap-1 text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-slate-700 dark:text-slate-300">
-                    Parents: {relationSummary(parentRel)}
-                  </span>
-                  <ConfidenceTag level={parentRel.confidence.level} />
-                </div>
-                {parentRel.relation.closest && (
-                  <LineagePath
-                    tree={tree}
-                    aId={parentRel.fatherId}
-                    bId={parentRel.motherId}
-                    ancestorId={parentRel.relation.closest.ancestorId}
-                  />
-                )}
-                <ConfidenceReasons reasons={parentRel.confidence.reasons} />
-              </div>
-            )}
+            <section className="flex flex-col gap-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                Their parents
+              </h4>
+              {parentRel ? (
+                <RelationshipCard
+                  tree={tree}
+                  title="the parents of this person"
+                  titleIds={[parentRel.fatherId, parentRel.motherId]}
+                  rel={parentRel}
+                  aId={parentRel.fatherId}
+                  bId={parentRel.motherId}
+                  onNavigate={onNavigate}
+                />
+              ) : (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Both parents aren&apos;t recorded, so their relationship can&apos;t be checked.
+                </p>
+              )}
+            </section>
 
-            {marriages.map((m) => {
-              const spouseId = m.husbandId === personId ? m.wifeId : m.husbandId;
-              return (
-                <div key={m.familyId} className="flex flex-col gap-1 text-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-slate-700 dark:text-slate-300">
-                      {tree.persons[spouseId]?.name.trim() || "(no name)"}: {relationSummary(m)}
-                    </span>
-                    <ConfidenceTag level={m.confidence.level} />
-                  </div>
-                  {m.relation.closest && (
-                    <LineagePath
+            <section className="flex flex-col gap-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                {marriages.length === 1 ? "Their marriage" : "Their marriages"}
+              </h4>
+              {marriages.length === 0 ? (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  No marriage recorded in this tree.
+                </p>
+              ) : (
+                marriages.map((m) => {
+                  const spouseId = m.husbandId === personId ? m.wifeId : m.husbandId;
+                  return (
+                    <RelationshipCard
+                      key={m.familyId}
                       tree={tree}
+                      title="this marriage"
+                      titleIds={[personId, spouseId]}
+                      rel={m}
                       aId={personId}
                       bId={spouseId}
-                      ancestorId={m.relation.closest.ancestorId}
+                      onNavigate={onNavigate}
                     />
-                  )}
-                  <ConfidenceReasons reasons={m.confidence.reasons} />
-                </div>
-              );
-            })}
+                  );
+                })
+              )}
+            </section>
 
             {chain && (chain.ancestralChainDepth > 0 || chain.continuesInDescendants) && (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {chain.ancestralChainDepth > 0 &&
-                  `Cousin-marriage chain: ${chain.ancestralChainDepth} generation${
-                    chain.ancestralChainDepth === 1 ? "" : "s"
-                  } deep`}
-                {chain.ancestralChainDepth > 0 && chain.continuesInDescendants && " · "}
-                {chain.continuesInDescendants && "continues in descendants"}
+              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+                {chain.ancestralChainDepth > 0 && (
+                  <>
+                    <strong className="font-semibold">
+                      Cousin-marriage chain: {chain.ancestralChainDepth} generation
+                      {chain.ancestralChainDepth === 1 ? "" : "s"}
+                    </strong>
+                    {chain.ancestralChainDepth >= 2
+                      ? " — this marriage and the generations above it are all cousin marriages."
+                      : " — the parents of this person married a relative."}
+                  </>
+                )}
+                {chain.ancestralChainDepth > 0 && chain.continuesInDescendants && " "}
+                {chain.continuesInDescendants && "The pattern continues in their descendants."}
               </p>
             )}
           </details>
