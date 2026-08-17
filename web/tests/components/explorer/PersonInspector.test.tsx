@@ -370,9 +370,7 @@ describe("PersonInspector", () => {
       />
     );
     const marriages = analyzeTree(t).marriages;
-    const m = [...marriages.values()].find(
-      (m) => m.husbandId === cousinA || m.wifeId === cousinA
-    )!;
+    const m = [...marriages.values()].find((m) => m.husbandId === cousinA || m.wifeId === cousinA)!;
     expect(m.confidence.reasons.length).toBeGreaterThan(0);
     // CousinA also has a parentRel disclosure, so "Why?" appears more than once.
     expect(screen.getAllByText("Why?").length).toBeGreaterThan(0);
