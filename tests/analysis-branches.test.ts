@@ -45,6 +45,32 @@ describe("analysis/branches — analyzeBranches", () => {
     expect(analyzeBranches(t).primaryRootId).toBe(idOf(t, "Founder"));
   });
 
+  it("keeps anchor ownership across a daughter/wife-mediated descent chain", () => {
+    const text = buildNodeFtt(
+      [
+        personRow({ id: 1, name: "Founder", gender: 1 }),
+        personRow({ id: 2, name: "FounderSpouse", gender: 2 }),
+        personRow({ id: 3, name: "Daughter", famc: 10, gender: 2 }),
+        personRow({ id: 4, name: "YoungerChild", famc: 10 }),
+        personRow({ id: 5, name: "SonInLaw", famc: 20, gender: 1 }),
+        personRow({ id: 6, name: "InLawFather", gender: 1 }),
+        personRow({ id: 7, name: "InLawMother", gender: 2 }),
+        personRow({ id: 8, name: "Grandchild", famc: 30 }),
+        personRow({ id: 9, name: "GreatGrandchild", famc: 40 }),
+        personRow({ id: 10, name: "GrandchildSpouse", gender: 2 }),
+      ],
+      [
+        familyRow({ id: 10, husband: 1, wife: 2 }),
+        familyRow({ id: 20, husband: 6, wife: 7 }),
+        familyRow({ id: 30, husband: 5, wife: 3 }),
+        familyRow({ id: 40, husband: 8, wife: 10 }),
+      ],
+    );
+    const t = parseNodeFtt(text).tree;
+
+    expect(analyzeBranches(t).primaryRootId).toBe(idOf(t, "Founder"));
+  });
+
   it("builds one branch per direct child of the primary anchor, with descendant/depth stats", () => {
     const t = tree();
     const a = analyzeBranches(t);

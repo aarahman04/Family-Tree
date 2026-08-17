@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Family, FamilyTree, Person, UUID } from "../src/models/types.js";
 import { parseNodeFtt } from "../src/parser/index.js";
 import { analyzeInfluence } from "../src/analysis/influence.js";
 import { buildNodeFtt, familyRow, personRow } from "./helpers.js";
@@ -37,6 +38,44 @@ function idOf(t: ReturnType<typeof tree>, name: string): string {
   return Object.values(t.persons).find((p) => p.name === name)!.id;
 }
 
+function person(
+  id: UUID,
+  name: string,
+  opts: Partial<Pick<Person, "famcId" | "famsIds" | "gender">> = {},
+): Person {
+  return {
+    id,
+    name,
+    gender: opts.gender ?? "unknown",
+    famcId: opts.famcId,
+    famsIds: opts.famsIds ?? [],
+    notes: [],
+    media: [],
+  };
+}
+
+function family(
+  id: UUID,
+  husbandId: UUID | undefined,
+  wifeId: UUID | undefined,
+  childrenIds: UUID[],
+): Family {
+  return { id, husbandId, wifeId, childrenIds };
+}
+
+function manualTree(persons: Person[], families: Family[]): FamilyTree {
+  return {
+    metadata: { sourceFormat: "manual", importedAt: "2026-08-17T00:00:00Z" },
+    persons: Object.fromEntries(persons.map((p) => [p.id, p])),
+    families: Object.fromEntries(families.map((f) => [f.id, f])),
+    validation: {
+      validatedAt: "2026-08-17T00:00:00Z",
+      issues: [],
+      isValid: true,
+    },
+  };
+}
+
 describe("analysis/influence — analyzeInfluence", () => {
   it("picks the person with the largest total descendant subtree as most influential", () => {
     const t = tree();
@@ -50,6 +89,43 @@ describe("analysis/influence — analyzeInfluence", () => {
     const a = analyzeInfluence(t);
     expect(a.mostConnectedPerson?.personId).toBe(idOf(t, "C"));
     expect(a.mostConnectedPerson?.connectionCount).toBe(6); // 2 parents + spouse + 2 children + 1 sibling
+  });
+
+  it("breaks a repeated spouse descendant-count tie by the husbandId ownership convention, not UUID order", () => {
+    const t = manualTree(
+      [
+        // Deliberately give the wife a lexicographically lower UUID. The old tie-break picked
+        // "a-wife" by random/string id; the project convention should pick the family owner.
+        person("z-husband", "Husband", {
+          famsIds: ["fam-root"],
+          gender: "male",
+        }),
+        person("a-wife", "Wife", { famsIds: ["fam-root"], gender: "female" }),
+        person("child-1", "Child 1", {
+          famcId: "fam-root",
+          famsIds: ["fam-child"],
+        }),
+        person("spouse-1", "Spouse 1", { famsIds: ["fam-child"] }),
+        person("grandchild-1", "Grandchild 1", { famcId: "fam-child" }),
+        person("child-2", "Child 2", {
+          famcId: "fam-root",
+          famsIds: ["fam-child-2"],
+        }),
+        person("spouse-2", "Spouse 2", { famsIds: ["fam-child-2"] }),
+        person("grandchild-2", "Grandchild 2", { famcId: "fam-child-2" }),
+      ],
+      [
+        family("fam-root", "z-husband", "a-wife", ["child-1", "child-2"]),
+        family("fam-child", "child-1", "spouse-1", ["grandchild-1"]),
+        family("fam-child-2", "child-2", "spouse-2", ["grandchild-2"]),
+      ],
+    );
+
+    const a = analyzeInfluence(t);
+    expect(a.mostInfluentialAncestor).toEqual({
+      personId: "z-husband",
+      descendantCount: 4,
+    });
   });
 
   it("returns undefined for both on a tree with no relationships at all", () => {

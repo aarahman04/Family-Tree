@@ -33,24 +33,44 @@ function isPresumedLiving(
 }
 
 /**
- * Children a person "owns" for anchor-selection purposes: each family credits its children to
- * exactly ONE parent (husbandId, falling back to wifeId) — mirroring `layoutBalanced.ts`'s
- * `parentPersonIds[0]` ownership convention. Without this, an in-law root candidate (their own
- * child's spouse's parent) always out-scores the "main line" root by +1 (crediting their own
- * child on top of every shared descendant below), which is a structural artifact of counting
- * descendants bidirectionally, not a meaningful "bigger branch." Used ONLY to pick the anchor;
- * branch membership itself (below) deliberately stays bidirectional, since a cross-branch
- * marriage's child legitimately belonging to BOTH branches is exactly the overlap signal this
- * module measures.
+ * Children a person "owns" for anchor-selection purposes. At the root edge, each family credits
+ * children to exactly ONE parent (husbandId, falling back to wifeId), mirroring
+ * `layoutBalanced.ts`'s `parentPersonIds[0]` ownership convention. After the first owned child is
+ * already inside that root's lineage, the walk is allowed to continue through that person's own
+ * spouse family when the spouse also has recorded parents (a bridge between two recorded
+ * lineages), even when the spouse is the conventional family owner; otherwise any descent chain
+ * through a daughter/wife is severed at her marriage. If the spouse has no recorded parents, the
+ * spouse is itself the competing top-level owner for that family, so the walk does not let the
+ * spouse's in-laws claim it. Used ONLY to pick the anchor; branch membership itself (below)
+ * deliberately stays bidirectional, since a cross-branch marriage's child legitimately belonging
+ * to BOTH branches is exactly the overlap signal this module measures.
  */
-function ownedChildrenOf(tree: FamilyTree, personId: UUID): UUID[] {
+function ownedChildrenOf(
+  tree: FamilyTree,
+  personId: UUID,
+  continueThroughSpouseFamily: boolean,
+): UUID[] {
   const person = tree.persons[personId];
   if (!person) return [];
   const result: UUID[] = [];
   for (const famId of person.famsIds) {
     const family = tree.families[famId];
     if (!family) continue;
-    if ((family.husbandId ?? family.wifeId) === personId)
+    const ownerId = family.husbandId ?? family.wifeId;
+    const isParentInFamily =
+      family.husbandId === personId || family.wifeId === personId;
+    const otherParentId =
+      family.husbandId === personId ? family.wifeId : family.husbandId;
+    const otherParentHasRecordedParents = otherParentId
+      ? fatherOf(tree, otherParentId) !== undefined ||
+        motherOf(tree, otherParentId) !== undefined
+      : false;
+    if (
+      ownerId === personId ||
+      (continueThroughSpouseFamily &&
+        isParentInFamily &&
+        otherParentHasRecordedParents)
+    )
       result.push(...family.childrenIds);
   }
   return result;
@@ -59,14 +79,16 @@ function ownedChildrenOf(tree: FamilyTree, personId: UUID): UUID[] {
 /** Descendant count via `ownedChildrenOf` only — see its doc comment for why. */
 function ownedDescendantCount(tree: FamilyTree, rootId: UUID): number {
   const visited = new Set<UUID>([rootId]);
-  let frontier: UUID[] = [rootId];
+  let frontier: Array<{ id: UUID; pastRootEdge: boolean }> = [
+    { id: rootId, pastRootEdge: false },
+  ];
   while (frontier.length > 0) {
-    const next: UUID[] = [];
-    for (const id of frontier) {
-      for (const childId of ownedChildrenOf(tree, id)) {
+    const next: Array<{ id: UUID; pastRootEdge: boolean }> = [];
+    for (const { id, pastRootEdge } of frontier) {
+      for (const childId of ownedChildrenOf(tree, id, pastRootEdge)) {
         if (!visited.has(childId)) {
           visited.add(childId);
-          next.push(childId);
+          next.push({ id: childId, pastRootEdge: true });
         }
       }
     }

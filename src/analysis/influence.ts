@@ -42,7 +42,30 @@ function connectionCount(tree: FamilyTree, personId: UUID): number {
   return count;
 }
 
-/** Whole-tree influence analysis. Ties break on the lower id for determinism. */
+/**
+ * Deterministic tie-break for equal descendant counts: when tied people are spouses/co-parents
+ * in the same family, prefer the family owner (`husbandId`, falling back to `wifeId`). This is
+ * only a stability convention shared with branch ownership, not a claim that one lineage matters
+ * more than the other.
+ */
+function beatsInfluentialTie(
+  tree: FamilyTree,
+  candidateId: UUID,
+  incumbentId: UUID,
+): boolean {
+  for (const fam of Object.values(tree.families)) {
+    const ownerId = fam.husbandId ?? fam.wifeId;
+    if (!ownerId) continue;
+    const hasCandidate =
+      fam.husbandId === candidateId || fam.wifeId === candidateId;
+    const hasIncumbent =
+      fam.husbandId === incumbentId || fam.wifeId === incumbentId;
+    if (hasCandidate && hasIncumbent) return ownerId === candidateId;
+  }
+  return false;
+}
+
+/** Whole-tree influence analysis. */
 export function analyzeInfluence(tree: FamilyTree): InfluenceAnalysis {
   let mostInfluentialAncestor: InfluentialAncestor | undefined;
   let mostConnectedPerson: MostConnectedPerson | undefined;
@@ -55,7 +78,7 @@ export function analyzeInfluence(tree: FamilyTree): InfluenceAnalysis {
         !mostInfluentialAncestor ||
         descendantCount > mostInfluentialAncestor.descendantCount ||
         (descendantCount === mostInfluentialAncestor.descendantCount &&
-          personId < mostInfluentialAncestor.personId)
+          beatsInfluentialTie(tree, personId, mostInfluentialAncestor.personId))
       ) {
         mostInfluentialAncestor = { personId, descendantCount };
       }
