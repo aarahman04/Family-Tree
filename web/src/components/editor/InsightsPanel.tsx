@@ -190,46 +190,34 @@ export function InsightsPanel({ insights, analysis, tree }: InsightsPanelProps) 
             )}
           </Section>
 
-          {(i.estimatedEarliestDecade !== undefined ||
-            i.estimatedSpanYears !== undefined ||
-            analysis) && (
+          {analysis && (
             <Section title="Timeline">
-              {i.estimatedEarliestDecade !== undefined && (
-                <Stat label="Reaches back to" value={`~${i.estimatedEarliestDecade}s`} estimate />
+              <Stat
+                label="Generation gap"
+                value={`${analysis.timeline.generationGap} years`}
+                estimate={analysis.timeline.gapIsFallback}
+              />
+              <Stat
+                label="Recorded birth years"
+                value={`${analysis.timeline.recordedBirthCount} of ${analysis.timeline.totalPeople}`}
+              />
+              {analysis.timeline.earliestBirthRange && (
+                <Stat
+                  label="Oldest ancestor born"
+                  value={`~${analysis.timeline.earliestBirthRange.from}–${analysis.timeline.earliestBirthRange.to}`}
+                  estimate
+                />
               )}
-              {i.estimatedSpanYears !== undefined && (
-                <Stat label="Tree spans" value={`~${i.estimatedSpanYears} years`} estimate />
-              )}
-              {analysis && (
-                <>
-                  <Stat
-                    label="Generation gap"
-                    value={`${analysis.timeline.generationGap} years`}
-                    estimate={analysis.timeline.gapIsFallback}
-                  />
-                  <Stat
-                    label="Recorded birth years"
-                    value={`${analysis.timeline.recordedBirthCount} of ${analysis.timeline.totalPeople}`}
-                  />
-                  {analysis.timeline.earliestBirthRange && (
-                    <Stat
-                      label="Oldest ancestor born"
-                      value={`~${analysis.timeline.earliestBirthRange.from}–${analysis.timeline.earliestBirthRange.to}`}
-                      estimate
-                    />
-                  )}
-                  {/* The estimate's footing, stated rather than implied — on a mostly-undated tree
+              {/* The estimate's footing, stated rather than implied — on a mostly-undated tree
                       these numbers are the difference between a figure and a guess. */}
-                  {/* A <div>, not a <p>: this sits inside a <dl>, which only permits dt/dd
+              {/* A <div>, not a <p>: this sits inside a <dl>, which only permits dt/dd
                       groups and <div> (axe rule: definition-list). */}
-                  <div className="pt-1 text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">
-                    {analysis.timeline.gapIsFallback
-                      ? `Generation gap assumed (only ${analysis.timeline.gapSampleSize} parent-child pair${analysis.timeline.gapSampleSize === 1 ? "" : "s"} have both birth years).`
-                      : `Generation gap measured from ${analysis.timeline.gapSampleSize} parent-child pairs.`}{" "}
-                    Confidence in the timeline: {analysis.timeline.confidence}.
-                  </div>
-                </>
-              )}
+              <div className="pt-1 text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">
+                {analysis.timeline.gapIsFallback
+                  ? `Generation gap assumed (only ${analysis.timeline.gapSampleSize} parent-child pair${analysis.timeline.gapSampleSize === 1 ? "" : "s"} have both birth years).`
+                  : `Generation gap measured from ${analysis.timeline.gapSampleSize} parent-child pairs.`}{" "}
+                Confidence in the timeline: {analysis.timeline.confidence}.
+              </div>
             </Section>
           )}
 

@@ -9,8 +9,6 @@ import type { FamilyTree, Person, UUID } from "../../../src/models/types.js";
  * presented to the user as estimates, never as historical fact.
  */
 
-/** Years assumed between one generation and the next when extrapolating unknown birth years. */
-const AVG_GENERATION_GAP = 30;
 /** Nobody is treated as still living past this age — guards "oldest living person" from absurd values. */
 const MAX_PLAUSIBLE_AGE = 110;
 
@@ -52,12 +50,6 @@ export interface TreeInsights {
   averageChildrenPerFamily: number; // one decimal place
   largestFamily?: { parents: string; childCount: number };
   disconnectedGroups: number;
-
-  // Timeline (ESTIMATED — label as such in the UI)
-  estimatedEarliestYear?: number;
-  estimatedEarliestDecade?: number;
-  latestKnownYear?: number;
-  estimatedSpanYears?: number;
 
   // Lifespan
   averageLifespan?: number;
@@ -240,29 +232,6 @@ export function computeTreeInsights(
       largestGeneration = { generation, count };
   }
 
-  // Timeline estimate
-  let estimatedEarliestYear: number | undefined;
-  let latestKnownYear: number | undefined;
-  for (const p of persons) {
-    const g = generations.get(p.id) ?? 0;
-    const birthYear = p.birth?.date?.year;
-    const deathYear = p.death?.date?.year;
-    if (birthYear !== undefined) {
-      const est = birthYear - g * AVG_GENERATION_GAP;
-      if (estimatedEarliestYear === undefined || est < estimatedEarliestYear)
-        estimatedEarliestYear = est;
-      if (latestKnownYear === undefined || birthYear > latestKnownYear) latestKnownYear = birthYear;
-    }
-    if (deathYear !== undefined && (latestKnownYear === undefined || deathYear > latestKnownYear))
-      latestKnownYear = deathYear;
-  }
-  const estimatedEarliestDecade =
-    estimatedEarliestYear !== undefined ? Math.floor(estimatedEarliestYear / 10) * 10 : undefined;
-  const estimatedSpanYears =
-    estimatedEarliestYear !== undefined && latestKnownYear !== undefined
-      ? latestKnownYear - estimatedEarliestYear
-      : undefined;
-
   const averageLifespan =
     lifespans.length > 0
       ? Math.round(lifespans.reduce((s, x) => s + x, 0) / lifespans.length)
@@ -284,10 +253,6 @@ export function computeTreeInsights(
     averageChildrenPerFamily,
     largestFamily,
     disconnectedGroups: countDisconnectedGroups(tree),
-    estimatedEarliestYear,
-    estimatedEarliestDecade,
-    latestKnownYear,
-    estimatedSpanYears,
     averageLifespan,
     longestLived,
     oldestLiving,

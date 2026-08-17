@@ -69,33 +69,6 @@ describe("computeTreeInsights", () => {
     expect(i.disconnectedGroups).toBe(1);
   });
 
-  it("estimates the earliest year and span from known births + generation depth", () => {
-    const i = computeTreeInsights(sampleTree(), NOW);
-    expect(i.estimatedEarliestYear).toBe(1900);
-    expect(i.estimatedEarliestDecade).toBe(1900);
-    expect(i.latestKnownYear).toBe(1970);
-    expect(i.estimatedSpanYears).toBe(70);
-  });
-
-  it("extrapolates earliest year when only a deep descendant has a birth year", () => {
-    // g0 -> g1 -> g2, only the g2 person has a known birth year (1980).
-    const t = tree(
-      [
-        P("a", "A", "male"),
-        P("b", "B", "male", { famcId: "fa" }),
-        P("c", "C", "male", { birth: ev("c-b", "birth", 1980), famcId: "fb" }),
-      ],
-      [
-        { id: "fa", husbandId: "a", wifeId: undefined, childrenIds: ["b"] },
-        { id: "fb", husbandId: "b", wifeId: undefined, childrenIds: ["c"] },
-      ]
-    );
-    const i = computeTreeInsights(t, 2000);
-    // c is generation 2, so the founder is estimated at 1980 - 2*30 = 1920.
-    expect(i.estimatedEarliestYear).toBe(1920);
-    expect(i.estimatedEarliestDecade).toBe(1920);
-  });
-
   it("computes lifespan and living-age extremes", () => {
     const i = computeTreeInsights(sampleTree(), NOW);
     expect(i.averageLifespan).toBe(70); // only John Smith has both birth+death (1900–1970)
@@ -116,7 +89,6 @@ describe("computeTreeInsights", () => {
     expect(i.generationCount).toBe(0);
     expect(i.averageChildrenPerFamily).toBe(0);
     expect(i.disconnectedGroups).toBe(0);
-    expect(i.estimatedEarliestYear).toBeUndefined();
     expect(i.averageLifespan).toBeUndefined();
     expect(i.mostCommonSurname).toBeUndefined();
   });
