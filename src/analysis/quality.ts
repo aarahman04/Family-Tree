@@ -52,7 +52,7 @@ function findDuplicates(tree: FamilyTree): {
   duplicateNameGroups: DuplicateNameGroup[];
 } {
   const byName = new Map<string, UUID[]>();
-  const byNameAndYear = new Map<string, UUID[]>();
+  const byNameAndYear = new Map<string, Map<number, UUID[]>>();
   for (const p of Object.values(tree.persons)) {
     const norm = normalizeName(p.name);
     if (!norm) continue;
@@ -61,9 +61,10 @@ function findDuplicates(tree: FamilyTree): {
 
     const year = p.birth?.date?.year;
     if (year !== undefined) {
-      const key = `${norm}|${year}`;
-      if (!byNameAndYear.has(key)) byNameAndYear.set(key, []);
-      byNameAndYear.get(key)!.push(p.id);
+      if (!byNameAndYear.has(norm)) byNameAndYear.set(norm, new Map());
+      const byYear = byNameAndYear.get(norm)!;
+      if (!byYear.has(year)) byYear.set(year, []);
+      byYear.get(year)!.push(p.id);
     }
   }
 
@@ -73,10 +74,12 @@ function findDuplicates(tree: FamilyTree): {
   }
 
   const duplicateSuspects: DuplicateSuspect[] = [];
-  for (const ids of byNameAndYear.values()) {
-    for (let i = 0; i < ids.length; i++) {
-      for (let j = i + 1; j < ids.length; j++) {
-        duplicateSuspects.push({ personIds: [ids[i]!, ids[j]!] });
+  for (const byYear of byNameAndYear.values()) {
+    for (const ids of byYear.values()) {
+      for (let i = 0; i < ids.length; i++) {
+        for (let j = i + 1; j < ids.length; j++) {
+          duplicateSuspects.push({ personIds: [ids[i]!, ids[j]!] });
+        }
       }
     }
   }
@@ -113,37 +116,15 @@ function findIncompleteRecords(tree: FamilyTree): IncompleteRecord[] {
   return result;
 }
 
-/** Connected components via union-find over family membership (parent-child and spouse links). */
+/** People who appear as neither a child, spouse, nor parent in any recorded family. */
 function findIsolatedRecordIds(tree: FamilyTree): UUID[] {
-  const parent = new Map<UUID, UUID>();
-  const find = (x: UUID): UUID => {
-    let root = x;
-    while (parent.get(root) !== root) root = parent.get(root)!;
-    while (parent.get(x) !== root) {
-      const next = parent.get(x)!;
-      parent.set(x, root);
-      x = next;
-    }
-    return root;
-  };
-  const union = (a: UUID, b: UUID) => {
-    const ra = find(a);
-    const rb = find(b);
-    if (ra !== rb) parent.set(ra, rb);
-  };
-  for (const id of Object.keys(tree.persons)) parent.set(id, id);
+  const linked = new Set<UUID>();
   for (const fam of Object.values(tree.families)) {
-    const members = [fam.husbandId, fam.wifeId, ...fam.childrenIds].filter(
-      (id): id is UUID => !!id && !!tree.persons[id],
-    );
-    for (let i = 1; i < members.length; i++) union(members[0]!, members[i]!);
+    if (fam.husbandId) linked.add(fam.husbandId);
+    if (fam.wifeId) linked.add(fam.wifeId);
+    for (const childId of fam.childrenIds) linked.add(childId);
   }
-  const groupSize = new Map<UUID, number>();
-  for (const id of Object.keys(tree.persons)) {
-    const root = find(id);
-    groupSize.set(root, (groupSize.get(root) ?? 0) + 1);
-  }
-  return Object.keys(tree.persons).filter((id) => groupSize.get(find(id)) === 1);
+  return Object.keys(tree.persons).filter((id) => !linked.has(id));
 }
 
 function findSuspiciousLoops(tree: FamilyTree): SuspiciousLoop[] {

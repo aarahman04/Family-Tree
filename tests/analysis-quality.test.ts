@@ -130,6 +130,22 @@ describe("analysis/quality — analyzeQuality", () => {
     expect(a.isolatedRecordIds).not.toContain(idOf(t, "Complete"));
   });
 
+  it("does not flag a sole recorded spouse (no other spouse, no children) as isolated", () => {
+    const t = manualTree(
+      [
+        person("solo", "Solo Spouse", { famsIds: ["fam-solo"] }),
+        person("child", "Lone Child", { famcId: "fam-child" }),
+      ],
+      [
+        { id: "fam-solo", childrenIds: [], husbandId: "solo" },
+        { id: "fam-child", childrenIds: ["child"] },
+      ],
+    );
+    const a = analyzeQuality(t);
+    expect(a.isolatedRecordIds).not.toContain("solo");
+    expect(a.isolatedRecordIds).not.toContain("child");
+  });
+
   it("returns no suspicious loops on a clean tree", () => {
     const t = tree();
     const a = analyzeQuality(t);
