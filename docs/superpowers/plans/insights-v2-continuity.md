@@ -4,7 +4,7 @@
 
 - **Plan (immutable):** `docs/superpowers/plans/2026-08-16-family-tree-insights-v2.md`
 - **Source spec:** `family_tree_insight_phased_plan.md` (repo root)
-- **Last updated:** 2026-08-17 — CP3.2/CP3.3 Critical review findings **fixed** (`0cd7307`): `ownedChildrenOf` now walks past the root edge through a spouse's family when that spouse has recorded parents (daughter/wife-mediated descent no longer severed); `mostInfluentialAncestor` ties now resolve via the `husbandId`-preference convention instead of UUID order. Fixture coverage added for both failure modes; both-workspace gates green (root 288/288, web 228/228). CP3.2/CP3.3 now ✅.
+- **Last updated:** 2026-08-17 — CP3.4/CP3.5 standalone review complete (grammar fix `be4396a`); CP4.1 (`analysis/quality.ts`) + CP4.2 (`analysis/completeness.ts`) built with TDD, standalone-reviewed, one confirmed bug fixed (`81382e4` + `ab3f67f`). Both-workspace gates green (root 301/301, web 228/228). Next: CP4.3 (data-quality panel UI).
 
 ---
 
@@ -41,7 +41,10 @@ Legend: ⬜ not-started · 🟡 in-progress · 🔴 blocked/not-done · ✅ done
 | 3.3      | `analysis/influence.ts` most-influential ancestor     | ✅     | `34dd3fd` + fix `0cd7307`    | Critical review finding **fixed** in `0cd7307`: `mostInfluentialAncestor` tie-break now uses the `husbandId`-preference convention (`beatsInfluentialTie`), not UUID order. Fixture added; both-workspace gates green.                                            |
 | 3.4      | "Family health" blocks in `InsightsPanel`             | ✅     | `b610c40` + grammar fix      | Re-verified after CP3.2/CP3.3 fix (`0cd7307`). **Standalone review complete: no Critical/Important findings.** 2 singular/plural bugs fixed inline; 2 Minor notes in Known gaps below.  |
 | 3.5      | Headline chips in `InsightsStrip`                     | ✅     | `b610c40`                    | Re-verified after CP3.2/CP3.3 fix (`0cd7307`). **Standalone review complete: no Critical/Important findings.**                                                                     |
-| 4.x, 5.x | Phases 4–5                                            | ⬜     | —                            | Not started.                                                                                                                                                                       |
+| 4.1      | `analysis/quality.ts` data-quality soft insights      | ✅     | `81382e4` + review fix `ab3f67f` | Standalone review complete (Large): isolated-records false-positive confirmed by execution, fixed. Root gates green. Batched with 4.2.                                             |
+| 4.2      | `analysis/completeness.ts` per-person completeness    | ✅     | `81382e4`                    | Batched review with 4.1. Reuses `ancestryCompleteness`, no reimplementation. 1 Minor perf note in Known gaps below.                                                                 |
+| 4.3      | Data-quality panel / confidence tags / audit trail    | ⬜     | —                            | Not started.                                                                                                                                                                        |
+| 5.1–5.9  | Phase 5                                               | ⬜     | —                            | Not started.                                                                                                                                                                        |
 
 **Refactor-merge gate (satisfied):** the repo-structure refactor **PR #11** (`refactor/repo-structure-src`) is **confirmed merged into `main`** (2026-08-16 13:43 UTC). `src/analysis/` is being created in its post-refactor final location on branch `feat/insights-v2` (off `main`, which also carries the PR #12 scroll fix).
 
@@ -354,6 +357,60 @@ whole-tree headline, not anchor selection, so the in-law-inflation concern above
 here); `mostConnectedPerson` = most direct edges (parents+spouses+children+siblings). Skips the
 descendant walk for anyone with zero children as a bounded perf guard.
 
+**`src/analysis/quality.ts`** (CP4.1, `81382e4`; review fix `ab3f67f`):
+
+**Status:** ✅ done. Standalone review (Large) confirmed one bug by direct execution:
+`findIsolatedRecordIds` originally used connected-component size (union-find), which wrongly
+flagged a person as isolated whenever their only family record was degenerate (e.g. sole recorded
+husband with no wife and no children) — they ARE a recorded family member, just not one with
+group-mates. Fixed with a direct membership-set check ("appears in zero family records") matching
+the interface's own contract; this also removed the union-find machinery, mooting the review's
+reuse-vs-`branches.ts` finding. The duplicate-suspect `(name, birthYear)` key was also switched
+from a concatenated string to a nested `Map` (the flagged delimiter-collision was verified
+non-exploitable — `year` always renders as pure digits, so the last-`|` recovery is provably
+injective — but the nested Map removes any doubt for free).
+
+```ts
+export interface DuplicateSuspect { personIds: [UUID, UUID] }
+export interface DuplicateNameGroup { name: string; personIds: UUID[] }
+export interface IncompleteRecord {
+  personId: UUID;
+  missingParent: boolean; // family exists, has exactly one of husbandId/wifeId
+  missingSpouse: boolean; // family has children, has exactly one of husbandId/wifeId
+  missingDate: boolean; // no birth year AND no death year
+}
+export interface SuspiciousLoop { personIds: UUID[] }
+export interface QualityAnalysis {
+  duplicateSuspects: DuplicateSuspect[];
+  duplicateNameGroups: DuplicateNameGroup[];
+  incompleteRecords: IncompleteRecord[]; // only people with ≥1 flag set
+  isolatedRecordIds: UUID[];
+  suspiciousLoops: SuspiciousLoop[]; // reused verbatim from tree.validation.issues (CIRCULAR_ANCESTRY)
+}
+export function analyzeQuality(tree): QualityAnalysis;
+```
+
+`missingParent` deliberately does NOT flag a person with no `famcId` at all (a root ancestor) — only
+a family record that exists but has exactly one of `husbandId`/`wifeId` recorded, mirroring
+CP3.2/3.3's precedent for distinguishing "no data" from "known-incomplete data".
+
+**`src/analysis/completeness.ts`** (CP4.2, `81382e4`):
+
+**Status:** ✅ done. Batched review with 4.1, no findings on this file beyond a Minor perf note
+(below).
+
+```ts
+export interface CompletenessAnalysis {
+  byPerson: Map<UUID, number>; // reuses ancestryCompleteness (CP2.3) directly, no reimplementation
+  treeAverage: number; // unweighted average across every person
+}
+export function analyzeCompleteness(tree, depth = DEPTH_CAP): CompletenessAnalysis;
+```
+
+Both wired into `TreeAnalysis` (`quality`, `completeness`) and four new `TreeAnalysisSummary`
+fields: `incompleteRecordCount`, `duplicateSuspectCount`, `isolatedRecordCount`,
+`completenessPercent`.
+
 **`web/src/hooks/useTreeAnalysis.ts`** (CP2.6, `dfb5df9`):
 
 ```ts
@@ -428,6 +485,8 @@ interface PersonInspectorProps {
 - **CP3.4 standalone review, Minor (not fixed — cosmetic/reuse only, no correctness bug):**
   1. `InsightsPanel`'s "Pedigree collapse" stat has no presence guard and always renders `0%`, even for a tree with zero recorded ancestry — `pedigreeCollapseScore` returns 0 both for "no collapse" and "nothing to measure" (`filled === 0` early-return in `pedigree.ts`), and the UI has no signal to tell the two apart without a new field on `PedigreeAnalysis`. Every sibling stat in the same section (cousin marriages, chain depth, branch overlap, influential ancestor) correctly hides itself when there's no signal; this one doesn't. Deferred — fixing correctly means extending `src/analysis/pedigree.ts` (Large surface, own review), not a UI one-liner.
   2. `InsightsPanel`'s new `nameOf` helper re-implements the `tree.persons[id]?.name.trim() || "(no name)"` fallback already duplicated 7+ times elsewhere in `web/src` (`PersonInspector.tsx`, `lib/search.ts`, `lib/insights.ts`) instead of importing a shared resolver. Not a bug; a future change to the fallback text has one more call site to catch.
+- **CP4.1/CP4.2 standalone review, Minor (not fixed — perf only, no correctness bug):**
+  1. `analyzeCompleteness` calls `ancestryCompleteness` independently for every person in the tree with no cross-person cache; siblings/cousins share large swaths of the same ancestor-slot BFS, so on a large deeply-recorded tree this redoes overlapping walks per person. Not currently a measured problem (CP2.6's D-6 established the whole `analyzeTree` pipeline at 4.71ms median on the reference tree, before this addition); worth a follow-up ticket if profiling on a large real-world GEDCOM shows it matters, not blocking.
 
 ---
 
