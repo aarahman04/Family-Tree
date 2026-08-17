@@ -1,4 +1,4 @@
-import type { FamilyTree, UUID } from "../../../src/models/types.js";
+import type { FamilyTree, Person, UUID } from "../../../src/models/types.js";
 
 /**
  * Pure, framework-free analysis of a family tree for the editor's "Insights" panel. Every
@@ -13,6 +13,19 @@ import type { FamilyTree, UUID } from "../../../src/models/types.js";
 const AVG_GENERATION_GAP = 30;
 /** Nobody is treated as still living past this age — guards "oldest living person" from absurd values. */
 const MAX_PLAUSIBLE_AGE = 110;
+
+/**
+ * The project's single presumptive living/deceased rule: someone counts as living unless a death
+ * event is recorded, or their recorded birth year would make them older than `MAX_PLAUSIBLE_AGE`.
+ * It is a heuristic, not a fact (D-2) — but it is the SAME heuristic behind the "Living (presumed)"
+ * stat and the export badge-privacy policy (CP5.8), so a person can never be shown as living in
+ * one place while a sensitive badge about them is exported from the other.
+ */
+export function isPresumedLiving(person: Person, now: number): boolean {
+  if (person.death !== undefined) return false;
+  const birthYear = person.birth?.date?.year;
+  return birthYear === undefined || now - birthYear <= MAX_PLAUSIBLE_AGE;
+}
 
 export interface NamedCount {
   name: string;
@@ -155,10 +168,9 @@ export function computeTreeInsights(
 
     const birthYear = p.birth?.date?.year;
     const deathYear = p.death?.date?.year;
-    const isDeceased =
-      p.death !== undefined || (birthYear !== undefined && now - birthYear > MAX_PLAUSIBLE_AGE);
-    if (isDeceased) deceasedCount++;
-    else livingCount++;
+    const living = isPresumedLiving(p, now);
+    if (living) livingCount++;
+    else deceasedCount++;
 
     if (birthYear !== undefined && deathYear !== undefined) {
       const years = deathYear - birthYear;
@@ -168,7 +180,7 @@ export function computeTreeInsights(
           longestLived = { name: displayName(p.name), years };
       }
     }
-    if (!isDeceased && birthYear !== undefined) {
+    if (living && birthYear !== undefined) {
       const age = now - birthYear;
       if (age >= 0 && age <= MAX_PLAUSIBLE_AGE) {
         if (!oldestLiving || age > oldestLiving.age)

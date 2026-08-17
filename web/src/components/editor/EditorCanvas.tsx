@@ -196,7 +196,13 @@ export const EditorCanvas = memo(
     // Built only when insight mode is on, so the plain editor pays nothing for the analysis
     // overlay and `renderPosterSvg` receives no `analytics` at all (byte-identical output).
     const analytics = useMemo(
-      () => (insightMode && analysis ? buildPosterAnalytics(tree, analysis) : undefined),
+      () =>
+        insightMode && analysis
+          ? // The editor is private and local — nothing leaves the device — so every relationship
+            // badge renders here, including for presumed-living people. The export boundary
+            // (PosterExportPanel, CP5.8) is where that flips to opt-in.
+            buildPosterAnalytics(tree, analysis, { sensitiveBadgesForLiving: true })
+          : undefined,
       [insightMode, analysis, tree]
     );
     const svg = useMemo(

@@ -40,9 +40,14 @@ const cousinTree: FamilyTree = {
   validation: { validatedAt: "", issues: [], isValid: true },
 };
 
+/** The private, on-screen editor shows every relationship badge (plan: "Badge visibility"). */
+const EDITOR_OPTS = { sensitiveBadgesForLiving: true, now: 2026 };
+/** The export boundary withholds them for presumed-living people unless opted in (CP5.8). */
+const EXPORT_OPTS = { sensitiveBadgesForLiving: false, now: 2026 };
+
 describe("buildPosterAnalytics", () => {
   it("colors a cousin-marriage family and leaves unrelated families untouched (CP5.7)", () => {
-    const a = buildPosterAnalytics(cousinTree, analyzeTree(cousinTree));
+    const a = buildPosterAnalytics(cousinTree, analyzeTree(cousinTree), EDITOR_OPTS);
 
     expect(a.byFamily?.get("f4")?.color).toBeTruthy();
     // f2/f3 are ordinary unrelated marriages — no entry at all, so the renderer's defensive
@@ -52,7 +57,7 @@ describe("buildPosterAnalytics", () => {
   });
 
   it("badges both spouses of a cousin marriage, and nobody else (CP5.7)", () => {
-    const a = buildPosterAnalytics(cousinTree, analyzeTree(cousinTree));
+    const a = buildPosterAnalytics(cousinTree, analyzeTree(cousinTree), EDITOR_OPTS);
 
     expect(a.byNode?.get("cousinA")?.badges).toContain(BADGE_COUSIN_MARRIAGE);
     expect(a.byNode?.get("cousinB")?.badges).toContain(BADGE_COUSIN_MARRIAGE);
@@ -61,7 +66,7 @@ describe("buildPosterAnalytics", () => {
 
   it("badges every person the quality analysis flags as an incomplete record (CP5.7)", () => {
     const analysis = analyzeTree(cousinTree);
-    const a = buildPosterAnalytics(cousinTree, analysis);
+    const a = buildPosterAnalytics(cousinTree, analysis, EDITOR_OPTS);
 
     expect(analysis.quality.incompleteRecords.length).toBeGreaterThan(0); // fixture exercises it
     for (const record of analysis.quality.incompleteRecords) {
@@ -71,7 +76,7 @@ describe("buildPosterAnalytics", () => {
 
   it("flags a marriage-bridge family with the branch-merge class name (CP5.7)", () => {
     const analysis = analyzeTree(cousinTree);
-    const a = buildPosterAnalytics(cousinTree, analysis);
+    const a = buildPosterAnalytics(cousinTree, analysis, EDITOR_OPTS);
 
     expect(analysis.branches.marriageBridges.length).toBeGreaterThan(0); // fixture exercises it
     for (const bridge of analysis.branches.marriageBridges) {
@@ -80,7 +85,7 @@ describe("buildPosterAnalytics", () => {
   });
 
   it("never requests generation bands — they are row-layout only and the editor is balanced (D-13)", () => {
-    const a = buildPosterAnalytics(cousinTree, analyzeTree(cousinTree));
+    const a = buildPosterAnalytics(cousinTree, analyzeTree(cousinTree), EDITOR_OPTS);
     expect(a.showGenerationBands).toBeUndefined();
   });
 
@@ -91,7 +96,44 @@ describe("buildPosterAnalytics", () => {
       families: {} as Record<UUID, Family>,
       validation: { validatedAt: "", issues: [], isValid: true },
     };
-    const a = buildPosterAnalytics(solo, analyzeTree(solo));
+    const a = buildPosterAnalytics(solo, analyzeTree(solo), EDITOR_OPTS);
     expect(a.byFamily?.size).toBe(0);
+  });
+
+  it("withholds the cousin-marriage badge from PRESUMED-LIVING spouses at the export boundary (CP5.8)", () => {
+    // cousinA/cousinB have no death event and no birth year -> presumed living.
+    const a = buildPosterAnalytics(cousinTree, analyzeTree(cousinTree), EXPORT_OPTS);
+    expect(a.byNode?.get("cousinA")?.badges ?? []).not.toContain(BADGE_COUSIN_MARRIAGE);
+    expect(a.byNode?.get("cousinB")?.badges ?? []).not.toContain(BADGE_COUSIN_MARRIAGE);
+  });
+
+  it("still shows the cousin-marriage badge for DECEASED spouses at the export boundary (CP5.8)", () => {
+    const deceased: FamilyTree = {
+      ...cousinTree,
+      persons: {
+        ...cousinTree.persons,
+        cousinA: { ...cousinTree.persons["cousinA"]!, death: { id: "dA", type: "death" } },
+        cousinB: { ...cousinTree.persons["cousinB"]!, death: { id: "dB", type: "death" } },
+      },
+    };
+    const a = buildPosterAnalytics(deceased, analyzeTree(deceased), EXPORT_OPTS);
+    expect(a.byNode?.get("cousinA")?.badges).toContain(BADGE_COUSIN_MARRIAGE);
+    expect(a.byNode?.get("cousinB")?.badges).toContain(BADGE_COUSIN_MARRIAGE);
+  });
+
+  it("never withholds the non-sensitive incomplete-record badge, living or not (CP5.8)", () => {
+    const analysis = analyzeTree(cousinTree);
+    const a = buildPosterAnalytics(cousinTree, analysis, EXPORT_OPTS);
+    for (const record of analysis.quality.incompleteRecords) {
+      expect(a.byNode?.get(record.personId)?.badges).toContain(BADGE_INCOMPLETE_RECORD);
+    }
+  });
+
+  it("sets showGenerationBands only when the caller asks for it (D-13)", () => {
+    const on = buildPosterAnalytics(cousinTree, analyzeTree(cousinTree), {
+      ...EXPORT_OPTS,
+      generationBands: true,
+    });
+    expect(on.showGenerationBands).toBe(true);
   });
 });
