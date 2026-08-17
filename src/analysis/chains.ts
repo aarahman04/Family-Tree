@@ -19,19 +19,40 @@ export interface CousinChainInfo {
   continuesInDescendants: boolean;
 }
 
+/** One consecutive run of cousin marriages, oldest generation first. */
+export interface CousinChain {
+  /** The families in the run, ancestor-first, so it reads the way the generations run. */
+  familyIds: UUID[];
+  depth: number;
+}
+
 export interface CousinChains {
   byPerson: Map<UUID, CousinChainInfo>;
   /** The longest consecutive cousin-marriage chain anywhere in the tree. */
   maxChainDepth: number;
+  /**
+   * Every chain tying for `maxChainDepth`, reconstructed. The DP alone answers "how deep"; the
+   * UI has to answer "who", so the winning path is kept rather than discarded (CP6.3).
+   */
+  longestChains: CousinChain[];
 }
 
-/** Memoized "consecutive cousin-marriage depth ending at family F, extended upward". */
+/**
+ * Memoized "consecutive cousin-marriage depth ending at family F, extended upward".
+ *
+ * `bestParent` records WHICH parent family supplied each family's maximum, which is what makes
+ * the chain reconstructible afterwards without a second traversal.
+ */
 function makeChainUp(
   tree: FamilyTree,
   marriages: Map<UUID, MarriageAnalysis>,
-): (familyId: UUID) => number {
+): {
+  chainUp: (familyId: UUID) => number;
+  bestParent: Map<UUID, UUID | undefined>;
+} {
   const memo = new Map<UUID, number>();
   const visiting = new Set<UUID>();
+  const bestParent = new Map<UUID, UUID | undefined>();
   function chainUp(familyId: UUID): number {
     const cached = memo.get(familyId);
     if (cached !== undefined) return cached;
@@ -47,13 +68,22 @@ function makeChainUp(
       tree.persons[m.wifeId]?.famcId,
     ];
     let best = 0;
-    for (const pf of parentFams) if (pf) best = Math.max(best, chainUp(pf));
+    let bestFrom: UUID | undefined;
+    for (const pf of parentFams) {
+      if (!pf) continue;
+      const d = chainUp(pf);
+      if (d > best) {
+        best = d;
+        bestFrom = pf;
+      }
+    }
     visiting.delete(familyId);
+    bestParent.set(familyId, bestFrom);
     const value = 1 + best;
     memo.set(familyId, value);
     return value;
   }
-  return chainUp;
+  return { chainUp, bestParent };
 }
 
 /** Memoized "does this person, or any descendant, have a cousin marriage". */
@@ -87,7 +117,7 @@ export function analyzeCousinChains(
   tree: FamilyTree,
   marriages: Map<UUID, MarriageAnalysis>,
 ): CousinChains {
-  const chainUp = makeChainUp(tree, marriages);
+  const { chainUp, bestParent } = makeChainUp(tree, marriages);
   const down = makeDescendantCousin(tree, marriages);
 
   const byPerson = new Map<UUID, CousinChainInfo>();
@@ -104,7 +134,24 @@ export function analyzeCousinChains(
     maxChainDepth = Math.max(maxChainDepth, chainUp(familyId));
   }
 
-  return { byPerson, maxChainDepth };
+  // Only families whose own depth EQUALS the maximum are chain heads. A family part-way up a
+  // longer run has a smaller depth, so it never produces a duplicate shorter entry of its own.
+  const longestChains: CousinChain[] = [];
+  if (maxChainDepth > 0) {
+    for (const familyId of Object.keys(tree.families)) {
+      if (chainUp(familyId) !== maxChainDepth) continue;
+      const familyIds: UUID[] = [];
+      let cursor: UUID | undefined = familyId;
+      while (cursor !== undefined) {
+        familyIds.push(cursor);
+        cursor = bestParent.get(cursor);
+      }
+      familyIds.reverse(); // ancestor-first
+      longestChains.push({ familyIds, depth: maxChainDepth });
+    }
+  }
+
+  return { byPerson, maxChainDepth, longestChains };
 }
 
 /** Convenience single-person lookup (rebuilds memo tables; use analyzeCousinChains for a full pass). */
@@ -113,7 +160,7 @@ export function cousinChainInfo(
   personId: UUID,
   marriages: Map<UUID, MarriageAnalysis>,
 ): CousinChainInfo {
-  const chainUp = makeChainUp(tree, marriages);
+  const { chainUp } = makeChainUp(tree, marriages);
   const down = makeDescendantCousin(tree, marriages);
   const famc = tree.persons[personId]?.famcId;
   return {
