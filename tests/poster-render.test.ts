@@ -414,4 +414,50 @@ describe("renderPosterSvg", () => {
     const svg = renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE, undefined, analytics);
     expect(svg).not.toContain('data-role="badge-');
   });
+
+  it("keeps a badge clear of the living-dot on an RTL photo card, where the dot is NOT mirrored (CP5.6 review)", () => {
+    // The living-dot is anchored to the box's right edge unconditionally, RTL or not. Badges must
+    // therefore anchor to the LEFT edge for every node, not to the RTL-mirrored "leading" edge --
+    // otherwise an RTL name puts both glyphs on the identical point and the badge paints over the
+    // living/deceased signal.
+    const tree = buildTree([person("rtl", { name: "محمد الرحمن", gender: "male" })], []);
+    const layout = computePosterLayout(tree);
+    expect(layout.nodes[0]!.rtl).toBe(true); // fixture actually exercises the RTL path
+    const style = { ...DEFAULT_POSTER_STYLE, displayMode: "photoCards" as const, showLivingIndicator: true };
+    const page = computePosterPageSize(layout, style);
+    const analytics = { byNode: new Map([["rtl", { badges: [BADGE_INCOMPLETE_RECORD] }]]) };
+
+    const svg = renderPosterSvg(layout, page, style, undefined, analytics);
+    const dotCx = Number(/data-role="living-dot" cx="([\d.]+)"/.exec(svg)![1]);
+    const badgeCx = Number(/data-role="badge-incomplete-record"[\s\S]*?<circle cx="([\d.]+)"/.exec(svg)![1]);
+    expect(badgeCx).not.toBeCloseTo(dotCx, 3);
+    expect(badgeCx).toBeLessThan(dotCx); // badge on the left edge, dot on the right
+  });
+
+  it("treats an empty-string tint as no tint rather than emitting an invalid fill (CP5.5 review)", () => {
+    // fill="" is invalid; SVG falls back to the initial value (black), painting the whole card
+    // black. Mirrors this file's existing "absent OR empty href" handling for photos.
+    const tree = buildTree([person("solo")], []);
+    const layout = computePosterLayout(tree);
+    const page = computePosterPageSize(layout, DEFAULT_POSTER_STYLE);
+    const analytics = { byNode: new Map([["solo", { tint: "" }]]) };
+
+    const svg = renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE, undefined, analytics);
+    expect(svg).not.toContain('fill=""');
+    expect(svg).toContain(`rx="4" fill="${DEFAULT_POSTER_STYLE.backgroundColor}"`);
+  });
+
+  it("gives the cousin-marriage badge a different SHAPE from the branch-merge glyph, not just a different position (CP5.6 review, AUD-5)", () => {
+    // branchMergeGlyph is a filled diamond in the same accent colour. If the badge is also a
+    // filled diamond, the one glyph carries two meanings and the shape-coding goal is defeated.
+    const tree = buildTree([person("solo")], []);
+    const layout = computePosterLayout(tree);
+    const page = computePosterPageSize(layout, DEFAULT_POSTER_STYLE);
+    const analytics = { byNode: new Map([["solo", { badges: [BADGE_COUSIN_MARRIAGE] }]]) };
+
+    const svg = renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE, undefined, analytics);
+    const badge = /(<g data-role="badge-cousin-marriage"[\s\S]*?<\/g>|<path data-role="badge-cousin-marriage"[\s\S]*?\/?>)/.exec(svg)![1]!;
+    expect(badge).not.toMatch(/ d="M /); // not a diamond path like branchMergeGlyph
+    expect((badge.match(/<circle /g) ?? []).length).toBe(2); // two interlocking rings
+  });
 });

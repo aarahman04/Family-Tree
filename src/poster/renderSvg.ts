@@ -129,23 +129,25 @@ function photoPlaceholder(x: number, y: number, side: number, clipAttr: string, 
 
 // ─── CARD EXTENSION POINT (refinement 6) ───────────────────────────────────────
 /** Optional per-person insight badges (CP5.6) -- one small glyph per recognized token in
- * `nodeAnalytics.badges`, anchored inside the box's bottom LEADING corner (opposite the photo
- * mode's living-dot, which sits bottom-trailing, so the two never collide). Unrecognized tokens
- * are silently ignored -- forward-compatible with future badge kinds without a renderer change.
- * Distinguished by SHAPE as well as color so they survive grayscale printing (AUD-5, matching
- * the living-dot convention). This is the single, documented place to grow the card -- future
- * non-badge extras (occupation, country, document count, ...) also render here. */
-function renderCardExtras(node: PosterNode, style: PosterStyleOptions, boxX: number, boxBottom: number, boxWidth: number, nodeAnalytics?: PosterNodeAnalytics): string {
+ * `nodeAnalytics.badges`, anchored inside the box's bottom-LEFT corner. Left is deliberate and
+ * NOT mirrored for RTL: the photo mode's living-dot is pinned to the box's right edge for every
+ * node regardless of `node.rtl`, so mirroring badges would land them on the identical point and
+ * paint over the living/deceased signal. (Mirroring the dot instead would change output when
+ * `analytics` is absent, which invariant 1 forbids.) Unrecognized tokens are silently ignored --
+ * forward-compatible with future badge kinds without a renderer change. Each badge is
+ * distinguished by SHAPE as well as color so it survives grayscale printing (AUD-5, matching the
+ * living-dot convention) -- including against `branchMergeGlyph`'s filled diamond, which uses the
+ * same accent color. This is the single, documented place to grow the card -- future non-badge
+ * extras (occupation, country, document count, ...) also render here. */
+function renderCardExtras(style: PosterStyleOptions, boxX: number, boxBottom: number, nodeAnalytics?: PosterNodeAnalytics): string {
   const known = (nodeAnalytics?.badges ?? []).filter((b) => b === BADGE_INCOMPLETE_RECORD || b === BADGE_COUSIN_MARRIAGE);
   if (known.length === 0) return "";
   const r = 3;
   const spacing = 9;
   const cy = boxBottom - 8;
-  const startX = node.rtl ? boxX + boxWidth - 8 : boxX + 8;
-  const step = node.rtl ? -spacing : spacing;
   const parts: string[] = [];
   known.forEach((badge, i) => {
-    const cx = startX + step * i;
+    const cx = boxX + 8 + spacing * i;
     if (badge === BADGE_INCOMPLETE_RECORD) {
       const color = escapeXml(style.lineColor);
       parts.push(
@@ -155,9 +157,13 @@ function renderCardExtras(node: PosterNode, style: PosterStyleOptions, boxX: num
           `<circle cx="${num(cx)}" cy="${num(cy + 1.9)}" r="0.5" fill="${color}"/></g>`
       );
     } else {
+      // Two interlocking rings (the marriage convention), NOT a filled diamond -- `branchMergeGlyph`
+      // already owns that shape in this same accent color.
       const color = escapeXml(style.chipBorderColor); // reuses the chip/cross-reference accent already meaning "cousin marriage" elsewhere on the poster
       parts.push(
-        `<path data-role="badge-cousin-marriage" d="M ${num(cx)} ${num(cy - r)} L ${num(cx + r)} ${num(cy)} L ${num(cx)} ${num(cy + r)} L ${num(cx - r)} ${num(cy)} Z" fill="${color}"><title>Cousin marriage</title></path>`
+        `<g data-role="badge-cousin-marriage"><title>Cousin marriage</title>` +
+          `<circle cx="${num(cx - 1.6)}" cy="${num(cy)}" r="${num(r - 0.8)}" fill="none" stroke="${color}" stroke-width="1.2"/>` +
+          `<circle cx="${num(cx + 1.6)}" cy="${num(cy)}" r="${num(r - 0.8)}" fill="none" stroke="${color}" stroke-width="1.2"/></g>`
       );
     }
   });
@@ -179,7 +185,7 @@ function renderCompactNode(node: PosterNode, offsetX: number, offsetY: number, s
 
   const parts: string[] = [];
   parts.push(
-    `<rect x="${num(x)}" y="${num(y)}" width="${num(node.width)}" height="${num(node.height)}" rx="4" fill="${escapeXml(nodeAnalytics?.tint ?? style.backgroundColor)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
+    `<rect x="${num(x)}" y="${num(y)}" width="${num(node.width)}" height="${num(node.height)}" rx="4" fill="${escapeXml(nodeAnalytics?.tint || style.backgroundColor)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
   );
   // Male/female get a gender glyph; unknown/unspecified keep the plain neutral edge stripe. Both
   // sit on the TRAILING edge for an RTL name (right), matching the text's own alignment (AUD-4).
@@ -223,7 +229,7 @@ function renderCompactNode(node: PosterNode, offsetX: number, offsetY: number, s
       })
     );
   }
-  parts.push(renderCardExtras(node, style, x, y + node.height, node.width, nodeAnalytics));
+  parts.push(renderCardExtras(style, x, y + node.height, nodeAnalytics));
   return parts.join("");
 }
 
@@ -235,7 +241,7 @@ function renderMinimalNode(node: PosterNode, offsetX: number, offsetY: number, s
 
   const parts: string[] = [];
   parts.push(
-    `<rect x="${num(x)}" y="${num(y)}" width="${num(node.width)}" height="${num(node.height)}" rx="4" fill="${escapeXml(nodeAnalytics?.tint ?? style.backgroundColor)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
+    `<rect x="${num(x)}" y="${num(y)}" width="${num(node.width)}" height="${num(node.height)}" rx="4" fill="${escapeXml(nodeAnalytics?.tint || style.backgroundColor)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
   );
 
   const nameLineHeight = style.nameFontSize * 1.25;
@@ -247,7 +253,7 @@ function renderMinimalNode(node: PosterNode, offsetX: number, offsetY: number, s
     parts.push(textLine(cx, lineY, line, style.nameFontSize, style.textColor, style.fontFamily, node.rtl));
     lineY += nameLineHeight;
   }
-  parts.push(renderCardExtras(node, style, x, y + node.height, node.width, nodeAnalytics));
+  parts.push(renderCardExtras(style, x, y + node.height, nodeAnalytics));
   return parts.join("");
 }
 
@@ -263,7 +269,7 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
 
   // Card outline.
   parts.push(
-    `<rect x="${num(x)}" y="${num(cyTop)}" width="${num(node.width)}" height="${num(node.height)}" rx="6" fill="${escapeXml(nodeAnalytics?.tint ?? style.backgroundColor)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
+    `<rect x="${num(x)}" y="${num(cyTop)}" width="${num(node.width)}" height="${num(node.height)}" rx="6" fill="${escapeXml(nodeAnalytics?.tint || style.backgroundColor)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
   );
 
   // Photo (image or placeholder), clipped to the chosen shape. An absent OR empty href always
@@ -342,7 +348,7 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
     );
   }
 
-  parts.push(renderCardExtras(node, style, x, cardBottom, node.width, nodeAnalytics));
+  parts.push(renderCardExtras(style, x, cardBottom, nodeAnalytics));
   return parts.join("");
 }
 
