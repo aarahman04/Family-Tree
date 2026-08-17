@@ -25,42 +25,75 @@ function threeGenerations() {
   ).tree;
 }
 
+/**
+ * A single dated line of `count` people, each `gap` years after the last. Generated rather than
+ * hand-written because MIN_GAP_SAMPLES is calibrated for real genealogy files, so a fixture has
+ * to supply a real sample before the gap counts as measured.
+ */
+function datedLineage(count: number, gap: number, startYear = 1800) {
+  const people = [];
+  const families = [];
+  for (let i = 0; i < count; i++) {
+    people.push(
+      personRow({
+        id: i + 1,
+        name: `L${i}`,
+        gender: 1,
+        birthYear: startYear + i * gap,
+        ...(i > 0 ? { famc: 100 + i - 1 } : {}),
+      }),
+    );
+    if (i < count - 1) families.push(familyRow({ id: 100 + i, husband: i + 1 }));
+  }
+  return parseNodeFtt(buildNodeFtt(people, families)).tree;
+}
+
 describe("analyzeTimeline — measured generation gap", () => {
   it("measures the tree's OWN median parent-to-child gap instead of assuming a constant", () => {
-    const t = threeGenerations();
+    const t = datedLineage(12, 27); // 11 measurable pairs, all exactly 27 years
     const timeline = analyzeTimeline(t, 2026);
 
-    expect(timeline.generationGap).toBe(30);
-    expect(timeline.gapSampleSize).toBe(2);
+    expect(timeline.generationGap).toBe(27);
+    expect(timeline.gapSampleSize).toBe(11);
     expect(timeline.gapIsFallback).toBe(false);
   });
 
-  it("takes the MEDIAN so one absurd birth year cannot drag the gap with it", () => {
-    // Four sane ~25-year gaps plus one wild outlier pair. A mean would be visibly dragged;
-    // the median should not move off the sane cluster.
-    const t = parseNodeFtt(
-      buildNodeFtt(
-        [
-          personRow({ id: 1, name: "A0", gender: 1, birthYear: 1900 }),
-          personRow({ id: 2, name: "A1", famc: 10, gender: 1, birthYear: 1925 }),
-          personRow({ id: 3, name: "A2", famc: 20, gender: 1, birthYear: 1950 }),
-          personRow({ id: 4, name: "A3", famc: 30, gender: 1, birthYear: 1975 }),
-          personRow({ id: 5, name: "A4", famc: 40, gender: 1, birthYear: 2000 }),
-          // Outlier: a 59-year "gap" — implausible but inside the accepted 12..60 window.
-          personRow({ id: 6, name: "B0", gender: 1, birthYear: 1900 }),
-          personRow({ id: 7, name: "B1", famc: 50, gender: 1, birthYear: 1959 }),
-        ],
-        [
-          familyRow({ id: 10, husband: 1 }),
-          familyRow({ id: 20, husband: 2 }),
-          familyRow({ id: 30, husband: 3 }),
-          familyRow({ id: 40, husband: 4 }),
-          familyRow({ id: 50, husband: 6 }),
-        ],
-      ),
-    ).tree;
+  it("will not call a gap 'measured' on a sample too small to mean anything", () => {
+    // The real 473-person tree yields only 3 measurable pairs. Reporting a median over 3 points
+    // as a measurement is what this guards against.
+    const t = datedLineage(4, 27); // 3 pairs — under MIN_GAP_SAMPLES
+    const timeline = analyzeTimeline(t, 2026);
 
-    expect(analyzeTimeline(t, 2026).generationGap).toBe(25);
+    expect(timeline.gapSampleSize).toBe(3);
+    expect(timeline.gapIsFallback).toBe(true);
+    expect(timeline.generationGap).toBe(DEFAULT_GENERATION_GAP);
+  });
+
+  it("takes the MEDIAN so one absurd birth year cannot drag the gap with it", () => {
+    // Ten clean 25-year gaps, then one 59-year outlier that is still inside the accepted window.
+    // A mean would visibly follow it; the median must stay on the sane cluster.
+    const people = [];
+    const families = [];
+    for (let i = 0; i < 11; i++) {
+      people.push(
+        personRow({
+          id: i + 1,
+          name: `A${i}`,
+          gender: 1,
+          birthYear: 1700 + i * 25,
+          ...(i > 0 ? { famc: 100 + i - 1 } : {}),
+        }),
+      );
+      if (i < 10) families.push(familyRow({ id: 100 + i, husband: i + 1 }));
+    }
+    people.push(personRow({ id: 50, name: "B0", gender: 1, birthYear: 1900 }));
+    people.push(personRow({ id: 51, name: "B1", gender: 1, birthYear: 1959, famc: 200 }));
+    families.push(familyRow({ id: 200, husband: 50 }));
+    const t = parseNodeFtt(buildNodeFtt(people, families)).tree;
+
+    const timeline = analyzeTimeline(t, 2026);
+    expect(timeline.gapSampleSize).toBe(11);
+    expect(timeline.generationGap).toBe(25);
   });
 
   it("discards biologically implausible gaps rather than letting bad data define the norm", () => {
@@ -195,26 +228,24 @@ describe("analyzeTimeline — tree age", () => {
   });
 
   it("rates confidence from the evidence rather than asserting it", () => {
-    const dated = analyzeTimeline(threeGenerations(), 2026);
-    expect(dated.recordedBirthCount).toBe(dated.totalPeople); // every date is real
-    expect(dated.confidence).toBe("high");
+    // Every date real and a genuine gap sample -> high.
+    expect(analyzeTimeline(datedLineage(12, 27), 2026).confidence).toBe("high");
 
-    const sparse = parseNodeFtt(
-      buildNodeFtt(
-        [
-          personRow({ id: 1, name: "A", gender: 1 }),
-          personRow({ id: 2, name: "B", famc: 10, gender: 1 }),
-          personRow({ id: 3, name: "C", famc: 20, gender: 1 }),
-          personRow({ id: 4, name: "D", famc: 30, gender: 1, birthYear: 2000 }),
-        ],
-        [
-          familyRow({ id: 10, husband: 1 }),
-          familyRow({ id: 20, husband: 2 }),
-          familyRow({ id: 30, husband: 3 }),
-        ],
-      ),
-    ).tree;
-    expect(analyzeTimeline(sparse, 2026).confidence).toBe("low");
+    // The shape of a real genealogy file: a long undated line hanging off a couple of dates.
+    // Measured-looking but thin, and almost nothing recorded -> must report low, not medium.
+    const people = [personRow({ id: 1, name: "S0", gender: 1, birthYear: 1900 })];
+    const families = [];
+    for (let i = 1; i < 40; i++) {
+      people.push(
+        personRow({ id: i + 1, name: `S${i}`, gender: 1, famc: 100 + i - 1 }),
+      );
+      families.push(familyRow({ id: 100 + i - 1, husband: i }));
+    }
+    const sparse = parseNodeFtt(buildNodeFtt(people, families)).tree;
+    const timeline = analyzeTimeline(sparse, 2026);
+    expect(timeline.gapIsFallback).toBe(true);
+    expect(timeline.recordedBirthCount).toBe(1);
+    expect(timeline.confidence).toBe("low");
   });
 
   it("is deterministic — the same tree and the same `now` give the same answer", () => {

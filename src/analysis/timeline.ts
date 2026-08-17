@@ -30,8 +30,13 @@ export const DEFAULT_GENERATION_GAP = 30;
 /** Parent→child gaps outside this window are treated as data errors, not as evidence. */
 export const MIN_PLAUSIBLE_GAP = 12;
 export const MAX_PLAUSIBLE_GAP = 60;
-/** Below this many usable samples the measured median isn't trustworthy; fall back. */
-const MIN_GAP_SAMPLES = 2;
+/**
+ * Below this many usable samples the measured median isn't trustworthy, and the default gap is
+ * substituted with `gapIsFallback` set. Calibrated against the real 473-person tree, where only
+ * 7 people carry a recorded birth year and just 3 parent-child pairs are measurable: a median
+ * over 3 points is not a measurement, and reporting it as one overstated the estimate's footing.
+ */
+export const MIN_GAP_SAMPLES = 10;
 
 export interface BirthEstimate {
   year: number;
@@ -181,13 +186,14 @@ export function analyzeTimeline(
 
   // Confidence tracks how much of the answer is real data. Both inputs matter, but an assumed
   // gap is the more serious weakness: when the tree couldn't supply its own gap, EVERY multi-hop
-  // estimate hangs off a guessed constant, so a fallback gap plus sparse dates is "low" however
-  // the share alone might read.
+  // estimate hangs off a guessed constant. A real genealogy file is usually mostly undated -- the
+  // reference tree has 7 recorded births in 473 people -- so these thresholds are set where a
+  // sparse tree honestly reports "low" rather than flattering itself.
   const recordedShare =
     totalPeople === 0 ? 0 : recordedBirthCount / totalPeople;
   let confidence: TreeTimeline["confidence"];
   if (!isFallback && recordedShare >= 0.5) confidence = "high";
-  else if (!isFallback || recordedShare >= 0.5) confidence = "medium";
+  else if (!isFallback && recordedShare >= 0.2) confidence = "medium";
   else confidence = "low";
 
   return {
