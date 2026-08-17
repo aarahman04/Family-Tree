@@ -1,4 +1,5 @@
 import type { FamilyTree, Person, UUID } from "../models/types.js";
+import { isPresumedLiving } from "../models/living.js";
 import {
   childrenOf,
   fatherOf,
@@ -18,19 +19,6 @@ import {
  * See docs/superpowers/plans/2026-08-16-family-tree-insights-v2.md, decision D-4.
  */
 
-/** Nobody is treated as still living past this age (mirrors web/src/lib/insights.ts's rule). */
-const MAX_PLAUSIBLE_AGE = 110;
-
-function isPresumedLiving(
-  person: Person,
-  now: number = new Date().getFullYear(),
-): boolean {
-  if (person.death !== undefined) return false;
-  const birthYear = person.birth?.date?.year;
-  if (birthYear !== undefined && now - birthYear > MAX_PLAUSIBLE_AGE)
-    return false;
-  return true;
-}
 
 /**
  * Children a person "owns" for anchor-selection purposes. At the root edge, each family credits

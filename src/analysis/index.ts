@@ -7,6 +7,7 @@ import { type InfluenceAnalysis, analyzeInfluence } from "./influence.js";
 import { type MarriageAnalysis, classifyAllMarriages } from "./marriages.js";
 import { type PedigreeAnalysis, analyzePedigreeCollapse } from "./pedigree.js";
 import { type QualityAnalysis, analyzeQuality } from "./quality.js";
+import { type TreeTimeline, analyzeTimeline } from "./timeline.js";
 
 /**
  * Public API of the relationship-analysis engine (Insights v2). `analyzeTree` is the single
@@ -25,6 +26,7 @@ export * from "./branches.js";
 export * from "./influence.js";
 export * from "./quality.js";
 export * from "./completeness.js";
+export * from "./timeline.js";
 
 export interface TreeAnalysisSummary {
   /** Couples with both spouses recorded. */
@@ -53,6 +55,8 @@ export interface TreeAnalysisSummary {
   isolatedRecordCount: number;
   /** Tree-wide average ancestry completeness (CP4.2), as a whole-number percent. */
   completenessPercent: number;
+  /** How many years the tree spans back to its earliest (recorded or estimated) birth. */
+  treeAgeYears?: number;
 }
 
 export interface TreeAnalysis {
@@ -72,6 +76,8 @@ export interface TreeAnalysis {
   quality: QualityAnalysis;
   /** Per-person + tree-wide ancestry-completeness scores. */
   completeness: CompletenessAnalysis;
+  /** Measured generation gap, per-person birth-year estimates, and how far back the tree reaches. */
+  timeline: TreeTimeline;
   /** Headline counts for the insights panel/strip. */
   summary: TreeAnalysisSummary;
 }
@@ -81,7 +87,12 @@ export interface TreeAnalysis {
  * (ancestor maps) is shared internally via classifyAllMarriages' cache, and the chain DP reuses
  * the resulting marriages map — so this is a single O(n + f·Ā) pass, memoized upstream on `tree`.
  */
-export function analyzeTree(tree: FamilyTree): TreeAnalysis {
+export function analyzeTree(
+  tree: FamilyTree,
+  // Injected rather than read from the clock inside, so a caller can pin it and get a
+  // reproducible result -- the timeline's age arithmetic is the only clock-dependent part.
+  now: number = new Date().getFullYear(),
+): TreeAnalysis {
   const marriages = classifyAllMarriages(tree);
   const cousinMarriages: MarriageAnalysis[] = [];
   const byConfidence: Record<Confidence, number> = {
@@ -98,6 +109,7 @@ export function analyzeTree(tree: FamilyTree): TreeAnalysis {
   }
 
   const chains = analyzeCousinChains(tree, marriages);
+  const timeline = analyzeTimeline(tree, now);
   const pedigree = analyzePedigreeCollapse(tree);
   const branches = analyzeBranches(tree);
   const influence = analyzeInfluence(tree);
@@ -115,6 +127,7 @@ export function analyzeTree(tree: FamilyTree): TreeAnalysis {
     influence,
     quality,
     completeness,
+    timeline,
     summary: {
       totalMarriages,
       cousinMarriageCount,
@@ -131,6 +144,7 @@ export function analyzeTree(tree: FamilyTree): TreeAnalysis {
       duplicateSuspectCount: quality.duplicateSuspects.length,
       isolatedRecordCount: quality.isolatedRecordIds.length,
       completenessPercent: Math.round(completeness.treeAverage * 100),
+      treeAgeYears: timeline.treeAgeYears,
     },
   };
 }
