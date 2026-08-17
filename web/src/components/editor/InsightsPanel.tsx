@@ -138,13 +138,16 @@ export function InsightsPanel({ insights, analysis, tree }: InsightsPanelProps) 
           <div className="grid grid-cols-2 gap-2">
             <Headline label="People" value={String(i.totalMembers)} />
             <Headline label="Generations" value={String(i.generationCount)} />
-            {analysis?.timeline.treeAgeYears !== undefined && (
+            {analysis?.timeline.treeAgeRange !== undefined && (
               <Headline
                 label="Tree reaches back"
-                value={`~${analysis.timeline.treeAgeYears} yrs`}
+                // A range, not a single number: on a mostly-undated tree the earliest person is
+                // many inferences from any real date, and a lone figure would be the most
+                // confident-looking thing in the panel and the least earned.
+                value={`${analysis.timeline.treeAgeRange.min}–${analysis.timeline.treeAgeRange.max} yrs`}
                 hint={
-                  analysis.timeline.earliestBirthYear !== undefined
-                    ? `to ~${analysis.timeline.earliestBirthYear}`
+                  analysis.timeline.earliestBirthRange !== undefined
+                    ? `oldest born ~${analysis.timeline.earliestBirthRange.from}–${analysis.timeline.earliestBirthRange.to}`
                     : undefined
                 }
               />
@@ -208,6 +211,13 @@ export function InsightsPanel({ insights, analysis, tree }: InsightsPanelProps) 
                     label="Recorded birth years"
                     value={`${analysis.timeline.recordedBirthCount} of ${analysis.timeline.totalPeople}`}
                   />
+                  {analysis.timeline.earliestBirthRange && (
+                    <Stat
+                      label="Oldest ancestor born"
+                      value={`~${analysis.timeline.earliestBirthRange.from}–${analysis.timeline.earliestBirthRange.to}`}
+                      estimate
+                    />
+                  )}
                   {/* The estimate's footing, stated rather than implied — on a mostly-undated tree
                       these numbers are the difference between a figure and a guess. */}
                   {/* A <div>, not a <p>: this sits inside a <dl>, which only permits dt/dd

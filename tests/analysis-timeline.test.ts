@@ -124,7 +124,7 @@ describe("analyzeTimeline — birth-year estimation", () => {
     const timeline = analyzeTimeline(t, 2026);
 
     const g1 = timeline.birthYears.get(idByName(t, "G1"))!;
-    expect(g1).toEqual({ year: 1900, hops: 0 });
+    expect(g1).toMatchObject({ year: 1900, hops: 0 });
     expect(timeline.recordedBirthCount).toBe(3);
   });
 
@@ -143,11 +143,11 @@ describe("analyzeTimeline — birth-year estimation", () => {
 
     const timeline = analyzeTimeline(t, 2026);
     expect(timeline.gapIsFallback).toBe(true); // no measurable gaps in this fixture
-    expect(timeline.birthYears.get(idByName(t, "P1"))).toEqual({
+    expect(timeline.birthYears.get(idByName(t, "P1"))).toMatchObject({
       year: 2000 - DEFAULT_GENERATION_GAP,
       hops: 1,
     });
-    expect(timeline.birthYears.get(idByName(t, "G1"))).toEqual({
+    expect(timeline.birthYears.get(idByName(t, "G1"))).toMatchObject({
       year: 2000 - 2 * DEFAULT_GENERATION_GAP,
       hops: 2,
     });
@@ -190,7 +190,7 @@ describe("analyzeTimeline — birth-year estimation", () => {
       ),
     ).tree;
 
-    expect(analyzeTimeline(t, 2026).birthYears.get(idByName(t, "W"))).toEqual({
+    expect(analyzeTimeline(t, 2026).birthYears.get(idByName(t, "W"))).toMatchObject({
       year: 1950,
       hops: 1,
     });
@@ -289,5 +289,91 @@ describe("isPresumedLiving — the single shared rule", () => {
   it("prefers a person's OWN recorded birth year over any estimate passed in", () => {
     const person = P({ birth: { id: "b", type: "birth", date: { year: 1990 } } });
     expect(isPresumedLiving(person, 2026, 1850)).toBe(true);
+  });
+});
+
+describe("analyzeTimeline — conservative ranges (S-1 age estimation)", () => {
+  it("gives a recorded birth year a zero-width range and full confidence", () => {
+    const t = threeGenerations();
+    const e = analyzeTimeline(t, 2026).birthYears.get(idByName(t, "G1"))!;
+    expect(e.earliest).toBe(1900);
+    expect(e.latest).toBe(1900);
+    expect(e.confidence).toBe("confirmed");
+  });
+
+  it("widens the range with every hop away from a real date", () => {
+    const t = parseNodeFtt(
+      buildNodeFtt(
+        [
+          personRow({ id: 1, name: "G1", gender: 1 }),
+          personRow({ id: 2, name: "P1", famc: 10, gender: 1 }),
+          personRow({ id: 3, name: "C1", famc: 20, gender: 1, birthYear: 2000 }),
+        ],
+        [familyRow({ id: 10, husband: 1 }), familyRow({ id: 20, husband: 2 })],
+      ),
+    ).tree;
+    const timeline = analyzeTimeline(t, 2026);
+    const p1 = timeline.birthYears.get(idByName(t, "P1"))!;
+    const g1 = timeline.birthYears.get(idByName(t, "G1"))!;
+
+    const widthOf = (e: { earliest: number; latest: number }) => e.latest - e.earliest;
+    expect(widthOf(p1)).toBeGreaterThan(0);
+    // Two hops out must be strictly less certain than one -- never equally certain.
+    expect(widthOf(g1)).toBeGreaterThan(widthOf(p1));
+    // And the range must actually contain the point estimate.
+    expect(g1.earliest).toBeLessThanOrEqual(g1.year);
+    expect(g1.latest).toBeGreaterThanOrEqual(g1.year);
+  });
+
+  it("degrades confidence with distance instead of asserting a far estimate", () => {
+    const people = [personRow({ id: 1, name: "S0", gender: 1, birthYear: 2000 })];
+    const families = [];
+    for (let i = 1; i < 8; i++) {
+      people.push(personRow({ id: i + 1, name: `S${i}`, famc: 100 + i - 1, gender: 1 }));
+      families.push(familyRow({ id: 100 + i - 1, husband: i }));
+    }
+    const t = parseNodeFtt(buildNodeFtt(people, families)).tree;
+    const timeline = analyzeTimeline(t, 2026);
+
+    expect(timeline.birthYears.get(idByName(t, "S0"))!.confidence).toBe("confirmed");
+    // Far from any anchor the module must say "unknown" rather than quote a year.
+    expect(timeline.birthYears.get(idByName(t, "S7"))!.confidence).toBe("unknown");
+  });
+
+  it("reports the oldest ancestor as a PERIOD, not a single year", () => {
+    const t = threeGenerations();
+    const timeline = analyzeTimeline(t, 2026);
+    expect(timeline.earliestBirthRange).toBeDefined();
+    expect(timeline.earliestBirthRange!.from).toBeLessThanOrEqual(
+      timeline.earliestBirthRange!.to,
+    );
+  });
+
+  it("reports the tree's age span as a range, widest-first", () => {
+    const t = parseNodeFtt(
+      buildNodeFtt(
+        [
+          personRow({ id: 1, name: "G1", gender: 1 }),
+          personRow({ id: 2, name: "P1", famc: 10, gender: 1 }),
+          personRow({ id: 3, name: "Me", famc: 20, gender: 1, birthYear: 2004 }),
+        ],
+        [familyRow({ id: 10, husband: 1 }), familyRow({ id: 20, husband: 2 })],
+      ),
+    ).tree;
+    const timeline = analyzeTimeline(t, 2026);
+    expect(timeline.treeAgeRange).toBeDefined();
+    // A sparse tree must produce a genuinely wide span, not a false point answer.
+    expect(timeline.treeAgeRange!.max).toBeGreaterThan(timeline.treeAgeRange!.min);
+    expect(timeline.treeAgeYears).toBeGreaterThanOrEqual(timeline.treeAgeRange!.min);
+    expect(timeline.treeAgeYears).toBeLessThanOrEqual(timeline.treeAgeRange!.max);
+  });
+
+  it("leaves the range undefined for a tree with no dates anywhere", () => {
+    const t = parseNodeFtt(
+      buildNodeFtt([personRow({ id: 1, name: "Lonely", gender: 1 })], []),
+    ).tree;
+    const timeline = analyzeTimeline(t, 2026);
+    expect(timeline.earliestBirthRange).toBeUndefined();
+    expect(timeline.treeAgeRange).toBeUndefined();
   });
 });

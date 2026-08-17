@@ -23,6 +23,7 @@ import {
   ancestorPaths,
   kinshipCoefficient,
   parentsRelated,
+  relatePair,
   type Confidence,
   type CoupleRelation,
   type MarriageAnalysis,
@@ -267,6 +268,114 @@ function RelationshipCard({
       <ConfidenceReasons reasons={rel.confidence.reasons} />
       {isCousinLink && <ConsanguinityNote />}
     </div>
+  );
+}
+
+/**
+ * S-1 — "how is this person related to that one?" for ANY two people, not just spouses.
+ *
+ * Composes `relatePair`, which reuses the same classifier and confidence rule the relationship
+ * cards use, so the calculator can never give a different answer for a pair the panel already
+ * describes. Collapsed until asked for: it is a lookup tool, not something to wade past on the
+ * way to a person's details.
+ */
+function RelationshipCalculator({
+  tree,
+  personId,
+  searchIndex,
+  onNavigate,
+}: {
+  tree: FamilyTree;
+  personId: UUID;
+  searchIndex: SearchIndex;
+  onNavigate: (id: UUID) => void;
+}) {
+  const [picking, setPicking] = useState(false);
+  const [otherId, setOtherId] = useState<UUID | undefined>(undefined);
+
+  const other = otherId ? tree.persons[otherId] : undefined;
+  const result = other ? relatePair(tree, personId, otherId!) : undefined;
+
+  return (
+    <section
+      data-testid="relationship-calculator"
+      className="flex flex-col gap-2 border-t border-slate-200 pt-3 dark:border-slate-800"
+    >
+      <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+        How are they related?
+      </h3>
+
+      {picking ? (
+        <PersonPicker
+          tree={tree}
+          index={searchIndex}
+          label="Compare with"
+          excludeId={personId}
+          onPick={(id) => {
+            setOtherId(id);
+            setPicking(false);
+          }}
+          // Creating a person from here would be a side effect nobody asked for -- this is a
+          // read-only question about two people who already exist.
+          onCreateNew={() => setPicking(false)}
+          onCancel={() => setPicking(false)}
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setPicking(true)}
+          className="self-start rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50 [@media(pointer:coarse)]:min-h-11 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          {result ? "Compare with someone else" : "Pick someone to compare"}
+        </button>
+      )}
+
+      {result && other && (
+        <div
+          data-testid="relationship-result"
+          className="flex flex-col gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/60"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+              <button
+                type="button"
+                onClick={() => onNavigate(otherId!)}
+                aria-label={`View ${other.name.trim() || "(no name)"}`}
+                className="rounded text-blue-700 underline-offset-2 hover:underline dark:text-blue-400"
+              >
+                {other.name.trim() || "(no name)"}
+              </button>
+            </p>
+            <ConfidenceTag level={result.confidence.level} />
+          </div>
+
+          <p className="text-sm text-slate-700 dark:text-slate-300">
+            {result.relation.kind === "unrelated" ? relationSummary(result) : result.relation.label}
+          </p>
+
+          {result.relation.closest && (
+            <LineagePath
+              tree={tree}
+              aId={personId}
+              bId={otherId!}
+              ancestorId={result.relation.closest.ancestorId}
+            />
+          )}
+
+          {/* The user asked to be told when more than one route exists rather than being shown
+              one path as if it were the only one. */}
+          {result.commonAncestors.length > 1 && (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {result.multiplePaths
+                ? `Linked through ${result.relation.lines} separate ancestral lines — the closest is shown.`
+                : `They share ${result.commonAncestors.length} ancestors from the same line — the closest is shown.`}
+            </p>
+          )}
+
+          <ConfidenceReasons reasons={result.confidence.reasons} />
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -983,6 +1092,13 @@ export function PersonInspector({
             </ul>
           </section>
         )}
+
+        <RelationshipCalculator
+          tree={tree}
+          personId={personId}
+          searchIndex={searchIndex}
+          onNavigate={onNavigate}
+        />
 
         {analysis && (
           <details

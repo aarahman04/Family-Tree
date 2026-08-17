@@ -593,4 +593,70 @@ describe("PersonInspector", () => {
     );
     expect(screen.getByText(/cousin-marriage chain/i)).toBeInTheDocument();
   });
+
+  it("answers how the selected person relates to any other person picked (S-1)", async () => {
+    const t = cousinTree();
+    render(
+      <PersonInspector
+        tree={t}
+        personId={idOf(t, "CousinA")}
+        searchIndex={buildSearchIndex(t)}
+        analysis={analyzeTree(t)}
+        onNavigate={vi.fn()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    const calc = screen.getByTestId("relationship-calculator");
+    await userEvent.click(within(calc).getByRole("button", { name: /pick someone to compare/i }));
+    await userEvent.type(within(calc).getByRole("textbox", { name: /compare with/i }), "Grandpa");
+    await userEvent.click(await within(calc).findByRole("button", { name: /^Grandpa$/ }));
+
+    const result = await screen.findByTestId("relationship-result");
+    // CousinA's grandparent — a direct line, not a cousin link.
+    expect(result).toHaveTextContent(/direct ancestor/i);
+  });
+
+  it("names a cousin link between two arbitrary people, with confidence (S-1)", async () => {
+    const t = cousinTree();
+    render(
+      <PersonInspector
+        tree={t}
+        personId={idOf(t, "CousinA")}
+        searchIndex={buildSearchIndex(t)}
+        analysis={analyzeTree(t)}
+        onNavigate={vi.fn()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    const calc = screen.getByTestId("relationship-calculator");
+    await userEvent.click(within(calc).getByRole("button", { name: /pick someone to compare/i }));
+    await userEvent.type(within(calc).getByRole("textbox", { name: /compare with/i }), "CousinB");
+    await userEvent.click(await within(calc).findByRole("button", { name: /^CousinB$/ }));
+
+    const result = await screen.findByTestId("relationship-result");
+    expect(result).toHaveTextContent(/first cousins/i);
+    expect(result.querySelector("[data-role='confidence-tag']")).toBeTruthy();
+  });
+
+  it("shows an estimated birth-year RANGE rather than a bare year (S-1 age estimation)", () => {
+    const t = cousinTree();
+    render(
+      <PersonInspector
+        tree={t}
+        personId={idOf(t, "CousinA")}
+        searchIndex={buildSearchIndex(t)}
+        analysis={analyzeTree(t, 2026)}
+        onNavigate={vi.fn()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    // No dates anywhere in this fixture, so nothing can be estimated and the panel must say so
+    // rather than inventing a window.
+    expect(screen.queryByTestId("birth-estimate")).toBeNull();
+  });
 });

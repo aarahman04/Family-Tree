@@ -39,10 +39,29 @@ export const MAX_PLAUSIBLE_GAP = 60;
 export const MIN_GAP_SAMPLES = 10;
 
 export interface BirthEstimate {
+  /** Point estimate — the midpoint of the range below. Never present this without the range. */
   year: number;
+  /** Conservative lower bound. Equals `year` only for a recorded birth year. */
+  earliest: number;
+  /** Conservative upper bound. */
+  latest: number;
   /** 0 = the person's own recorded birth year. Higher = more relatives away from a real date. */
   hops: number;
+  /** How much weight this individual estimate carries. */
+  confidence: EstimateConfidence;
 }
+
+export type EstimateConfidence = "confirmed" | "likely" | "possible" | "unknown";
+
+/**
+ * Years of slack added per hop away from a recorded date. Generation gaps in real families vary
+ * by well over a decade, so each inferred step widens the window rather than pretending the
+ * measured median applies exactly. Deliberately generous: a range that is too wide is honest,
+ * a range that is too narrow is wrong.
+ */
+const SLACK_PER_HOP_MEASURED = 8;
+/** Wider still when the gap itself was assumed rather than measured from this tree. */
+const SLACK_PER_HOP_ASSUMED = 14;
 
 export interface TreeTimeline {
   /** Median parent→child gap measured from this tree, or `DEFAULT_GENERATION_GAP`. */
@@ -56,10 +75,14 @@ export interface TreeTimeline {
   /** How many people carry a real recorded birth year. */
   recordedBirthCount: number;
   totalPeople: number;
-  /** Earliest birth year anywhere in the tree, recorded or estimated. */
+  /** Earliest birth year anywhere in the tree, recorded or estimated (midpoint). */
   earliestBirthYear?: number;
-  /** `now − earliestBirthYear`. */
+  /** The period the oldest known ancestor was most likely born in — a window, not a year. */
+  earliestBirthRange?: { from: number; to: number };
+  /** `now − earliestBirthYear` (midpoint). */
   treeAgeYears?: number;
+  /** How far back the tree reaches, as a range. */
+  treeAgeRange?: { min: number; max: number };
   /** Derived from the evidence, never asserted. */
   confidence: "high" | "medium" | "low";
 }
@@ -122,6 +145,7 @@ function measureGenerationGap(tree: FamilyTree): {
 function estimateBirthYears(
   tree: FamilyTree,
   gap: number,
+  slackPerHop: number,
 ): Map<UUID, BirthEstimate> {
   const estimates = new Map<UUID, BirthEstimate>();
   let frontier: UUID[] = [];
@@ -129,7 +153,13 @@ function estimateBirthYears(
   for (const person of Object.values(tree.persons)) {
     const year = person.birth?.date?.year;
     if (year !== undefined) {
-      estimates.set(person.id, { year, hops: 0 });
+      estimates.set(person.id, {
+        year,
+        earliest: year,
+        latest: year,
+        hops: 0,
+        confidence: "confirmed",
+      });
       frontier.push(person.id);
     }
   }
@@ -154,7 +184,16 @@ function estimateBirthYears(
       ];
       for (const [neighbourId, year] of neighbours) {
         if (!tree.persons[neighbourId] || estimates.has(neighbourId)) continue;
-        estimates.set(neighbourId, { year, hops });
+        // Slack accumulates with distance, so the window genuinely widens the further the
+        // estimate travels from real evidence.
+        const slack = slackPerHop * hops;
+        estimates.set(neighbourId, {
+          year,
+          earliest: year - slack,
+          latest: year + slack,
+          hops,
+          confidence: confidenceForHops(hops),
+        });
         next.push(neighbourId);
       }
     }
@@ -164,13 +203,22 @@ function estimateBirthYears(
   return estimates;
 }
 
+/** Past a few relatives from any real date, an estimate stops being worth quoting as a year. */
+function confidenceForHops(hops: number): EstimateConfidence {
+  if (hops === 0) return "confirmed";
+  if (hops <= 2) return "likely";
+  if (hops <= 4) return "possible";
+  return "unknown";
+}
+
 /** Whole-tree timeline analysis. */
 export function analyzeTimeline(
   tree: FamilyTree,
   now: number = new Date().getFullYear(),
 ): TreeTimeline {
   const { gap, sampleSize, isFallback } = measureGenerationGap(tree);
-  const birthYears = estimateBirthYears(tree, gap);
+  const slackPerHop = isFallback ? SLACK_PER_HOP_ASSUMED : SLACK_PER_HOP_MEASURED;
+  const birthYears = estimateBirthYears(tree, gap, slackPerHop);
 
   const people = Object.values(tree.persons);
   const totalPeople = people.length;
@@ -178,10 +226,16 @@ export function analyzeTimeline(
     (p) => p.birth?.date?.year !== undefined,
   ).length;
 
+  // The oldest ancestor is reported as the WINDOW around the earliest estimate, not a year: on a
+  // sparse tree the earliest person is usually many hops from any real date, and quoting their
+  // midpoint alone would be the most confident-looking number in the panel and the least earned.
   let earliestBirthYear: number | undefined;
-  for (const { year } of birthYears.values()) {
-    if (earliestBirthYear === undefined || year < earliestBirthYear)
-      earliestBirthYear = year;
+  let earliestBirthRange: { from: number; to: number } | undefined;
+  for (const estimate of birthYears.values()) {
+    if (earliestBirthYear === undefined || estimate.year < earliestBirthYear) {
+      earliestBirthYear = estimate.year;
+      earliestBirthRange = { from: estimate.earliest, to: estimate.latest };
+    }
   }
 
   // Confidence tracks how much of the answer is real data. Both inputs matter, but an assumed
@@ -204,8 +258,15 @@ export function analyzeTimeline(
     recordedBirthCount,
     totalPeople,
     earliestBirthYear,
+    earliestBirthRange,
     treeAgeYears:
       earliestBirthYear === undefined ? undefined : now - earliestBirthYear,
+    // An older earliest-birth means a LONGER span, so the range inverts: the oldest plausible
+    // birth gives the maximum age.
+    treeAgeRange:
+      earliestBirthRange === undefined
+        ? undefined
+        : { min: now - earliestBirthRange.to, max: now - earliestBirthRange.from },
     confidence,
   };
 }

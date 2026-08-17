@@ -4,6 +4,7 @@ import {
   type AncestorMap,
   computeAncestorMap,
   findCommonAncestors,
+  type CommonAncestor,
   isDirectLineage,
 } from "./ancestry.js";
 import {
@@ -40,6 +41,49 @@ export interface ParentsRelation extends CoupleRelation {
   motherId: UUID;
   /** True when the parents are related (cousins/siblings/avuncular). */
   related: boolean;
+}
+
+/**
+ * How ANY two people in the tree are related (S-1) — not just spouses or a child's two parents.
+ *
+ * Composes the same primitives `classifyCouple` uses, so the answer the calculator gives for a
+ * couple is by construction the answer the relationship panel gives: one classifier, one
+ * confidence rule, no second opinion to drift.
+ *
+ * Beyond `CoupleRelation` it reports the shared ancestors it found and whether more than one
+ * independent line leads to the link — full first cousins share two grandparents, and saying so
+ * is the difference between "you are cousins" and "you are cousins twice over".
+ */
+export interface PairRelation extends CoupleRelation {
+  aId: UUID;
+  bId: UUID;
+  /** Every shared ancestor, closest first. Empty when unrelated. */
+  commonAncestors: CommonAncestor[];
+  /** True when the pair are linked through more than one independent ancestral line. */
+  multiplePaths: boolean;
+}
+
+export function relatePair(
+  tree: FamilyTree,
+  aId: UUID,
+  bId: UUID,
+): PairRelation {
+  // An unknown id has no ancestry, so it simply comes back unrelated rather than throwing --
+  // the picker can be cleared or point at a person who was since removed.
+  const mapOf = makeMapCache(tree);
+  const base = classifyCouple(tree, aId, bId, mapOf);
+  const commonAncestors = findCommonAncestors(mapOf(aId), mapOf(bId)).sort(
+    (x, y) =>
+      Math.min(x.distA, x.distB) - Math.min(y.distA, y.distB) ||
+      Math.max(x.distA, x.distB) - Math.max(y.distA, y.distB),
+  );
+  return {
+    ...base,
+    aId,
+    bId,
+    commonAncestors,
+    multiplePaths: countIndependentLines(tree, commonAncestors) > 1,
+  };
 }
 
 /** A memoizer so a whole-tree pass computes each person's ancestor map exactly once. */

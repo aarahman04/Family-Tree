@@ -45,8 +45,8 @@ gap was assumed?           ${t.gapIsFallback}
 recorded birth years       ${t.recordedBirthCount} / ${t.totalPeople}
 estimated birth years      ${estimatedOnly}
 no date reachable at all   ${unreachable}
-earliest birth (est.)      ${t.earliestBirthYear}
-tree reaches back          ${t.treeAgeYears} years
+earliest birth (est.)      ${t.earliestBirthYear}  range ${t.earliestBirthRange?.from}-${t.earliestBirthRange?.to}
+tree reaches back          ${t.treeAgeYears} years  range ${t.treeAgeRange?.min}-${t.treeAgeRange?.max}
 confidence                 ${t.confidence}
 
 -- living/deceased @ cap 100 --
