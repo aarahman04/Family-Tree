@@ -8,6 +8,7 @@ import {
 import {
   classifyPair,
   countIndependentLines,
+  governingCommons,
 } from "../src/analysis/classify.js";
 import { buildNodeFtt, familyRow, personRow } from "./helpers.js";
 
@@ -58,8 +59,10 @@ describe("analysis/classify — classifyPair (pure)", () => {
   });
 
   it("labels multiple independent lines as Double/Triple", () => {
-    expect(classifyPair([ca(2, 2)], 2).label).toBe("Double first cousins");
-    expect(classifyPair([ca(2, 2)], 3).label).toBe("Triple first cousins");
+    // One shared ancestor cannot constitute two independent lines, so the commons list carries
+    // one entry per line — the shape real data produces.
+    expect(classifyPair([ca(2, 2), ca(2, 2)], 2).label).toBe("Double first cousins");
+    expect(classifyPair([ca(2, 2), ca(2, 2), ca(2, 2)], 3).label).toBe("Triple first cousins");
   });
 
   it("picks the CLOSEST common ancestor when several exist", () => {
@@ -174,5 +177,31 @@ describe("classifyPair — half vs full siblings", () => {
   it("defaults to full siblings when the shared-parent count is not supplied", () => {
     // Callers without the tree to hand keep the previous behaviour rather than guessing "half".
     expect(classifyPair([ca(1, 1)], 1).kind).toBe("siblings");
+  });
+});
+
+describe("classifyPair — 'double' requires two lines at the SAME distance", () => {
+  it("narrows the commons to the governing remove before lines are counted", () => {
+    // Real case from the 473-person tree: a couple shared one grandparent couple at (2,2) — first
+    // cousins — plus a second, more distant couple at (2,3). Counting lines over ALL commons
+    // reported "Double first cousins" for what are ordinary first cousins, because the further
+    // pair contributed a second line. governingCommons drops it before counting.
+    const narrowed = governingCommons([ca(2, 2), ca(2, 2), ca(2, 3), ca(3, 4)]);
+    expect(narrowed).toHaveLength(2);
+    for (const c of narrowed) {
+      expect(Math.min(c.distA, c.distB)).toBe(2);
+      expect(Math.max(c.distA, c.distB)).toBe(2);
+    }
+  });
+
+  it("returns nothing to govern when there are no shared ancestors", () => {
+    expect(governingCommons([])).toEqual([]);
+  });
+
+  it("still reports double first cousins when BOTH lines sit at the same distance", () => {
+    // Genuine double first cousins: two sibling pairs marrying, so both shared couples are at
+    // (2,2). This is the case the "Double" prefix exists for.
+    const r = classifyPair([ca(2, 2), ca(2, 2)], 2);
+    expect(r.label).toBe("Double first cousins");
   });
 });

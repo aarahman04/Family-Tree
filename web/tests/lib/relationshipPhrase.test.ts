@@ -89,3 +89,73 @@ describe("relationshipPhrase", () => {
     expect(relationshipPhrase(t, analyzeTree(t).marriages.get(famOf(t, "mid"))!)).toBeUndefined();
   });
 });
+
+describe("relationshipPhrase — once-removed links get familial framing", () => {
+  /**
+   * Real shape from the 473-person tree: the husband is a first cousin of the wife's PARENT.
+   * Genealogically that is "first cousins once removed"; in everyday family usage the elder side
+   * is called an uncle and the younger a niece, which is what a reader expects to see.
+   */
+  function onceRemoved(): FamilyTree {
+    return parseNodeFtt(
+      buildNodeFtt(
+        [
+          personRow({ id: 1, name: "OG", gender: 1 }),
+          personRow({ id: 2, name: "OGW", gender: 2 }),
+          personRow({ id: 3, name: "BranchA", famc: 100, gender: 1 }),
+          personRow({ id: 4, name: "BranchB", famc: 100, gender: 1 }),
+          personRow({ id: 5, name: "AW", gender: 2 }),
+          personRow({ id: 6, name: "BW", gender: 2 }),
+          personRow({ id: 7, name: "Uncle", famc: 101, gender: 1 }),
+          personRow({ id: 8, name: "Middle", famc: 102, gender: 1 }),
+          personRow({ id: 9, name: "MiddleW", gender: 2 }),
+          personRow({ id: 10, name: "Niece", famc: 103, gender: 2 }),
+        ],
+        [
+          familyRow({ id: 100, husband: 1, wife: 2 }),
+          familyRow({ id: 101, husband: 3, wife: 5 }),
+          familyRow({ id: 102, husband: 4, wife: 6 }),
+          familyRow({ id: 103, husband: 8, wife: 9 }),
+          familyRow({ id: 104, husband: 7, wife: 10 }),
+        ]
+      )
+    ).tree;
+  }
+
+  it("states the cousin degree AND the everyday familial reading", () => {
+    const t = onceRemoved();
+    const m = analyzeTree(t).marriages.get(famOf(t, "Uncle"))!;
+    expect(m.relation.removal).toBe(1); // genuinely once removed, not avuncular
+    const phrase = relationshipPhrase(t, m)!;
+    expect(phrase).toMatch(/once removed/i);
+    // The elder is male and a generation above, so everyday usage is uncle/niece.
+    expect(phrase).toMatch(/uncle|niece/i);
+  });
+
+  it("does not claim a plain first-cousin marriage is an uncle/niece one", () => {
+    const t = tree();
+    const cousins = parseNodeFtt(
+      buildNodeFtt(
+        [
+          personRow({ id: 1, name: "g1", gender: 1 }),
+          personRow({ id: 2, name: "g2", gender: 2 }),
+          personRow({ id: 3, name: "p1", famc: 10, gender: 1 }),
+          personRow({ id: 4, name: "p2", famc: 10, gender: 1 }),
+          personRow({ id: 5, name: "w1", gender: 2 }),
+          personRow({ id: 6, name: "w2", gender: 2 }),
+          personRow({ id: 7, name: "cX", famc: 20, gender: 1 }),
+          personRow({ id: 8, name: "cY", famc: 30, gender: 2 }),
+        ],
+        [
+          familyRow({ id: 10, husband: 1, wife: 2 }),
+          familyRow({ id: 20, husband: 3, wife: 5 }),
+          familyRow({ id: 30, husband: 4, wife: 6 }),
+          familyRow({ id: 40, husband: 7, wife: 8 }),
+        ]
+      )
+    ).tree;
+    const m = analyzeTree(cousins).marriages.get(famOf(cousins, "cX"))!;
+    expect(relationshipPhrase(cousins, m)).not.toMatch(/uncle|niece|nephew|aunt/i);
+    expect(t).toBeDefined();
+  });
+});

@@ -95,7 +95,11 @@ describe.skipIf(!SAMPLE_EXISTS)("Upload interactions", () => {
       },
       { timeout: 5000 }
     );
-  });
+    // The two waits above are allowed 5s EACH, but `it` was using vitest's 5s default for the
+    // whole test, so neither could ever spend its budget -- the test died at 5s regardless. That
+    // is the structural reason this flaked (AUD-10) rather than mere CPU contention, and it got
+    // worse once the real 473-person sample became available for it to parse.
+  }, 20000);
 
   it("supports clearing a selected file back to the empty drop zone", async () => {
     render(<App />);

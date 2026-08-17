@@ -11,6 +11,7 @@ import {
   type PairClass,
   classifyPair,
   countIndependentLines,
+  governingCommons,
 } from "./classify.js";
 import { type ConfidenceResult, classifyConfidence } from "./confidence.js";
 
@@ -125,7 +126,7 @@ export function relatePair(
     aId,
     bId,
     commonAncestors,
-    multiplePaths: countIndependentLines(tree, commonAncestors) > 1,
+    multiplePaths: countIndependentLines(tree, governingCommons(commonAncestors)) > 1,
   };
 }
 
@@ -172,9 +173,10 @@ function classifyCouple(
       label: "Direct ancestor / descendant",
     };
   } else {
+    // Lines are counted only among the ancestors at the governing remove -- see governingCommons.
     relation = classifyPair(
       commons,
-      countIndependentLines(tree, commons),
+      countIndependentLines(tree, governingCommons(commons)),
       sharedParentCount,
     );
   }
