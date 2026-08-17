@@ -355,6 +355,30 @@ describe("PersonInspector", () => {
     expect(screen.getByText(/chain: 1 generation deep/i)).toBeInTheDocument();
   });
 
+  it("shows the confidence audit trail (reasons[]) for a classified relationship (CP4.3)", () => {
+    const t = cousinTree();
+    const cousinA = idOf(t, "CousinA");
+    render(
+      <PersonInspector
+        tree={t}
+        personId={cousinA}
+        searchIndex={buildSearchIndex(t)}
+        analysis={analyzeTree(t)}
+        onNavigate={vi.fn()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    const marriages = analyzeTree(t).marriages;
+    const m = [...marriages.values()].find(
+      (m) => m.husbandId === cousinA || m.wifeId === cousinA
+    )!;
+    expect(m.confidence.reasons.length).toBeGreaterThan(0);
+    // CousinA also has a parentRel disclosure, so "Why?" appears more than once.
+    expect(screen.getAllByText("Why?").length).toBeGreaterThan(0);
+    expect(screen.getByText(m.confidence.reasons[0]!)).toBeInTheDocument();
+  });
+
   it("omits the relationship-intelligence section when no analysis is supplied", () => {
     const t = tree();
     const kid = idOf(t, "Kid");

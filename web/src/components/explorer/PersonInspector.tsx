@@ -63,6 +63,22 @@ function ConfidenceTag({ level }: { level: Confidence }) {
   );
 }
 
+/** Collapsed-by-default audit trail for why a classification was made (CP4.3, reasons[] from
+ * classifyConfidence). */
+function ConfidenceReasons({ reasons }: { reasons: string[] }) {
+  if (reasons.length === 0) return null;
+  return (
+    <details className="text-xs text-slate-500 dark:text-slate-400">
+      <summary className="cursor-pointer select-none">Why?</summary>
+      <ul className="ml-4 list-disc">
+        {reasons.map((reason, i) => (
+          <li key={i}>{reason}</li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 function RelationshipBadge({ label }: { label: string }) {
   return (
     <span className="inline-flex items-center rounded-full border border-blue-500 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:border-blue-500 dark:bg-blue-950/40 dark:text-blue-400">
@@ -834,6 +850,7 @@ export function PersonInspector({
                     )}
                   </p>
                 )}
+                <ConfidenceReasons reasons={parentRel.confidence.reasons} />
               </div>
             )}
 
@@ -855,6 +872,7 @@ export function PersonInspector({
                       {commonAncestorPath(tree, personId, spouseId, m.relation.closest.ancestorId)}
                     </p>
                   )}
+                  <ConfidenceReasons reasons={m.confidence.reasons} />
                 </div>
               );
             })}

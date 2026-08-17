@@ -191,6 +191,55 @@ export function InsightsPanel({ insights, analysis, tree }: InsightsPanelProps) 
             </Section>
           )}
 
+          {analysis && tree && (
+            <Section title="Data quality">
+              <Stat
+                label="Ancestry completeness"
+                value={`${analysis.summary.completenessPercent}%`}
+              />
+              {analysis.quality.duplicateSuspects.length > 0 && (
+                <Stat
+                  label="Duplicate suspects"
+                  value={String(analysis.quality.duplicateSuspects.length)}
+                />
+              )}
+              {analysis.quality.duplicateNameGroups.length > 0 && (
+                <Stat
+                  label="Duplicate names"
+                  value={String(analysis.quality.duplicateNameGroups.length)}
+                />
+              )}
+              {analysis.quality.incompleteRecords.length > 0 && (
+                <Stat
+                  label="Incomplete records"
+                  value={String(analysis.quality.incompleteRecords.length)}
+                />
+              )}
+              {analysis.quality.isolatedRecordIds.length > 0 && (
+                <Stat
+                  label="Isolated records"
+                  value={String(analysis.quality.isolatedRecordIds.length)}
+                />
+              )}
+              {analysis.quality.suspiciousLoops.length > 0 && (
+                <Stat
+                  label="Suspicious loops"
+                  value={String(analysis.quality.suspiciousLoops.length)}
+                />
+              )}
+              {(() => {
+                const lowConfidence = analysis.cousinMarriages.filter(
+                  (m) => m.confidence.level !== "confirmed"
+                ).length;
+                return (
+                  lowConfidence > 0 && (
+                    <Stat label="Low-confidence cousin marriages" value={String(lowConfidence)} />
+                  )
+                );
+              })()}
+            </Section>
+          )}
+
           <p className="text-[11px] text-slate-400 dark:text-slate-400">
             Figures marked{" "}
             <span className="font-semibold text-amber-700 dark:text-amber-300">est.</span> are
