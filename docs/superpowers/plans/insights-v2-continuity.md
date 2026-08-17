@@ -4,7 +4,7 @@
 
 - **Plan (immutable):** `docs/superpowers/plans/2026-08-16-family-tree-insights-v2.md`
 - **Source spec:** `family_tree_insight_phased_plan.md` (repo root)
-- **Last updated:** 2026-08-17 — **Phase 4 complete.** CP3.4/CP3.5 reviewed (grammar fix); CP4.1 (`analysis/quality.ts`) + CP4.2 (`analysis/completeness.ts`) built with TDD, reviewed, one confirmed bug fixed; CP4.3 (data-quality panel + confidence audit trail UI) built with TDD, reviewed, 2 Minor cleanups applied. Both-workspace gates green (root 301/301, web 231/231). A real, spec'd gap was found and flagged (not silently built around): `Confidence = "possible"` is still unreachable — see Known gaps below. Next: Phase 5 (CP5.1–5.9), starting with CP5.1's poster-renderer extension — **user flagged this one for explicit byte-identical-golden proof before it's marked done.**
+- **Last updated:** 2026-08-17 — **Phase 4 complete; CP5.1 done.** CP5.1 (`renderPosterSvg` + optional `PosterAnalytics` param) landed with an explicit byte-identical proof (SHA256, before/after, against the real 473-sample) confirmed by the user, then standalone-reviewed with zero findings. A pre-existing, unrelated non-determinism bug (photoCards mode at real scale) was discovered and recorded per user decision (defer, don't fix now). Both-workspace gates green (root 301/301, web 231/231). Known gap carried from Phase 4: `Confidence = "possible"` is still unreachable — see Known gaps below. Next: CP5.2+5.3 (cousin-loop coloring + branch-merge glyph, batchable per plan).
 
 ---
 
@@ -44,7 +44,8 @@ Legend: ⬜ not-started · 🟡 in-progress · 🔴 blocked/not-done · ✅ done
 | 4.1      | `analysis/quality.ts` data-quality soft insights      | ✅     | `81382e4` + review fix `ab3f67f` | Standalone review complete (Large): isolated-records false-positive confirmed by execution, fixed. Root gates green. Batched with 4.2.                                             |
 | 4.2      | `analysis/completeness.ts` per-person completeness    | ✅     | `81382e4`                    | Batched review with 4.1. Reuses `ancestryCompleteness`, no reimplementation. 1 Minor perf note in Known gaps below.                                                                 |
 | 4.3      | Data-quality panel / confidence tags / audit trail    | ✅     | `4272cab` + review `5bbca81` | Standalone review complete (user-facing): no correctness bugs, 2 Minor cleanups applied. "Confidence tags" deliverable was already shipped in CP2.7/2.8 — no new work needed there. |
-| 5.1–5.9  | Phase 5                                               | ⬜     | —                            | Not started.                                                                                                                                                                        |
+| 5.1      | `renderPosterSvg` + optional `PosterAnalytics` param  | ✅     | `77e2e5c`                    | Standalone review (touches poster/): **zero findings.** Byte-identical proof: SHA256 match on 3 synthetic fixtures + real 473-sample (default mode) before/after. Pre-existing photoCards-mode non-determinism discovered, confirmed unrelated, deferred per user decision. |
+| 5.2–5.9  | Remaining Phase 5                                     | ⬜     | —                            | Not started.                                                                                                                                                                        |
 
 **Refactor-merge gate (satisfied):** the repo-structure refactor **PR #11** (`refactor/repo-structure-src`) is **confirmed merged into `main`** (2026-08-16 13:43 UTC). `src/analysis/` is being created in its post-refactor final location on branch `feat/insights-v2` (off `main`, which also carries the PR #12 scroll fix).
 
