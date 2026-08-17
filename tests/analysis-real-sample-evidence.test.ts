@@ -53,6 +53,14 @@ confidence                 ${t.confidence}
 presumed living            ${living}
 presumed deceased          ${people.length - living}
 
+-- cousin marriage breakdown --
+by degree                  ${JSON.stringify(a.cousinBreakdown.byDegree)}
+once-removed or more       ${a.cousinBreakdown.onceRemoved}
+multi-generation chains    ${a.cousinBreakdown.multiGenerationChains}
+branches repeating         ${a.cousinBreakdown.branchesWithRepeats}
+pattern spans              ${a.cousinBreakdown.generationsSpanned} generations
+deepest chain              ${a.cousinBreakdown.deepestChain}
+
 -- relationships --
 total marriages            ${a.summary.totalMarriages}
 cousin marriages           ${a.summary.cousinMarriageCount} (${a.summary.cousinMarriagePercent}%)

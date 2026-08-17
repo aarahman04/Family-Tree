@@ -9,6 +9,7 @@ import { type PedigreeAnalysis, analyzePedigreeCollapse } from "./pedigree.js";
 import { type QualityAnalysis, analyzeQuality } from "./quality.js";
 import { type TreeTimeline, analyzeTimeline } from "./timeline.js";
 import { type GenerationAnalysis, analyzeGenerations } from "./generations.js";
+import { type CousinMarriageBreakdown, cousinMarriageBreakdown } from "./ancestralChain.js";
 
 /**
  * Public API of the relationship-analysis engine (Insights v2). `analyzeTree` is the single
@@ -29,6 +30,7 @@ export * from "./quality.js";
 export * from "./completeness.js";
 export * from "./timeline.js";
 export * from "./generations.js";
+export * from "./ancestralChain.js";
 export * from "./kinship.js";
 
 export interface TreeAnalysisSummary {
@@ -83,6 +85,8 @@ export interface TreeAnalysis {
   timeline: TreeTimeline;
   /** Per-generation people/marriage/cousin-marriage counts and the standout generations (S-3). */
   generations: GenerationAnalysis;
+  /** Cousin marriages split by degree, removal, and how far the pattern repeats. */
+  cousinBreakdown: CousinMarriageBreakdown;
   /** Headline counts for the insights panel/strip. */
   summary: TreeAnalysisSummary;
 }
@@ -118,6 +122,7 @@ export function analyzeTree(
   const generations = analyzeGenerations(tree, marriages);
   const pedigree = analyzePedigreeCollapse(tree);
   const branches = analyzeBranches(tree);
+  const cousinBreakdown = cousinMarriageBreakdown(marriages, chains, branches);
   const influence = analyzeInfluence(tree);
   const quality = analyzeQuality(tree);
   const completeness = analyzeCompleteness(tree);
@@ -135,6 +140,7 @@ export function analyzeTree(
     completeness,
     timeline,
     generations,
+    cousinBreakdown,
     summary: {
       totalMarriages,
       cousinMarriageCount,

@@ -313,6 +313,42 @@ export function InsightsPanel({ insights, analysis, tree }: InsightsPanelProps) 
                   value={`${analysis.summary.cousinMarriageCount} of ${analysis.summary.totalMarriages} (${analysis.summary.cousinMarriagePercent}%)`}
                 />
               )}
+              {/* A single "31 cousin marriages" figure flattens a tree of distant third-cousin
+                  ties and one where first cousins marry three generations running. */}
+              {Object.keys(analysis.cousinBreakdown.byDegree)
+                .map(Number)
+                .sort((a, b) => a - b)
+                .map((degree) => (
+                  <Stat
+                    key={degree}
+                    label={`${degree === 1 ? "First" : degree === 2 ? "Second" : degree === 3 ? "Third" : `${degree}th`}-cousin marriages`}
+                    value={String(analysis.cousinBreakdown.byDegree[degree])}
+                  />
+                ))}
+              {analysis.cousinBreakdown.onceRemoved > 0 && (
+                <Stat
+                  label="Of those, removed a generation"
+                  value={String(analysis.cousinBreakdown.onceRemoved)}
+                />
+              )}
+              {analysis.cousinBreakdown.multiGenerationChains > 0 && (
+                <Stat
+                  label="Multi-generation chains"
+                  value={String(analysis.cousinBreakdown.multiGenerationChains)}
+                />
+              )}
+              {analysis.cousinBreakdown.branchesWithRepeats > 0 && (
+                <Stat
+                  label="Branches marrying cousins more than once"
+                  value={String(analysis.cousinBreakdown.branchesWithRepeats)}
+                />
+              )}
+              {analysis.cousinBreakdown.generationsSpanned > 0 && (
+                <Stat
+                  label="Pattern spans"
+                  value={`${analysis.cousinBreakdown.generationsSpanned} generation${analysis.cousinBreakdown.generationsSpanned === 1 ? "" : "s"}`}
+                />
+              )}
               {analysis.summary.maxChainDepth > 0 && (
                 <Stat
                   label="Longest cousin-marriage chain"

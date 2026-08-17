@@ -40,8 +40,21 @@ describe("analysis/classify — classifyPair (pure)", () => {
     expect(classifyPair([ca(1, 2)], 1).kind).toBe("avuncular");
   });
 
-  it("collapses degree >= 4 to 'Distant cousins' (D-1)", () => {
-    expect(classifyPair([ca(5, 5)], 1).label).toBe("Distant cousins");
+  it("names cousin degrees beyond the third instead of collapsing them (D-19, supersedes D-1's label)", () => {
+    // D-1 originally collapsed everything past third cousins to "Distant cousins", which hides
+    // exactly the distinction a user tracing repeated cousin marriages is looking for. The
+    // DEPTH_CAP half of D-1 still stands; only the label collapse is replaced.
+    expect(classifyPair([ca(5, 5)], 1).label).toBe("Fourth cousins");
+    expect(classifyPair([ca(6, 6)], 1).label).toBe("Fifth cousins");
+    expect(classifyPair([ca(7, 7)], 1).label).toBe("Sixth cousins");
+  });
+
+  it("falls back to a numeric ordinal once the words run out", () => {
+    expect(classifyPair([ca(9, 9)], 1).label).toBe("8th cousins");
+  });
+
+  it("keeps the removal suffix on a deep degree", () => {
+    expect(classifyPair([ca(5, 6)], 1).label).toBe("Fourth cousins once removed");
   });
 
   it("labels multiple independent lines as Double/Triple", () => {

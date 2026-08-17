@@ -17,10 +17,11 @@ import {
   setPersonPhoto,
   updatePersonFields,
 } from "../../../../src/editor/operations.js";
-import { getRelationships } from "../../../../src/parser/relationships.js";
+import { fatherOf, getRelationships, motherOf } from "../../../../src/parser/relationships.js";
 import {
   DEPTH_CAP,
   ancestorPaths,
+  ancestralCousinMarriages,
   kinshipCoefficient,
   parentsRelated,
   relatePair,
@@ -376,6 +377,151 @@ function RelationshipCalculator({
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * Every cousin marriage standing above this person, not just their parents'.
+ *
+ * The old chain notice was a single number ("chain: 2 generations"), which says a pattern exists
+ * but not where or between whom. This lists each link in order with its degree, its shared
+ * ancestor and its confidence, so someone tracing their own line can actually read it.
+ */
+function AncestralChain({
+  tree,
+  personId,
+  analysis,
+  onNavigate,
+}: {
+  tree: FamilyTree;
+  personId: UUID;
+  analysis: TreeAnalysis;
+  onNavigate: (id: UUID) => void;
+}) {
+  const links = ancestralCousinMarriages(tree, personId, analysis.marriages);
+  if (links.length === 0) return null;
+
+  const label = (id: UUID) => tree.persons[id]?.name.trim() || "(no name)";
+  const generationName = (up: number) =>
+    up === 1 ? "Parents" : up === 2 ? "Grandparents" : `${"Great-".repeat(up - 2)}grandparents`;
+
+  return (
+    <section className="flex flex-col gap-2" data-testid="ancestral-chain">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+        Cousin marriages in their ancestry ({links.length})
+      </h4>
+      <ol aria-label="Cousin marriages in their ancestry" className="flex flex-col gap-1.5">
+        {links.map((link) => (
+          <li
+            key={link.familyId}
+            className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs dark:border-amber-900 dark:bg-amber-950/40"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <span className="font-medium text-amber-900 dark:text-amber-200">
+                {generationName(link.generationsUp)}
+              </span>
+              <ConfidenceTag level={link.confidence.level} />
+            </div>
+            <div className="mt-0.5 text-amber-900 dark:text-amber-200">
+              {[link.husbandId, link.wifeId].map((personRef, i) => (
+                <span key={personRef}>
+                  {i > 0 && <span className="opacity-60"> × </span>}
+                  <button
+                    type="button"
+                    onClick={() => onNavigate(personRef)}
+                    aria-label={`View ${label(personRef)}`}
+                    className="rounded underline-offset-2 hover:underline"
+                  >
+                    {label(personRef)}
+                  </button>
+                </span>
+              ))}
+              <span className="ml-1 opacity-80">— {link.relation.label}</span>
+            </div>
+            {link.relation.closest && (
+              <div className="mt-0.5 opacity-75">
+                <LineagePath
+                  tree={tree}
+                  aId={link.husbandId}
+                  bId={link.wifeId}
+                  ancestorId={link.relation.closest.ancestorId}
+                />
+              </div>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/**
+ * Why a cousin link might be missed for THIS person, stated where the answer is read.
+ *
+ * Cousin degree is a function of recorded depth: second cousins need three generations on both
+ * sides, third cousins four. On a sparse tree a silent "no cousin link" is indistinguishable from
+ * "not enough ancestry to find one" — on the reference tree every one of the 31 detected links is
+ * a FIRST-cousin link, not because deeper ties are absent but because the records stop too soon
+ * to see them. Saying so is the difference between an answer and a false negative.
+ */
+function DetectionLimits({
+  tree,
+  personId,
+  analysis,
+}: {
+  tree: FamilyTree;
+  personId: UUID;
+  analysis: TreeAnalysis;
+}) {
+  const notes: string[] = [];
+
+  const parentIds = [fatherOf(tree, personId), motherOf(tree, personId)].filter(
+    (id): id is UUID => !!id
+  );
+  const grandparentCount = parentIds
+    .flatMap((id) => [fatherOf(tree, id), motherOf(tree, id)])
+    .filter(Boolean).length;
+
+  if (parentIds.length === 0) {
+    notes.push("No parents are recorded, so no cousin link can be detected for them at all.");
+  } else if (parentIds.length === 1) {
+    notes.push("Only one parent is recorded — any link through the other side is invisible.");
+  }
+
+  if (parentIds.length > 0 && grandparentCount === 0) {
+    notes.push(
+      "No grandparents are recorded. First cousins need grandparents to detect, second cousins need great-grandparents."
+    );
+  } else if (grandparentCount > 0 && grandparentCount < 4) {
+    notes.push(
+      `${grandparentCount} of 4 grandparents recorded — links through the missing branches cannot be found.`
+    );
+  }
+
+  // A repeated name is the most common way a relationship path goes wrong: two different people
+  // merged in the reader's head, or in the data.
+  const duplicateName = analysis.quality.duplicateNameGroups.find((group) =>
+    group.personIds.includes(personId)
+  );
+  if (duplicateName) {
+    notes.push(
+      `Their name appears ${duplicateName.personIds.length} times in this tree — check the path follows the right person.`
+    );
+  }
+
+  if (notes.length === 0) return null;
+  return (
+    <div
+      data-testid="detection-limits"
+      className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
+    >
+      <p className="font-medium">Why a link might be missed</p>
+      <ul className="mt-1 list-disc space-y-0.5 pl-4">
+        {notes.map((note) => (
+          <li key={note}>{note}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -1158,21 +1304,20 @@ export function PersonInspector({
               )}
             </section>
 
-            {chain && (chain.ancestralChainDepth > 0 || chain.continuesInDescendants) && (
-              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-                {chain.ancestralChainDepth > 0 && (
-                  <>
-                    <strong className="font-semibold">
-                      Cousin-marriage chain: {chain.ancestralChainDepth} generation
-                      {chain.ancestralChainDepth === 1 ? "" : "s"}
-                    </strong>
-                    {chain.ancestralChainDepth >= 2
-                      ? " — this marriage and the generations above it are all cousin marriages."
-                      : " — the parents of this person married a relative."}
-                  </>
-                )}
-                {chain.ancestralChainDepth > 0 && chain.continuesInDescendants && " "}
-                {chain.continuesInDescendants && "The pattern continues in their descendants."}
+            {analysis && (
+              <AncestralChain
+                tree={tree}
+                personId={personId}
+                analysis={analysis}
+                onNavigate={onNavigate}
+              />
+            )}
+
+            {analysis && <DetectionLimits tree={tree} personId={personId} analysis={analysis} />}
+
+            {chain?.continuesInDescendants && (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                The pattern continues in their descendants.
               </p>
             )}
           </details>

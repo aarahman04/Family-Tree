@@ -355,7 +355,10 @@ describe("PersonInspector", () => {
     );
     expect(screen.getAllByText(/first cousins/i).length).toBeGreaterThan(0);
     expect(screen.getByText("Parents Related")).toBeInTheDocument();
-    expect(screen.getByText(/cousin-marriage chain: 1 generation/i)).toBeInTheDocument();
+    // The chain is now a LIST of the actual links, not a bare depth number.
+    const chain = screen.getByTestId("ancestral-chain");
+    expect(chain).toHaveTextContent(/parents/i);
+    expect(chain).toHaveTextContent(/first cousins/i);
   });
 
   it("shows the confidence audit trail (reasons[]) for a classified relationship (CP4.3)", () => {
@@ -591,7 +594,8 @@ describe("PersonInspector", () => {
         onClose={vi.fn()}
       />
     );
-    expect(screen.getByText(/cousin-marriage chain/i)).toBeInTheDocument();
+    const chain = screen.getByTestId("ancestral-chain");
+    expect(within(chain).getAllByRole("listitem").length).toBeGreaterThanOrEqual(1);
   });
 
   it("answers how the selected person relates to any other person picked (S-1)", async () => {
@@ -658,5 +662,24 @@ describe("PersonInspector", () => {
     // No dates anywhere in this fixture, so nothing can be estimated and the panel must say so
     // rather than inventing a window.
     expect(screen.queryByTestId("birth-estimate")).toBeNull();
+  });
+
+  it("explains WHY a cousin link might be missed instead of silently reporting none (data quality)", () => {
+    const t = cousinTree();
+    render(
+      <PersonInspector
+        tree={t}
+        personId={idOf(t, "DadA")}
+        searchIndex={buildSearchIndex(t)}
+        analysis={analyzeTree(t)}
+        onNavigate={vi.fn()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    // DadA has parents but no grandparents on file — second-cousin links are undetectable for
+    // him, and a bare "no cousin link" would read as a finding rather than a gap.
+    const limits = screen.getByTestId("detection-limits");
+    expect(limits).toHaveTextContent(/grandparent/i);
   });
 });
