@@ -66,6 +66,23 @@ function removalSuffix(removal: number): string {
   return ` ${removal} times removed`;
 }
 
+/**
+ * The shared ancestors sitting at the SAME remove as the closest one — the line(s) that actually
+ * govern the label. Anything further away describes a different, weaker connection and must not
+ * feed the Double/Triple prefix: on the real tree a couple shared one grandparent couple at (2,2)
+ * and another, more distant couple at (2,3), and counting both produced "Double first cousins"
+ * for what are ordinary first cousins.
+ */
+export function governingCommons(commons: CommonAncestor[]): CommonAncestor[] {
+  const closest = closestOf(commons);
+  if (!closest) return [];
+  const m = Math.min(closest.distA, closest.distB);
+  const M = Math.max(closest.distA, closest.distB);
+  return commons.filter(
+    (c) => Math.min(c.distA, c.distB) === m && Math.max(c.distA, c.distB) === M,
+  );
+}
+
 /** Pick the closest common ancestor: smallest min-distance, tie-broken by smallest max-distance. */
 function closestOf(commons: CommonAncestor[]): CommonAncestor | null {
   let best: CommonAncestor | null = null;
@@ -136,6 +153,9 @@ export function classifyPair(
 
   const cousinDegree = m - 1;
   const removal = M - m;
+  // "Double"/"Triple" describes two or more shared LINES at the same remove. Callers pass `lines`
+  // counted over `governingCommons` only, so a further-away connection cannot inflate the prefix,
+  // and a shared parent COUPLE still counts as the single line D-3 says it is.
   const prefix = MULTIPLICITY[lines] ?? "";
   const base = `${ordinal(cousinDegree)} cousins`;
   // "Double"/"Triple" reads naturally only on a lowercased ordinal ("Double first cousins").

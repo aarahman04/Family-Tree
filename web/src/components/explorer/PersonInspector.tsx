@@ -34,6 +34,7 @@ import { isAcceptedPhotoType, processImageFile } from "../../lib/photo.js";
 import { photoAlt, resolvePhoto } from "../../lib/resolvePhoto.js";
 import type { SearchIndex } from "../../lib/search.js";
 import { PersonPicker } from "./PersonPicker.js";
+import { relationshipPhrase } from "../../lib/relationshipPhrase.js";
 
 interface PersonInspectorProps {
   tree: FamilyTree;
@@ -249,7 +250,12 @@ function RelationshipCard({
         <ConfidenceTag level={rel.confidence.level} />
       </div>
 
-      <p className="text-sm text-slate-700 dark:text-slate-300">{relationSummary(rel)}</p>
+      {/* Plain language first: "married their niece" beats "Aunt/uncle – niece/nephew", and it
+          is the same producer the marriages panel uses, so the two cannot disagree. */}
+      <p className="text-sm text-slate-700 dark:text-slate-300">
+        {("familyId" in rel ? relationshipPhrase(tree, rel as MarriageAnalysis) : undefined) ??
+          relationSummary(rel)}
+      </p>
 
       {isCousinLink && (
         <p
@@ -437,6 +443,9 @@ function AncestralChain({
                 </span>
               ))}
               <span className="ml-1 opacity-80">— {link.relation.label}</span>
+              {link.relation.removal !== undefined && link.relation.removal > 0 && (
+                <span className="ml-1 opacity-70">(a generation apart)</span>
+              )}
             </div>
             {link.relation.closest && (
               <div className="mt-0.5 opacity-75">
