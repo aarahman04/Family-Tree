@@ -11,7 +11,14 @@
 
 import type { UUID } from "../models/types.js";
 import { photoAreaHeight, CARD_DIVIDER_GAP, PHOTO_TOP_PAD } from "./boxSizing.js";
-import type { PosterChip, PosterLayout, PosterNode, PosterPageSize, PosterStyleOptions } from "./types.js";
+import type {
+  PosterAnalytics,
+  PosterChip,
+  PosterLayout,
+  PosterNode,
+  PosterPageSize,
+  PosterStyleOptions,
+} from "./types.js";
 
 function escapeXml(text: string): string {
   return text
@@ -333,6 +340,9 @@ export function renderPosterSvg(
   page: PosterPageSize,
   style: PosterStyleOptions,
   photos?: ReadonlyMap<UUID, string>,
+  // CP5.1: threaded through for CP5.2-5.8 to consume. Intentionally unread here -- with
+  // `analytics` absent (or present but ignored, same as today), output stays byte-identical.
+  _analytics?: PosterAnalytics,
 ): string {
   const offsetX = style.marginPt;
   const offsetY = style.marginPt;

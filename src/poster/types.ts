@@ -153,6 +153,34 @@ export const DEFAULT_POSTER_STYLE: PosterStyleOptions = {
  * jsPDF silently clamps to this and would otherwise clip content. See pageSize.ts. */
 export const PDF_MAX_DIMENSION_PT = 14400;
 
+/**
+ * Optional analysis overlay for `renderPosterSvg` (Phase 5, CP5.1). Threading this through is
+ * purely additive: every consumer (CP5.2-5.8) looks up entries defensively (a missing family/node
+ * id means "no overlay"), and `renderPosterSvg` with `analytics` omitted entirely must produce
+ * byte-identical output to before this type existed -- CP5.1's own contract, proven against the
+ * existing `poster-render`/`poster-layout` test suites plus the real 473-person sample.
+ */
+export interface PosterFamilyAnalytics {
+  /** Cousin-marriage classification token (e.g. "first-cousins") for chip/connector styling. */
+  className?: string;
+  /** Stroke/fill override for this family's marriage connector or chip. */
+  color?: string;
+}
+
+export interface PosterNodeAnalytics {
+  /** Badge glyphs rendered via the `renderCardExtras` extension point. */
+  badges?: string[];
+  /** Card background tint override. */
+  tint?: string;
+}
+
+export interface PosterAnalytics {
+  byFamily?: ReadonlyMap<UUID, PosterFamilyAnalytics>;
+  byNode?: ReadonlyMap<UUID, PosterNodeAnalytics>;
+  /** Whole-poster overlay toggles, e.g. generation bands. */
+  showGenerationBands?: boolean;
+}
+
 export interface PosterPageSize {
   /** The tree's true required size -- never capped, whatever it takes to keep names
    * readable. This is exactly what the SVG export uses. */
