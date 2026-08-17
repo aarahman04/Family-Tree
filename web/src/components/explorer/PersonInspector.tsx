@@ -905,11 +905,26 @@ export function PersonInspector({
             <select
               value={draft.gender}
               onChange={(e) => updateDraft({ gender: e.target.value as Gender })}
-              className="rounded border border-slate-500 px-2 py-1 text-sm font-normal dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400"
+              // Light-mode bg/text stated explicitly, and repeated on each <option>: a select
+              // styled only for dark mode leaves its popup list to the platform default, which
+              // is where unreadable white-on-white options come from.
+              className="rounded border border-slate-500 bg-white px-2 py-1 text-sm font-normal text-slate-900 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100"
             >
-              <option value="unknown">Unknown</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
+              {(
+                [
+                  ["unknown", "Unknown"],
+                  ["male", "Male"],
+                  ["female", "Female"],
+                ] as const
+              ).map(([value, optionLabel]) => (
+                <option
+                  key={value}
+                  value={value}
+                  className="bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100"
+                >
+                  {optionLabel}
+                </option>
+              ))}
             </select>
           </label>
 

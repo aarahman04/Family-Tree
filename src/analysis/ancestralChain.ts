@@ -103,9 +103,18 @@ export interface CousinMarriageBreakdown {
   generationsSpanned: number;
   /** Distinct ancestral lines that contain more than one cousin marriage. */
   branchesWithRepeats: number;
+  /** Marriages between an aunt/uncle and their niece/nephew — a closer tie than any cousin link. */
+  avuncularTotal: number;
+  /** Of those, the elder spouse is male (an uncle married his niece). */
+  uncleNiece: number;
+  /** Of those, the elder spouse is female (an aunt married her nephew). */
+  auntNephew: number;
+  /** Branches containing more than one avuncular marriage. */
+  branchesWithAvuncularRepeats: number;
 }
 
 export function cousinMarriageBreakdown(
+  tree: FamilyTree,
   marriages: Map<UUID, MarriageAnalysis>,
   chains: CousinChains,
   branches: BranchAnalysis,
@@ -155,9 +164,37 @@ export function cousinMarriageBreakdown(
     if (count >= 2) branchesWithRepeats += 1;
   }
 
+  // Aunt/uncle marriages are a closer tie than any cousin link and were previously invisible:
+  // `isCousinMarriage` is false for them, so they fell out of every count. Direction comes from
+  // the elder spouse's gender -- an uncle marries a niece, an aunt marries a nephew.
+  let avuncularTotal = 0;
+  let uncleNiece = 0;
+  let auntNephew = 0;
+  const avuncularSpouses: Array<[UUID, UUID]> = [];
+  for (const m of marriages.values()) {
+    if (m.category !== "avuncular") continue;
+    avuncularTotal += 1;
+    avuncularSpouses.push([m.husbandId, m.wifeId]);
+    const elder = m.elderId ? tree.persons[m.elderId] : undefined;
+    if (elder?.gender === "male") uncleNiece += 1;
+    else if (elder?.gender === "female") auntNephew += 1;
+  }
+
+  let branchesWithAvuncularRepeats = 0;
+  for (const branch of branches.branches) {
+    const hits = avuncularSpouses.filter(
+      ([h, w]) => branch.memberIds.has(h) || branch.memberIds.has(w),
+    ).length;
+    if (hits >= 2) branchesWithAvuncularRepeats += 1;
+  }
+
   return {
     total,
     byDegree,
+    avuncularTotal,
+    uncleNiece,
+    auntNephew,
+    branchesWithAvuncularRepeats,
     onceRemoved,
     multiGenerationChains,
     deepestChain: chains.maxChainDepth,

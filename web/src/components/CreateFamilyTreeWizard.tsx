@@ -8,7 +8,7 @@ interface CreateFamilyTreeWizardProps {
 }
 
 const inputClass =
-  "w-full rounded-md border border-slate-500 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400";
+  "w-full rounded-md border border-slate-500 bg-white px-3 py-2 text-sm text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400";
 const labelClass = "block text-sm font-medium text-slate-700 dark:text-slate-300";
 
 /**
@@ -142,9 +142,23 @@ export function CreateFamilyTreeWizard({ onCreated, onCancel }: CreateFamilyTree
               value={gender}
               onChange={(e) => setGender(e.target.value as Gender)}
             >
-              <option value="unknown">Unspecified</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
+              {/* Options repeat the colours: a select's popup list otherwise falls back to the
+                  platform default and can render unreadable in dark mode. */}
+              {(
+                [
+                  ["unknown", "Unspecified"],
+                  ["male", "Male"],
+                  ["female", "Female"],
+                ] as const
+              ).map(([value, optionLabel]) => (
+                <option
+                  key={value}
+                  value={value}
+                  className="bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100"
+                >
+                  {optionLabel}
+                </option>
+              ))}
             </select>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

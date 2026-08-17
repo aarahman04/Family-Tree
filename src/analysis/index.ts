@@ -122,7 +122,7 @@ export function analyzeTree(
   const generations = analyzeGenerations(tree, marriages);
   const pedigree = analyzePedigreeCollapse(tree);
   const branches = analyzeBranches(tree);
-  const cousinBreakdown = cousinMarriageBreakdown(marriages, chains, branches);
+  const cousinBreakdown = cousinMarriageBreakdown(tree, marriages, chains, branches);
   const influence = analyzeInfluence(tree);
   const quality = analyzeQuality(tree);
   const completeness = analyzeCompleteness(tree);

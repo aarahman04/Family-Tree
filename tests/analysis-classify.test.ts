@@ -156,3 +156,23 @@ describe("analysis/classify — countIndependentLines (needs tree)", () => {
     ).toBe("Double first cousins");
   });
 });
+
+describe("classifyPair — half vs full siblings", () => {
+  it("calls two people sharing BOTH parents full siblings", () => {
+    expect(classifyPair([ca(1, 1), ca(1, 1)], 1, 2).label).toBe("Siblings");
+    expect(classifyPair([ca(1, 1), ca(1, 1)], 1, 2).kind).toBe("siblings");
+  });
+
+  it("calls two people sharing ONE parent half-siblings", () => {
+    // Half-siblings are a materially different relationship — half the shared ancestry — and the
+    // old classifier reported both as plain "Siblings".
+    const r = classifyPair([ca(1, 1)], 1, 1);
+    expect(r.kind).toBe("half-siblings");
+    expect(r.label).toBe("Half-siblings");
+  });
+
+  it("defaults to full siblings when the shared-parent count is not supplied", () => {
+    // Callers without the tree to hand keep the previous behaviour rather than guessing "half".
+    expect(classifyPair([ca(1, 1)], 1).kind).toBe("siblings");
+  });
+});

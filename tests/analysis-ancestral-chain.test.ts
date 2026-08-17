@@ -131,6 +131,7 @@ describe("cousinMarriageBreakdown", () => {
   it("counts marriages by cousin degree and by removal", () => {
     const t = stackedChain();
     const b = cousinMarriageBreakdown(
+      t,
       classifyAllMarriages(t),
       analyzeCousinChains(t, classifyAllMarriages(t)),
       analyzeBranches(t),
@@ -145,7 +146,7 @@ describe("cousinMarriageBreakdown", () => {
   it("counts how many multi-generation chains exist and how deep the deepest runs", () => {
     const t = stackedChain();
     const marriages = classifyAllMarriages(t);
-    const b = cousinMarriageBreakdown(marriages, analyzeCousinChains(t, marriages), analyzeBranches(t));
+    const b = cousinMarriageBreakdown(t, marriages, analyzeCousinChains(t, marriages), analyzeBranches(t));
 
     expect(b.deepestChain).toBe(2);
     expect(b.multiGenerationChains).toBe(1);
@@ -163,11 +164,53 @@ describe("cousinMarriageBreakdown", () => {
       ),
     ).tree;
     const marriages = classifyAllMarriages(t);
-    const b = cousinMarriageBreakdown(marriages, analyzeCousinChains(t, marriages), analyzeBranches(t));
+    const b = cousinMarriageBreakdown(t, marriages, analyzeCousinChains(t, marriages), analyzeBranches(t));
 
     expect(b.total).toBe(0);
     expect(b.deepestChain).toBe(0);
     expect(b.multiGenerationChains).toBe(0);
     expect(b.branchesWithRepeats).toBe(0);
+  });
+});
+
+/** An uncle marrying his niece: gpa/gma -> uncle & mid; mid -> niece; uncle x niece. */
+function avuncularMarriage(): FamilyTree {
+  return parseNodeFtt(
+    buildNodeFtt(
+      [
+        personRow({ id: 1, name: "gpa", gender: 1 }),
+        personRow({ id: 2, name: "gma", gender: 2 }),
+        personRow({ id: 3, name: "uncle", famc: 100, gender: 1 }),
+        personRow({ id: 4, name: "mid", famc: 100, gender: 1 }),
+        personRow({ id: 5, name: "midWife", gender: 2 }),
+        personRow({ id: 6, name: "niece", famc: 101, gender: 2 }),
+      ],
+      [
+        familyRow({ id: 100, husband: 1, wife: 2 }),
+        familyRow({ id: 101, husband: 4, wife: 5 }),
+        familyRow({ id: 102, husband: 3, wife: 6 }), // uncle x niece
+      ]
+    )
+  ).tree;
+}
+
+describe("cousinMarriageBreakdown — avuncular marriages", () => {
+  it("counts a marriage to a niece separately from cousin marriages", () => {
+    const t = avuncularMarriage();
+    const marriages = classifyAllMarriages(t);
+    const b = cousinMarriageBreakdown(t, marriages, analyzeCousinChains(t, marriages), analyzeBranches(t));
+
+    expect(b.total).toBe(0); // it is not a cousin marriage
+    expect(b.avuncularTotal).toBe(1);
+    // The elder is male, so this is an uncle marrying his niece — not an aunt/nephew union.
+    expect(b.uncleNiece).toBe(1);
+    expect(b.auntNephew).toBe(0);
+  });
+
+  it("reports zero avuncular marriages when there are none", () => {
+    const t = stackedChain();
+    const marriages = classifyAllMarriages(t);
+    const b = cousinMarriageBreakdown(t, marriages, analyzeCousinChains(t, marriages), analyzeBranches(t));
+    expect(b.avuncularTotal).toBe(0);
   });
 });

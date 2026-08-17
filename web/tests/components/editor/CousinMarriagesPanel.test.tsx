@@ -52,7 +52,7 @@ function renderPanel(t: FamilyTree, onSelect = vi.fn()) {
 describe("CousinMarriagesPanel", () => {
   it("is collapsed until opened, matching the Export panel pattern", async () => {
     renderPanel(cousinTree());
-    const toggle = screen.getByRole("button", { name: /all cousin marriages/i });
+    const toggle = screen.getByRole("button", { name: /all marriages between relatives/i });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
 
     await userEvent.click(toggle);
@@ -61,25 +61,29 @@ describe("CousinMarriagesPanel", () => {
 
   it("shows the count of cousin marriages on the header without being opened", () => {
     renderPanel(cousinTree());
-    expect(screen.getByRole("button", { name: /all cousin marriages/i })).toHaveTextContent("1");
+    expect(
+      screen.getByRole("button", { name: /all marriages between relatives/i })
+    ).toHaveTextContent("1");
   });
 
   it("lists every cousin marriage with both names and its degree", async () => {
     renderPanel(cousinTree());
-    await userEvent.click(screen.getByRole("button", { name: /all cousin marriages/i }));
+    await userEvent.click(screen.getByRole("button", { name: /all marriages between relatives/i }));
 
-    const list = screen.getByRole("list", { name: /cousin marriages/i });
+    const list = screen.getByRole("list", { name: /^cousin marriages$/i });
     const rows = within(list).getAllByRole("listitem");
     expect(rows).toHaveLength(1);
     expect(rows[0]).toHaveTextContent(/CousinA/);
     expect(rows[0]).toHaveTextContent(/CousinB/);
-    expect(rows[0]).toHaveTextContent(/first cousins/i);
+    // Rows now read as plain language ("This is a first cousin marriage.") rather than the
+    // bare classifier label.
+    expect(rows[0]).toHaveTextContent(/first cousin marriage/i);
   });
 
   it("selects the person when their name is clicked", async () => {
     const t = cousinTree();
     const onSelect = renderPanel(t);
-    await userEvent.click(screen.getByRole("button", { name: /all cousin marriages/i }));
+    await userEvent.click(screen.getByRole("button", { name: /all marriages between relatives/i }));
 
     await userEvent.click(screen.getByRole("button", { name: /view cousina/i }));
     expect(onSelect).toHaveBeenCalledWith(idOf(t, "CousinA"));
@@ -87,8 +91,8 @@ describe("CousinMarriagesPanel", () => {
 
   it("says so plainly when the tree has no cousin marriages at all", async () => {
     renderPanel(noCousinTree());
-    await userEvent.click(screen.getByRole("button", { name: /all cousin marriages/i }));
-    expect(screen.getByText(/no cousin marriages/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /all marriages between relatives/i }));
+    expect(screen.getByText(/no marriages between relatives/i)).toBeInTheDocument();
   });
 
   it("renders a multi-generation run as one chain, oldest generation first", async () => {
@@ -129,12 +133,67 @@ describe("CousinMarriagesPanel", () => {
     expect(analysis.chains.maxChainDepth).toBe(2); // fixture really does exercise a run
 
     render(<CousinMarriagesPanel tree={deep} analysis={analysis} onSelect={vi.fn()} />);
-    await userEvent.click(screen.getByRole("button", { name: /all cousin marriages/i }));
+    await userEvent.click(screen.getByRole("button", { name: /all marriages between relatives/i }));
 
     const chain = screen.getByRole("list", { name: /longest chain/i });
     const steps = within(chain).getAllByRole("listitem");
     expect(steps).toHaveLength(2);
     expect(steps[0]).toHaveTextContent(/Ali/); // oldest generation first
     expect(steps[1]).toHaveTextContent(/Hassan/);
+  });
+});
+
+describe("CousinMarriagesPanel — filtering and recency", () => {
+  it("offers a themed category filter whose options carry explicit colours in both modes", async () => {
+    const { container } = render(
+      <CousinMarriagesPanel
+        tree={cousinTree()}
+        analysis={analyzeTree(cousinTree(), 2026)}
+        onSelect={vi.fn()}
+      />
+    );
+    await userEvent.click(screen.getByRole("button", { name: /all marriages between relatives/i }));
+
+    const select = container.querySelector("select")!;
+    // The white-on-white bug came from a select styled for one theme only.
+    expect(select.className).toMatch(/(^|\s)bg-white(\s|$)/);
+    expect(select.className).toMatch(/dark:bg-/);
+    expect(select.className).toMatch(/(^|\s)text-slate-900(\s|$)/);
+    expect(select.className).toMatch(/dark:text-/);
+    for (const option of select.querySelectorAll("option")) {
+      expect(option.className).toMatch(/bg-white/);
+      expect(option.className).toMatch(/dark:bg-/);
+    }
+  });
+
+  it("narrows the list to the chosen category", async () => {
+    const t = cousinTree();
+    render(<CousinMarriagesPanel tree={t} analysis={analyzeTree(t, 2026)} onSelect={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: /all marriages between relatives/i }));
+
+    const list = () => screen.getByRole("list", { name: /^cousin marriages$/i });
+    expect(within(list()).getAllByRole("listitem").length).toBeGreaterThan(0);
+
+    // No aunt/uncle marriages in this fixture, so that filter must empty the list.
+    await userEvent.selectOptions(screen.getByLabelText(/show/i), "avuncular");
+    expect(within(list()).queryAllByRole("listitem")).toHaveLength(0);
+  });
+
+  it("labels the recency ordering as estimated, since marriage dates are not recorded", async () => {
+    const t = cousinTree();
+    render(<CousinMarriagesPanel tree={t} analysis={analyzeTree(t, 2026)} onSelect={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: /all marriages between relatives/i }));
+
+    await userEvent.click(screen.getByLabelText(/most recent first/i));
+    expect(
+      screen.getByText(/deeper means nearer the present, not a known date/i)
+    ).toBeInTheDocument();
+  });
+
+  it("describes a cousin marriage in plain language rather than a bare classifier label", async () => {
+    const t = cousinTree();
+    render(<CousinMarriagesPanel tree={t} analysis={analyzeTree(t, 2026)} onSelect={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: /all marriages between relatives/i }));
+    expect(screen.getByText(/this is a first cousin marriage/i)).toBeInTheDocument();
   });
 });

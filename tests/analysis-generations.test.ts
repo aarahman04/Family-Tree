@@ -45,6 +45,7 @@ function marriagesMarking(t: FamilyTree, cousinFamilyIds: UUID[]) {
       husbandId: fam.husbandId,
       wifeId: fam.wifeId,
       isCousinMarriage: isCousin,
+      category: isCousin ? ("cousins" as const) : ("unrelated" as const),
       sharesCommonAncestor: isCousin,
       relation: {
         kind: isCousin ? "cousins" : "unrelated",

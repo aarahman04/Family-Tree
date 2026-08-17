@@ -12,6 +12,7 @@ export type RelKind =
   | "self"
   | "direct-lineage"
   | "siblings"
+  | "half-siblings"
   | "avuncular"
   | "cousins"
   | "unrelated";
@@ -93,6 +94,13 @@ function closestOf(commons: CommonAncestor[]): CommonAncestor | null {
 export function classifyPair(
   commons: CommonAncestor[],
   lines: number,
+  /**
+   * How many PARENTS the two people share. Only meaningful for a sibling-distance pair, where it
+   * separates full siblings from half-siblings -- a materially different relationship that
+   * `lines` cannot express, since D-3 counts a shared parent COUPLE as a single line either way.
+   * Callers without the tree to hand omit it and keep the previous full-sibling reading.
+   */
+  sharedParentCount?: number,
 ): PairClass {
   const closest = closestOf(commons);
   if (!closest)
@@ -113,8 +121,11 @@ export function classifyPair(
       closest,
       label: "Direct ancestor / descendant",
     };
-  if (m === 1 && M === 1)
-    return { kind: "siblings", lines, closest, label: "Siblings" };
+  if (m === 1 && M === 1) {
+    return sharedParentCount === 1
+      ? { kind: "half-siblings", lines, closest, label: "Half-siblings" }
+      : { kind: "siblings", lines, closest, label: "Siblings" };
+  }
   if (m === 1)
     return {
       kind: "avuncular",
