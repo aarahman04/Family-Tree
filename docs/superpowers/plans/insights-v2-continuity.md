@@ -4,7 +4,7 @@
 
 - **Plan (immutable):** `docs/superpowers/plans/2026-08-16-family-tree-insights-v2.md`
 - **Source spec:** `family_tree_insight_phased_plan.md` (repo root)
-- **Last updated:** 2026-08-17 — after repository handoff verification: local CP2.7–CP3.5 work pushed to origin; CP3.2/CP3.3 marked blocked on two unfixed Critical review findings.
+- **Last updated:** 2026-08-17 — CP3.2/CP3.3 Critical review findings **fixed** (`0cd7307`): `ownedChildrenOf` now walks past the root edge through a spouse's family when that spouse has recorded parents (daughter/wife-mediated descent no longer severed); `mostInfluentialAncestor` ties now resolve via the `husbandId`-preference convention instead of UUID order. Fixture coverage added for both failure modes; both-workspace gates green (root 288/288, web 228/228). CP3.2/CP3.3 now ✅.
 
 ---
 
@@ -24,24 +24,24 @@
 
 Legend: ⬜ not-started · 🟡 in-progress · 🔴 blocked/not-done · ✅ done
 
-| CP                     | Deliverable                                           | Status | Landing SHA / PR             | Notes                                                                                                                                   |
-| ---------------------- | ----------------------------------------------------- | ------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| **1.1**                | Audit `insights.ts` vs spec §3A; coverage note        | ✅     | (doc-only; no source change) | See "CP1.1 coverage note" below — **full coverage, nothing to build**                                                                   |
-| 2.1                    | `analysis/ancestry.ts`                                | ✅     | `f0196ba`                    | 6 tests; root suite 242 green. Branch `feat/insights-v2` off `main`                                                                     |
-| 2.2                    | `analysis/classify.ts`                                | ✅     | `f0a253f`                    | 10 tests; root suite 252 green. Review batch A = 2.1+2.2+2.3                                                                            |
-| 2.3                    | `analysis/confidence.ts`                              | ✅     | `2aabefe`                    | 6 tests; root suite 258 green. **D-12 evidence captured** (see Results below)                                                           |
-| 2.4                    | `analysis/marriages.ts`                               | ✅     | `336b9ae`                    | 7 tests; suite 265 green. **Golden 31=31** vs verify.ts. D-11 comment added. Review batch B = 2.4+2.5                                   |
-| 2.5                    | `analysis/chains.ts`                                  | ✅     | `2c1d8b9`                    | 5 tests; suite 270 green. Review batch B = 2.4+2.5                                                                                      |
-| 2.6                    | `analysis/index.ts` `analyzeTree` + `useTreeAnalysis` | ✅     | `dfb5df9`                    | root 272 + web build/test green. **D-6: 4.71ms median → SYNC useMemo, no worker.**                                                      |
-| 2.7                    | `PersonInspector` relationship-intelligence section   | ✅     | `34b0ebd`                    | Batched review with 2.8. Parents-related + per-spouse classification, confidence tags, common-ancestor path, chain depth.               |
-| 2.8                    | Inline relationship badges (panel header)             | ✅     | `34b0ebd`                    | Batched with 2.7. "Parents Related" + per-cousin-marriage label pills near the person heading, reusing the accent-tint pair.            |
-| 2.9                    | Editor transient ancestry-highlight overlay           | ✅     | `d261890`                    | Both-workspace gates green. **Standalone review complete: no Critical/Important findings**, 2 Minor notes recorded in Known gaps below.  |
-| 3.1                    | `analysis/pedigree.ts` pedigree-collapse scoring      | ✅     | `2f33c7e`                    | Both-workspace gates green. **Standalone review complete: no Critical/Important findings**, 2 Minor notes in Known gaps below.           |
-| 3.2                    | `analysis/branches.ts` branch overlap                 | 🔴     | `6d22aa0`                    | Implementation exists but is **NOT DONE**: blocked on Critical review finding in `ownedChildrenOf` (female-mediated ownership chain can be severed). |
-| 3.3                    | `analysis/influence.ts` most-influential ancestor     | 🔴     | `34dd3fd`                    | Implementation exists but is **NOT DONE**: blocked on Critical review finding in `mostInfluentialAncestor` tie-break (UUID comparison instead of husbandId-preference convention). |
-| 3.4                    | "Family health" blocks in `InsightsPanel`             | ✅     | `b610c40`                    | Built and pushed, but depends on blocked CP3.2/CP3.3 analysis outputs; must be re-verified after those Critical fixes land.               |
-| 3.5                    | Headline chips in `InsightsStrip`                     | ✅     | `b610c40`                    | Built and pushed, but depends on blocked CP3.2/CP3.3 analysis outputs; must be re-verified after those Critical fixes land.               |
-| 4.x, 5.x               | Phases 4–5                                            | ⬜     | —                            | Not started.                                                                                                                               |
+| CP       | Deliverable                                           | Status | Landing SHA / PR             | Notes                                                                                                                                                                              |
+| -------- | ----------------------------------------------------- | ------ | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1.1**  | Audit `insights.ts` vs spec §3A; coverage note        | ✅     | (doc-only; no source change) | See "CP1.1 coverage note" below — **full coverage, nothing to build**                                                                                                              |
+| 2.1      | `analysis/ancestry.ts`                                | ✅     | `f0196ba`                    | 6 tests; root suite 242 green. Branch `feat/insights-v2` off `main`                                                                                                                |
+| 2.2      | `analysis/classify.ts`                                | ✅     | `f0a253f`                    | 10 tests; root suite 252 green. Review batch A = 2.1+2.2+2.3                                                                                                                       |
+| 2.3      | `analysis/confidence.ts`                              | ✅     | `2aabefe`                    | 6 tests; root suite 258 green. **D-12 evidence captured** (see Results below)                                                                                                      |
+| 2.4      | `analysis/marriages.ts`                               | ✅     | `336b9ae`                    | 7 tests; suite 265 green. **Golden 31=31** vs verify.ts. D-11 comment added. Review batch B = 2.4+2.5                                                                              |
+| 2.5      | `analysis/chains.ts`                                  | ✅     | `2c1d8b9`                    | 5 tests; suite 270 green. Review batch B = 2.4+2.5                                                                                                                                 |
+| 2.6      | `analysis/index.ts` `analyzeTree` + `useTreeAnalysis` | ✅     | `dfb5df9`                    | root 272 + web build/test green. **D-6: 4.71ms median → SYNC useMemo, no worker.**                                                                                                 |
+| 2.7      | `PersonInspector` relationship-intelligence section   | ✅     | `34b0ebd`                    | Batched review with 2.8. Parents-related + per-spouse classification, confidence tags, common-ancestor path, chain depth.                                                          |
+| 2.8      | Inline relationship badges (panel header)             | ✅     | `34b0ebd`                    | Batched with 2.7. "Parents Related" + per-cousin-marriage label pills near the person heading, reusing the accent-tint pair.                                                       |
+| 2.9      | Editor transient ancestry-highlight overlay           | ✅     | `d261890`                    | Both-workspace gates green. **Standalone review complete: no Critical/Important findings**, 2 Minor notes recorded in Known gaps below.                                            |
+| 3.1      | `analysis/pedigree.ts` pedigree-collapse scoring      | ✅     | `2f33c7e`                    | Both-workspace gates green. **Standalone review complete: no Critical/Important findings**, 2 Minor notes in Known gaps below.                                                     |
+| 3.2      | `analysis/branches.ts` branch overlap                 | ✅     | `6d22aa0` + fix `0cd7307`    | Critical review finding **fixed** in `0cd7307`: `ownedChildrenOf` now continues through a spouse's family past the root edge when the spouse has recorded parents (daughter/wife-mediated descent no longer severed). Fixture added; both-workspace gates green. |
+| 3.3      | `analysis/influence.ts` most-influential ancestor     | ✅     | `34dd3fd` + fix `0cd7307`    | Critical review finding **fixed** in `0cd7307`: `mostInfluentialAncestor` tie-break now uses the `husbandId`-preference convention (`beatsInfluentialTie`), not UUID order. Fixture added; both-workspace gates green.                                            |
+| 3.4      | "Family health" blocks in `InsightsPanel`             | ✅     | `b610c40`                    | Re-verified after CP3.2/CP3.3 fix landed in `0cd7307`: web gates green (228/228).                                                                                                  |
+| 3.5      | Headline chips in `InsightsStrip`                     | ✅     | `b610c40`                    | Re-verified after CP3.2/CP3.3 fix landed in `0cd7307`: web gates green (228/228).                                                                                                  |
+| 4.x, 5.x | Phases 4–5                                            | ⬜     | —                            | Not started.                                                                                                                                                                       |
 
 **Refactor-merge gate (satisfied):** the repo-structure refactor **PR #11** (`refactor/repo-structure-src`) is **confirmed merged into `main`** (2026-08-16 13:43 UTC). `src/analysis/` is being created in its post-refactor final location on branch `feat/insights-v2` (off `main`, which also carries the PR #12 scroll fix).
 
@@ -227,6 +227,7 @@ export interface TreeAnalysis {
 }
 export function analyzeTree(tree: FamilyTree): TreeAnalysis;
 ```
+
 (Fields tagged CP3.x above were added in those checkpoints, additive to the CP2.6-locked shape.)
 
 **`src/analysis/pedigree.ts`** (CP3.1, `2f33c7e`):
@@ -241,7 +242,10 @@ export interface PedigreeAnalysis {
   byPerson: Map<UUID, number>;
   treeScore: number; // D-5: averaged over the terminal (no-recorded-children) generation
 }
-export function analyzePedigreeCollapse(tree, depth = DEPTH_CAP): PedigreeAnalysis;
+export function analyzePedigreeCollapse(
+  tree,
+  depth = DEPTH_CAP,
+): PedigreeAnalysis;
 ```
 
 **Refinement vs plan:** both `distinctAncestors` and `filledSlots` are counted over ancestry that
@@ -255,24 +259,50 @@ in the tree) rather than the web layer's date-based living heuristic, to keep th
 framework-free. Wired into `analyzeTree`: `TreeAnalysis.pedigree: PedigreeAnalysis` and
 `TreeAnalysisSummary.pedigreeCollapsePercent: number`.
 
-**`src/analysis/branches.ts`** (CP3.2, `6d22aa0`):
+**`src/analysis/branches.ts`** (CP3.2, `6d22aa0`; Critical fix `0cd7307`):
 
-**Status:** implemented but **blocked/not-done** pending Critical fix. `ownedChildrenOf` currently
-credits each family to `husbandId ?? wifeId`; this can sever an ownership chain when the connecting
-descent runs through a daughter/wife. Fix required before CP3.2 can be considered complete.
+**Status:** ✅ done. The Critical finding is fixed. `ownedChildrenOf` now takes a
+`continueThroughSpouseFamily` flag threaded through `ownedDescendantCount`'s BFS frontier
+(`pastRootEdge`): at the root edge it still credits each family to a single owner
+(`husbandId ?? wifeId`), but once inside the root's lineage it also walks through a person's own
+spouse family when that spouse has recorded parents (a bridge between two recorded lineages) — so a
+daughter/wife-mediated descent chain is no longer severed. When the spouse has no recorded parents
+the spouse is itself the competing top-level owner, so the walk does not let in-laws claim it.
+Fixture: `tests/analysis-branches.test.ts` "keeps anchor ownership across a daughter/wife-mediated
+descent chain".
 
 ```ts
-export interface DescendantClosure { members: Set<UUID>; depth: number; maxBreadth: number }
+export interface DescendantClosure {
+  members: Set<UUID>;
+  depth: number;
+  maxBreadth: number;
+}
 export function descendantsOf(tree, rootId): DescendantClosure; // bidirectional childrenOf, per-call cycle-safe dedup
 export interface Branch {
-  rootPersonId: UUID; memberIds: Set<UUID>; descendantCount: number;
-  livingDescendantCount: number; depth: number; maxBreadth: number; bridgeCount: number;
+  rootPersonId: UUID;
+  memberIds: Set<UUID>;
+  descendantCount: number;
+  livingDescendantCount: number;
+  depth: number;
+  maxBreadth: number;
+  bridgeCount: number;
 }
-export interface BranchOverlap { branchA: UUID; branchB: UUID; sharedDescendantIds: UUID[] }
-export interface MarriageBridge { familyId: UUID; branchA: UUID; branchB: UUID }
+export interface BranchOverlap {
+  branchA: UUID;
+  branchB: UUID;
+  sharedDescendantIds: UUID[];
+}
+export interface MarriageBridge {
+  familyId: UUID;
+  branchA: UUID;
+  branchB: UUID;
+}
 export interface BranchAnalysis {
-  primaryRootId: UUID | undefined; branches: Branch[]; overlaps: BranchOverlap[];
-  overlapPercent: number; marriageBridges: MarriageBridge[];
+  primaryRootId: UUID | undefined;
+  branches: Branch[];
+  overlaps: BranchOverlap[];
+  overlapPercent: number;
+  marriageBridges: MarriageBridge[];
 }
 export function analyzeBranches(tree): BranchAnalysis;
 ```
@@ -292,16 +322,25 @@ was generalized: `analyzeBranches` always processes every connected component (e
 local anchor + branches), and only the component with the most PEOPLE (not most descendants) sets
 the tree-level `primaryRootId` — smaller components are never discarded.
 
-**`src/analysis/influence.ts`** (CP3.3, `34dd3fd`):
+**`src/analysis/influence.ts`** (CP3.3, `34dd3fd`; Critical fix `0cd7307`):
 
-**Status:** implemented but **blocked/not-done** pending Critical fix. `mostInfluentialAncestor`
-currently breaks descendant-count ties by UUID/string comparison; it must use the project's
-husbandId-preference convention for deterministic family-line tie-breaking. Fix required before
-CP3.3 can be considered complete.
+**Status:** ✅ done. The Critical finding is fixed. `mostInfluentialAncestor` no longer breaks
+descendant-count ties by UUID/string comparison. A new module-private `beatsInfluentialTie` prefers
+the family owner (`husbandId ?? wifeId`) when the two tied people are spouses/co-parents in the same
+family — the same stability convention used for branch ownership, not a claim that one lineage
+matters more. Fixture: `tests/analysis-influence.test.ts` "breaks a repeated spouse
+descendant-count tie by the husbandId ownership convention, not UUID order" (deliberately gives the
+wife the lexicographically lower UUID so the old code would pick her).
 
 ```ts
-export interface InfluentialAncestor { personId: UUID; descendantCount: number }
-export interface MostConnectedPerson { personId: UUID; connectionCount: number }
+export interface InfluentialAncestor {
+  personId: UUID;
+  descendantCount: number;
+}
+export interface MostConnectedPerson {
+  personId: UUID;
+  connectionCount: number;
+}
 export interface InfluenceAnalysis {
   mostInfluentialAncestor: InfluentialAncestor | undefined;
   mostConnectedPerson: MostConnectedPerson | undefined;
@@ -382,10 +421,10 @@ interface PersonInspectorProps {
 - **CP3.1 standalone review, Minor (not fixed — pre-existing, not introduced by this commit):**
   1. `filledAncestorSlots` (and the inline walk it was extracted from in `ancestryCompleteness`) has no cycle-visited-set, only a same-generation self-parent guard. For genuinely cyclic malformed data (A's father is B, B's father is A), it keeps counting a new "slot" every generation up to `DEPTH_CAP` while `computeAncestorMap` dedupes and stops quickly — so `pedigreeCollapseScore`, a new user-facing metric, could report an artificially near-1.0 "collapse" for corrupt data rather than real intermarriage. Doesn't break the `distinct ≤ filled` invariant (only inflates `filled`). Worth a follow-up ticket if malformed cyclic data turns out to reach this path in practice; not blocking.
   2. `pedigreeCollapseScore` has no explicit `depth <= 0` guard (unlike `ancestryCompleteness`), but doesn't need one — confirmed the `filled === 0` early-return already covers it correctly.
-- **CP3.2/CP3.3 Critical review findings (blocking — must fix before Phase 4 or review of CP3.4/CP3.5):**
-  1. `src/analysis/influence.ts` chooses `mostInfluentialAncestor` ties by `personId < previousId`, which defaults to UUID/string ordering instead of the project convention that prefers the `husbandId` side of a family. This makes the headline dependent on arbitrary generated IDs.
-  2. `src/analysis/branches.ts`'s `ownedChildrenOf` credits a family's children only to `family.husbandId ?? family.wifeId`; when the ownership path runs through a daughter/wife, her descendants are lost for anchor-selection ownership counting.
-- **CP3.4/CP3.5 dependency caveat:** UI work landed in `b610c40` and is pushed, but it consumes `analysis.influence` and `analysis.branches`; re-run targeted UI/root verification after the CP3.2/CP3.3 Critical fixes land.
+- **CP3.2/CP3.3 Critical review findings — RESOLVED (`0cd7307`):**
+  1. `src/analysis/influence.ts` — FIXED. `mostInfluentialAncestor` ties now resolve via `beatsInfluentialTie` (`husbandId ?? wifeId` owner preference), not `personId < previousId` UUID ordering. The headline no longer depends on arbitrary generated IDs. Regression fixture added.
+  2. `src/analysis/branches.ts` — FIXED. `ownedChildrenOf` now continues through a spouse's family past the root edge when that spouse has recorded parents, so a daughter/wife-mediated ownership chain is no longer severed for anchor selection. Regression fixture added.
+- **CP3.4/CP3.5 dependency caveat — CLEARED:** UI work (`b610c40`) consumes `analysis.influence` and `analysis.branches`; re-verified after the CP3.2/CP3.3 fix in `0cd7307` — web gates green (228/228).
 
 ---
 
