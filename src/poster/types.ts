@@ -56,6 +56,7 @@ export interface PosterChip {
 export interface MarriageConnector {
   kind: "marriage";
   personIds: [UUID, UUID];
+  familyId: UUID;
 }
 
 /** One shared branch per sibling group: a stub down from the parent(s)' midpoint to a
@@ -161,11 +162,18 @@ export const PDF_MAX_DIMENSION_PT = 14400;
  * existing `poster-render`/`poster-layout` test suites plus the real 473-person sample.
  */
 export interface PosterFamilyAnalytics {
-  /** Cousin-marriage classification token (e.g. "first-cousins") for chip/connector styling. */
+  /** Cousin-marriage classification token (e.g. "first-cousins") for chip/connector styling.
+   * The exact value `BRANCH_MERGE_CLASS_NAME` additionally triggers the branch-merge glyph. */
   className?: string;
   /** Stroke/fill override for this family's marriage connector or chip. */
   color?: string;
 }
+
+/** The `PosterFamilyAnalytics.className` token that flags a cousin marriage as reuniting two
+ * branches of the same family, drawing the branch-merge glyph in `renderPosterSvg`. A shared
+ * constant (not a repeated string literal) so analytics producer and renderer can't drift apart
+ * via a typo/casing mismatch. */
+export const BRANCH_MERGE_CLASS_NAME = "branch-merge";
 
 export interface PosterNodeAnalytics {
   /** Badge glyphs rendered via the `renderCardExtras` extension point. */

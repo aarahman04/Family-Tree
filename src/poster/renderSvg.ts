@@ -11,6 +11,7 @@
 
 import type { UUID } from "../models/types.js";
 import { photoAreaHeight, CARD_DIVIDER_GAP, PHOTO_TOP_PAD } from "./boxSizing.js";
+import { BRANCH_MERGE_CLASS_NAME } from "./types.js";
 import type {
   PosterAnalytics,
   PosterChip,
@@ -315,7 +316,7 @@ function renderPhotoCard(node: PosterNode, offsetX: number, offsetY: number, sty
   return parts.join("");
 }
 
-function renderChip(chip: PosterChip, offsetX: number, offsetY: number, style: PosterStyleOptions): string {
+function renderChip(chip: PosterChip, offsetX: number, offsetY: number, style: PosterStyleOptions, borderColor: string): string {
   const cx = offsetX + chip.x;
   const cy = offsetY + chip.y;
   const x = cx - chip.width / 2;
@@ -325,7 +326,7 @@ function renderChip(chip: PosterChip, offsetX: number, offsetY: number, style: P
 
   const parts: string[] = [];
   parts.push(
-    `<rect x="${num(x)}" y="${num(y)}" width="${num(chip.width)}" height="${num(chip.height)}" rx="4" fill="${style.chipFillColor}" stroke="${style.chipBorderColor}" stroke-width="${num(style.lineThickness)}" stroke-dasharray="4,3"/>`
+    `<rect x="${num(x)}" y="${num(y)}" width="${num(chip.width)}" height="${num(chip.height)}" rx="4" fill="${style.chipFillColor}" stroke="${escapeXml(borderColor)}" stroke-width="${num(style.lineThickness)}" stroke-dasharray="4,3"/>`
   );
   let lineY = cy - (chip.lines.length * lineHeight) / 2 + lineHeight / 2;
   for (const line of chip.lines) {
@@ -335,14 +336,22 @@ function renderChip(chip: PosterChip, offsetX: number, offsetY: number, style: P
   return parts.join("");
 }
 
+/** A small diamond glyph marking a marriage connector flagged as a "branch-merge" (a marriage
+ * that reunites two branches of the same family, e.g. a cousin marriage) -- centered on the
+ * connector's midpoint, on top of the line. */
+function branchMergeGlyph(cx: number, cy: number, color: string): string {
+  const r = 4.5;
+  return `<path data-role="branch-merge" d="M ${num(cx)} ${num(cy - r)} L ${num(cx + r)} ${num(cy)} L ${num(cx)} ${num(cy + r)} L ${num(cx - r)} ${num(cy)} Z" fill="${escapeXml(color)}"/>`;
+}
+
 export function renderPosterSvg(
   layout: PosterLayout,
   page: PosterPageSize,
   style: PosterStyleOptions,
   photos?: ReadonlyMap<UUID, string>,
-  // CP5.1: threaded through for CP5.2-5.8 to consume. Intentionally unread here -- with
-  // `analytics` absent (or present but ignored, same as today), output stays byte-identical.
-  _analytics?: PosterAnalytics,
+  // CP5.1: threaded through for CP5.2-5.8 to consume. With `analytics` absent, output stays
+  // byte-identical to before this param existed.
+  analytics?: PosterAnalytics,
 ): string {
   const offsetX = style.marginPt;
   const offsetY = style.marginPt;
@@ -396,6 +405,10 @@ export function renderPosterSvg(
       svgParts.push(
         `<line x1="${num(a.x)}" y1="${num(a.y)}" x2="${num(b.x)}" y2="${num(b.y)}" stroke="${style.lineColor}" stroke-width="${num(style.lineThickness)}"/>`
       );
+      const familyAnalytics = analytics?.byFamily?.get(connector.familyId);
+      if (familyAnalytics?.className === BRANCH_MERGE_CLASS_NAME) {
+        svgParts.push(branchMergeGlyph((a.x + b.x) / 2, (a.y + b.y) / 2, familyAnalytics.color ?? style.lineColor));
+      }
     } else {
       const parentPoints = connector.parentPersonIds.map((id) => nodeCenter.get(id)).filter((p): p is NonNullable<typeof p> => !!p);
       const childPoints = connector.childPersonIds.map((id) => nodeCenter.get(id)).filter((p): p is NonNullable<typeof p> => !!p);
@@ -427,12 +440,20 @@ export function renderPosterSvg(
     const anchor = nodeCenter.get(chip.anchorPersonId);
     const chipCx = offsetX + chip.x;
     const chipCy = offsetY + chip.y;
+    const chipFamilyAnalytics = analytics?.byFamily?.get(chip.familyId);
+    const chipColor = chipFamilyAnalytics?.color ?? style.chipBorderColor;
     if (anchor) {
       svgParts.push(
-        `<line x1="${num(anchor.x)}" y1="${num(anchor.y)}" x2="${num(chipCx)}" y2="${num(chipCy)}" stroke="${style.chipBorderColor}" stroke-width="${num(style.lineThickness)}"/>`
+        `<line x1="${num(anchor.x)}" y1="${num(anchor.y)}" x2="${num(chipCx)}" y2="${num(chipCy)}" stroke="${escapeXml(chipColor)}" stroke-width="${num(style.lineThickness)}"/>`
       );
+      // A blood-relative (e.g. cousin) marriage never produces a MarriageConnector -- both
+      // spouses have known parents, so layout.ts routes them through this chip instead (see
+      // isAdjacentHere). This is therefore the only reachable place to flag such a marriage.
+      if (chipFamilyAnalytics?.className === BRANCH_MERGE_CLASS_NAME) {
+        svgParts.push(branchMergeGlyph((anchor.x + chipCx) / 2, (anchor.y + chipCy) / 2, chipColor));
+      }
     }
-    svgParts.push(renderChip(chip, offsetX, offsetY, style));
+    svgParts.push(renderChip(chip, offsetX, offsetY, style, chipColor));
   }
 
   for (const node of layout.nodes) {

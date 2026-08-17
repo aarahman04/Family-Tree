@@ -455,7 +455,7 @@ export function computePosterLayout(
       const list = attachedSpousesOf.get(personId);
       if (list) list.push(spouseId);
       else attachedSpousesOf.set(personId, [spouseId]);
-      connectors.push({ kind: "marriage", personIds: [personId, spouseId] });
+      connectors.push({ kind: "marriage", personIds: [personId, spouseId], familyId: family.id });
       return [personId, spouseId];
     }
     const chip = anchorChipByFamily.get(family.id);

@@ -167,4 +167,111 @@ describe("renderPosterSvg", () => {
     const svg = renderPosterSvg(layout, bigPage, DEFAULT_POSTER_STYLE);
     expect(svg).toContain(`width="${bigPage.widthPt}"`);
   });
+
+  it("colors a cousin-marriage chip's border and anchor connector with the per-family analytics color (CP5.2)", () => {
+    const tree = buildTree(
+      [
+        person("ancestorM", { gender: "male" }),
+        person("ancestorF", { gender: "female" }),
+        person("branchA", { famcId: "fRoot" }),
+        person("branchB", { famcId: "fRoot" }),
+        person("cousinA", { famcId: "fA" }),
+        person("cousinB", { famcId: "fB", name: "Cousin Bee" }),
+      ],
+      [
+        family("fRoot", "ancestorM", "ancestorF", ["branchA", "branchB"]),
+        family("fA", "branchA", undefined, ["cousinA"]),
+        family("fB", "branchB", undefined, ["cousinB"]),
+        family("fMarriage", "cousinA", "cousinB", []),
+      ]
+    );
+    const layout = computePosterLayout(tree);
+    const page = computePosterPageSize(layout, DEFAULT_POSTER_STYLE);
+    const analytics = { byFamily: new Map([["fMarriage", { color: "#e60000" }]]) };
+
+    const plain = renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE);
+    const colored = renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE, undefined, analytics);
+
+    // Default (no analytics): the standard chip border color, never the override.
+    expect(plain).not.toContain(`stroke="#e60000"`);
+    // With analytics: the chip's own rect AND its anchor connector line both pick up the color.
+    const chipRectCount = (colored.match(/stroke="#e60000"/g) ?? []).length;
+    expect(chipRectCount).toBe(4); // 2 chips x (1 rect + 1 anchor line) each
+    expect(colored).toContain("stroke-dasharray"); // dashed-chip styling is untouched
+  });
+
+  it("leaves an unrelated family's chip at the default color when analytics only targets a different family (CP5.2)", () => {
+    const tree = buildTree(
+      [
+        person("ancestorM", { gender: "male" }),
+        person("ancestorF", { gender: "female" }),
+        person("branchA", { famcId: "fRoot" }),
+        person("branchB", { famcId: "fRoot" }),
+        person("cousinA", { famcId: "fA" }),
+        person("cousinB", { famcId: "fB" }),
+      ],
+      [
+        family("fRoot", "ancestorM", "ancestorF", ["branchA", "branchB"]),
+        family("fA", "branchA", undefined, ["cousinA"]),
+        family("fB", "branchB", undefined, ["cousinB"]),
+        family("fMarriage", "cousinA", "cousinB", []),
+      ]
+    );
+    const layout = computePosterLayout(tree);
+    const page = computePosterPageSize(layout, DEFAULT_POSTER_STYLE);
+    const analytics = { byFamily: new Map([["some-other-family", { color: "#e60000" }]]) };
+    const svg = renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE, undefined, analytics);
+    expect(svg).not.toContain(`stroke="#e60000"`);
+    expect(svg).toContain(`stroke="${DEFAULT_POSTER_STYLE.chipBorderColor}"`);
+  });
+
+  it("draws a branch-merge glyph on a marriage connector flagged by analytics, not on a plain marriage (CP5.3)", () => {
+    const tree = buildTree(
+      [person("p1", { gender: "male" }), person("p2", { gender: "female" }), person("p3", { gender: "male" }), person("p4", { gender: "female" })],
+      [family("fBridge", "p1", "p2", []), family("fPlain", "p3", "p4", [])]
+    );
+    const layout = computePosterLayout(tree);
+    const page = computePosterPageSize(layout, DEFAULT_POSTER_STYLE);
+    const analytics = { byFamily: new Map([["fBridge", { className: "branch-merge" }]]) };
+
+    const plain = renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE);
+    const flagged = renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE, undefined, analytics);
+
+    expect(plain).not.toContain('data-role="branch-merge"');
+    const glyphCount = (flagged.match(/data-role="branch-merge"/g) ?? []).length;
+    expect(glyphCount).toBe(1); // only fBridge is flagged, not fPlain
+  });
+
+  it("draws the branch-merge glyph via the chip's anchor connector for a REAL cousin marriage, since blood-relative marriages never produce a marriage connector (CP5.3)", () => {
+    // Same fixture shape as the CP5.2 chip-coloring test: both spouses have known blood
+    // parents, so layout.ts routes this family through PosterChip, never MarriageConnector.
+    const tree = buildTree(
+      [
+        person("ancestorM", { gender: "male" }),
+        person("ancestorF", { gender: "female" }),
+        person("branchA", { famcId: "fRoot" }),
+        person("branchB", { famcId: "fRoot" }),
+        person("cousinA", { famcId: "fA" }),
+        person("cousinB", { famcId: "fB", name: "Cousin Bee" }),
+      ],
+      [
+        family("fRoot", "ancestorM", "ancestorF", ["branchA", "branchB"]),
+        family("fA", "branchA", undefined, ["cousinA"]),
+        family("fB", "branchB", undefined, ["cousinB"]),
+        family("fMarriage", "cousinA", "cousinB", []),
+      ]
+    );
+    const layout = computePosterLayout(tree);
+    const page = computePosterPageSize(layout, DEFAULT_POSTER_STYLE);
+    const analytics = { byFamily: new Map([["fMarriage", { className: "branch-merge" }]]) };
+
+    const plain = renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE);
+    const flagged = renderPosterSvg(layout, page, DEFAULT_POSTER_STYLE, undefined, analytics);
+
+    expect(plain).not.toContain('data-role="branch-merge"');
+    // No "marriage" connector exists at all for this family (both spouses are blood-placed) --
+    // the glyph must come from the chip path. One glyph per chip (2 chips, per the CP5.2 test).
+    const glyphCount = (flagged.match(/data-role="branch-merge"/g) ?? []).length;
+    expect(glyphCount).toBe(2);
+  });
 });
