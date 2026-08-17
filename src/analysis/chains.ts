@@ -35,6 +35,12 @@ export interface CousinChains {
    * UI has to answer "who", so the winning path is kept rather than discarded (CP6.3).
    */
   longestChains: CousinChain[];
+  /**
+   * Chain depth ending at each cousin-marriage family, so a list of marriages can be grouped or
+   * sorted by how deep a run each one caps. Already computed by the DP -- exposing it costs
+   * nothing and saves the UI recomputing it.
+   */
+  depthByFamily: Map<UUID, number>;
 }
 
 /**
@@ -130,8 +136,11 @@ export function analyzeCousinChains(
   }
 
   let maxChainDepth = 0;
+  const depthByFamily = new Map<UUID, number>();
   for (const familyId of Object.keys(tree.families)) {
-    maxChainDepth = Math.max(maxChainDepth, chainUp(familyId));
+    const depth = chainUp(familyId);
+    if (depth > 0) depthByFamily.set(familyId, depth);
+    maxChainDepth = Math.max(maxChainDepth, depth);
   }
 
   // Only families whose own depth EQUALS the maximum are chain heads. A family part-way up a
@@ -151,7 +160,7 @@ export function analyzeCousinChains(
     }
   }
 
-  return { byPerson, maxChainDepth, longestChains };
+  return { byPerson, maxChainDepth, longestChains, depthByFamily };
 }
 
 /** Convenience single-person lookup (rebuilds memo tables; use analyzeCousinChains for a full pass). */
