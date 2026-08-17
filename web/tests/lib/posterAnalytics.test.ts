@@ -136,4 +136,56 @@ describe("buildPosterAnalytics", () => {
     });
     expect(on.showGenerationBands).toBe(true);
   });
+
+  it("withholds the family-level cousin overlay too, not just the badge, for a living couple (CP5.8 review)", () => {
+    // The badge gate alone was not enough: the branch-merge glyph and the cousin-degree accent
+    // announce the SAME sensitive fact about the same couple, and the export UI copy promises
+    // they are withheld. cousinA/cousinB are presumed living.
+    const analysis = analyzeTree(cousinTree);
+    const a = buildPosterAnalytics(cousinTree, analysis, EXPORT_OPTS);
+    expect(a.byFamily?.get("f4")).toBeUndefined();
+    // The editor (private) still shows it.
+    expect(
+      buildPosterAnalytics(cousinTree, analysis, EDITOR_OPTS).byFamily?.get("f4")?.color
+    ).toBeTruthy();
+  });
+
+  it("keeps the family overlay for a DECEASED couple at the export boundary (CP5.8 review)", () => {
+    const deceased: FamilyTree = {
+      ...cousinTree,
+      persons: {
+        ...cousinTree.persons,
+        cousinA: { ...cousinTree.persons["cousinA"]!, death: { id: "dA", type: "death" } },
+        cousinB: { ...cousinTree.persons["cousinB"]!, death: { id: "dB", type: "death" } },
+      },
+    };
+    expect(
+      buildPosterAnalytics(deceased, analyzeTree(deceased), EXPORT_OPTS).byFamily?.get("f4")?.color
+    ).toBeTruthy();
+  });
+
+  it("badges a person in two cousin marriages once, not once per marriage (CP5.8 review)", () => {
+    // A widower remarrying another cousin is realistic in the consanguineous trees this targets;
+    // two identical glyphs side by side read as a different, stronger signal than intended.
+    const twice: FamilyTree = {
+      ...cousinTree,
+      persons: {
+        ...cousinTree.persons,
+        cousinA: { ...cousinTree.persons["cousinA"]!, famsIds: ["f4", "f5"] },
+        cousinC: P("cousinC", { name: "CousinC", gender: "female", famcId: "f3", famsIds: ["f5"] }),
+      },
+      families: {
+        ...cousinTree.families,
+        f3: { ...cousinTree.families["f3"]!, childrenIds: ["cousinB", "cousinC"] },
+        f5: { id: "f5", husbandId: "cousinA", wifeId: "cousinC", childrenIds: [] },
+      },
+    };
+    const analysis = analyzeTree(twice);
+    expect(analysis.cousinMarriages.filter((m) => m.husbandId === "cousinA")).toHaveLength(2);
+
+    const badges = buildPosterAnalytics(twice, analysis, EDITOR_OPTS).byNode?.get(
+      "cousinA"
+    )?.badges;
+    expect(badges?.filter((b) => b === BADGE_COUSIN_MARRIAGE)).toHaveLength(1);
+  });
 });

@@ -98,14 +98,65 @@ function relationSummary(rel: CoupleRelation): string {
   return rel.relation.label;
 }
 
-/** Compact "Person → … → Common ancestor → … → Person" explanation path (spec §6). */
-function commonAncestorPath(tree: FamilyTree, aId: UUID, bId: UUID, ancestorId: UUID): string {
+/**
+ * Mini lineage-path viewer (CP5.9). Replaces the single flat
+ * "Person → … → Common ancestor → … → Person" string, which merged both sides into one line and
+ * left the reader unable to tell where one descent ended and the other began. Instead it shows the
+ * shared ancestor once, then ONE LEG PER SIDE running from that ancestor down to each person — so
+ * the convergence that makes the couple related is the shape of the thing, not something to parse
+ * out of an arrow run. Legs wrap on narrow screens rather than scrolling the panel sideways.
+ */
+function LineagePath({
+  tree,
+  aId,
+  bId,
+  ancestorId,
+}: {
+  tree: FamilyTree;
+  aId: UUID;
+  bId: UUID;
+  ancestorId: UUID;
+}) {
   const name = (id: UUID) => tree.persons[id]?.name.trim() || "(no name)";
-  const pathA = ancestorPaths(tree, aId, ancestorId, DEPTH_CAP, 1)[0];
-  const pathB = ancestorPaths(tree, bId, ancestorId, DEPTH_CAP, 1)[0];
-  if (!pathA || !pathB) return "";
-  const sideB = pathB.slice(0, -1).reverse();
-  return [...pathA, ...sideB].map(name).join(" → ");
+  // ancestorPaths runs person -> ancestor; reversed, each leg reads as a descent from the shared
+  // ancestor, which is the direction the convergence is easiest to follow in.
+  const legs = [aId, bId]
+    .map((id) => ancestorPaths(tree, id, ancestorId, DEPTH_CAP, 1)[0])
+    .filter((path): path is UUID[] => path !== undefined)
+    .map((path) => [...path].reverse());
+  if (legs.length < 2) return null;
+
+  return (
+    <div
+      role="group"
+      aria-label={`Lineage path through ${name(ancestorId)}`}
+      className="flex flex-col gap-0.5 text-xs text-slate-500 dark:text-slate-400"
+    >
+      <span>
+        Common ancestor:{" "}
+        <span className="font-medium text-slate-700 dark:text-slate-300">{name(ancestorId)}</span>
+      </span>
+      <ul className="flex list-none flex-col gap-0.5 pl-2">
+        {legs.map((leg, i) => (
+          <li key={i} className="flex flex-wrap items-baseline gap-x-1 break-words">
+            <span aria-hidden="true">↳</span>
+            {leg.map((id, step) => (
+              <span key={id}>
+                {step > 0 && <span aria-hidden="true"> → </span>}
+                <span
+                  className={
+                    step === 0 ? "font-medium text-slate-700 dark:text-slate-300" : undefined
+                  }
+                >
+                  {name(id)}
+                </span>
+              </span>
+            ))}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 interface Draft {
@@ -823,10 +874,14 @@ export function PersonInspector({
         )}
 
         {analysis && (parentRel || marriages.length > 0) && (
-          <section className="flex flex-col gap-3 border-t border-slate-200 pt-3 dark:border-slate-800">
-            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+          <details
+            open
+            data-section="relationship-intelligence"
+            className="flex flex-col gap-3 border-t border-slate-200 pt-3 dark:border-slate-800"
+          >
+            <summary className="flex cursor-pointer select-none items-center text-sm font-semibold text-slate-800 [@media(pointer:coarse)]:min-h-11 dark:text-slate-100">
               Relationship intelligence
-            </h3>
+            </summary>
 
             {parentRel && (
               <div className="flex flex-col gap-1 text-sm">
@@ -837,18 +892,12 @@ export function PersonInspector({
                   <ConfidenceTag level={parentRel.confidence.level} />
                 </div>
                 {parentRel.relation.closest && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Common ancestor:{" "}
-                    {tree.persons[parentRel.relation.closest.ancestorId]?.name.trim() ||
-                      "(no name)"}
-                    {" — "}
-                    {commonAncestorPath(
-                      tree,
-                      parentRel.fatherId,
-                      parentRel.motherId,
-                      parentRel.relation.closest.ancestorId
-                    )}
-                  </p>
+                  <LineagePath
+                    tree={tree}
+                    aId={parentRel.fatherId}
+                    bId={parentRel.motherId}
+                    ancestorId={parentRel.relation.closest.ancestorId}
+                  />
                 )}
                 <ConfidenceReasons reasons={parentRel.confidence.reasons} />
               </div>
@@ -865,12 +914,12 @@ export function PersonInspector({
                     <ConfidenceTag level={m.confidence.level} />
                   </div>
                   {m.relation.closest && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Common ancestor:{" "}
-                      {tree.persons[m.relation.closest.ancestorId]?.name.trim() || "(no name)"}
-                      {" — "}
-                      {commonAncestorPath(tree, personId, spouseId, m.relation.closest.ancestorId)}
-                    </p>
+                    <LineagePath
+                      tree={tree}
+                      aId={personId}
+                      bId={spouseId}
+                      ancestorId={m.relation.closest.ancestorId}
+                    />
                   )}
                   <ConfidenceReasons reasons={m.confidence.reasons} />
                 </div>
@@ -887,7 +936,7 @@ export function PersonInspector({
                 {chain.continuesInDescendants && "continues in descendants"}
               </p>
             )}
-          </section>
+          </details>
         )}
       </fieldset>
     </aside>

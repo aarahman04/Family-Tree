@@ -413,4 +413,48 @@ describe("PersonInspector", () => {
     );
     expect(screen.getByText(/validation warnings for this person/i)).toBeInTheDocument();
   });
+
+  it("draws the lineage path as two labelled legs converging on the common ancestor, not one flat string (CP5.9)", () => {
+    const t = cousinTree();
+    render(
+      <PersonInspector
+        tree={t}
+        personId={idOf(t, "CousinA")}
+        searchIndex={buildSearchIndex(t)}
+        analysis={analyzeTree(t)}
+        onNavigate={vi.fn()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    const viewer = screen.getByRole("group", { name: /lineage path/i });
+    const legs = within(viewer).getAllByRole("listitem");
+    expect(legs).toHaveLength(2); // one descent leg per spouse, not a single merged arrow string
+
+    // Each leg runs from the SHARED ancestor down to its own end of the couple, so the reader can
+    // tell the two sides apart — the flat "A -> ... -> B" string could not express that.
+    expect(legs[0]).toHaveTextContent(/CousinA/);
+    expect(legs[1]).toHaveTextContent(/CousinB/);
+    for (const leg of legs) expect(leg).toHaveTextContent(/Grandpa|Grandma/);
+  });
+
+  it("keeps relationship intelligence collapsible with a touch-sized summary (CP5.9)", () => {
+    const t = cousinTree();
+    const { container } = render(
+      <PersonInspector
+        tree={t}
+        personId={idOf(t, "CousinA")}
+        searchIndex={buildSearchIndex(t)}
+        analysis={analyzeTree(t)}
+        onNavigate={vi.fn()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    const details = container.querySelector("details[data-section='relationship-intelligence']");
+    expect(details).toBeTruthy();
+    expect(details).toHaveAttribute("open"); // open by default — collapsing is opt-in
+    const summary = details!.querySelector("summary")!;
+    expect(summary.className).toMatch(/\[@media\(pointer:coarse\)\]:min-h-11/);
+  });
 });
