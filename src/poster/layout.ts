@@ -44,6 +44,7 @@
  */
 
 import type { FamilyTree, Family, Person, UUID } from "../models/types.js";
+import { isPresumedLiving } from "../models/living.js";
 import { computeChipBox, computePersonBox, type MeasuredBox } from "./boxSizing.js";
 import { heuristicTextMeasurer, type TextMeasurer } from "./textMeasure.js";
 import {
@@ -191,7 +192,12 @@ interface ChipInfo {
 export function computePosterLayout(
   tree: FamilyTree,
   style: PosterStyleOptions = DEFAULT_POSTER_STYLE,
-  measure: TextMeasurer = heuristicTextMeasurer
+  measure: TextMeasurer = heuristicTextMeasurer,
+  // The living/deceased presumption is age-based (models/living.ts), which makes the poster a
+  // function of the current year as well as the data. `now` is injectable rather than read from
+  // the clock in here so a caller -- and every golden test -- can pin it and get a reproducible
+  // layout. Only a person crossing MAX_PLAUSIBLE_AGE changes anything as it advances.
+  now: number = new Date().getFullYear()
 ): PosterLayout {
   const placements = buildPlacements(tree);
   const generationOf = makeGenerationResolver(tree, placements);
@@ -386,10 +392,12 @@ export function computePosterLayout(
       name: displayNameOf(person),
       nameLines: box.lines,
       yearLine: yearLineFor(person),
-      // Living iff there is NO death event at all. Keying on the parsed year alone (AUD-3) wrongly
-      // flagged a death recorded with only a month/day (or place) as living; presence of the death
-      // event is the deceased signal — matching how insights.ts already derives it.
-      living: person?.death === undefined,
+      // A recorded death is decisive, and its PRESENCE is the signal -- keying on the parsed year
+      // alone (AUD-3) wrongly flagged a death recorded with only a month/day (or place) as living.
+      // Failing that, the shared age cap applies (CP6.2 / D-15). This used to read
+      // `person?.death === undefined` with no cap, which contradicted the insights panel: the same
+      // person could get a green "Living" disc here and be counted deceased there.
+      living: person !== undefined && isPresumedLiving(person, now),
       noteLine: box.noteLine,
       rtl: box.rtl,
       gender: person?.gender ?? "unknown",

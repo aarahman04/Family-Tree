@@ -81,9 +81,11 @@ function mirrorBlockInPlace(b: Block) {
 export function computeBalancedPosterLayout(
   tree: FamilyTree,
   style: PosterStyleOptions = DEFAULT_POSTER_STYLE,
-  measure: TextMeasurer = heuristicTextMeasurer
+  measure: TextMeasurer = heuristicTextMeasurer,
+  /** Forwarded to `computePosterLayout` for the age-based living presumption -- see its note. */
+  now: number = new Date().getFullYear()
 ): PosterLayout {
-  const flat = computePosterLayout(tree, style, measure);
+  const flat = computePosterLayout(tree, style, measure, now);
   const nodeById = new Map(flat.nodes.map((n) => [n.personId, n]));
 
   // ---- relationships extracted from the flat layout's own output ----

@@ -1,4 +1,4 @@
-import type { FamilyTree, Person, UUID } from "../models/types.js";
+import type { FamilyTree, UUID } from "../models/types.js";
 import { isPresumedLiving } from "../models/living.js";
 import {
   childrenOf,
