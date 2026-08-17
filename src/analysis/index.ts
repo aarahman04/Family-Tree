@@ -1,10 +1,12 @@
 import type { FamilyTree, UUID } from "../models/types.js";
 import { type BranchAnalysis, analyzeBranches } from "./branches.js";
 import { type CousinChains, analyzeCousinChains } from "./chains.js";
+import { type CompletenessAnalysis, analyzeCompleteness } from "./completeness.js";
 import type { Confidence } from "./confidence.js";
 import { type InfluenceAnalysis, analyzeInfluence } from "./influence.js";
 import { type MarriageAnalysis, classifyAllMarriages } from "./marriages.js";
 import { type PedigreeAnalysis, analyzePedigreeCollapse } from "./pedigree.js";
+import { type QualityAnalysis, analyzeQuality } from "./quality.js";
 
 /**
  * Public API of the relationship-analysis engine (Insights v2). `analyzeTree` is the single
@@ -21,6 +23,8 @@ export * from "./chains.js";
 export * from "./pedigree.js";
 export * from "./branches.js";
 export * from "./influence.js";
+export * from "./quality.js";
+export * from "./completeness.js";
 
 export interface TreeAnalysisSummary {
   /** Couples with both spouses recorded. */
@@ -41,6 +45,14 @@ export interface TreeAnalysisSummary {
   /** How much branches' descendant sets overlap due to cross-branch marriages, as a
    * whole-number percent (see `BranchAnalysis.overlapPercent`). */
   branchOverlapPercent: number;
+  /** Count of `QualityAnalysis.incompleteRecords` (missing parent/spouse/date). */
+  incompleteRecordCount: number;
+  /** Count of `QualityAnalysis.duplicateSuspects`. */
+  duplicateSuspectCount: number;
+  /** Count of `QualityAnalysis.isolatedRecordIds`. */
+  isolatedRecordCount: number;
+  /** Tree-wide average ancestry completeness (CP4.2), as a whole-number percent. */
+  completenessPercent: number;
 }
 
 export interface TreeAnalysis {
@@ -56,6 +68,10 @@ export interface TreeAnalysis {
   branches: BranchAnalysis;
   /** Most-influential ancestor + most-connected person headlines. */
   influence: InfluenceAnalysis;
+  /** Data-quality soft insights (duplicates, missing fields, isolated records, loops). */
+  quality: QualityAnalysis;
+  /** Per-person + tree-wide ancestry-completeness scores. */
+  completeness: CompletenessAnalysis;
   /** Headline counts for the insights panel/strip. */
   summary: TreeAnalysisSummary;
 }
@@ -85,6 +101,8 @@ export function analyzeTree(tree: FamilyTree): TreeAnalysis {
   const pedigree = analyzePedigreeCollapse(tree);
   const branches = analyzeBranches(tree);
   const influence = analyzeInfluence(tree);
+  const quality = analyzeQuality(tree);
+  const completeness = analyzeCompleteness(tree);
   const totalMarriages = marriages.size;
   const cousinMarriageCount = cousinMarriages.length;
 
@@ -95,6 +113,8 @@ export function analyzeTree(tree: FamilyTree): TreeAnalysis {
     pedigree,
     branches,
     influence,
+    quality,
+    completeness,
     summary: {
       totalMarriages,
       cousinMarriageCount,
@@ -107,6 +127,10 @@ export function analyzeTree(tree: FamilyTree): TreeAnalysis {
       byConfidence,
       pedigreeCollapsePercent: Math.round(pedigree.treeScore * 100),
       branchOverlapPercent: branches.overlapPercent,
+      incompleteRecordCount: quality.incompleteRecords.length,
+      duplicateSuspectCount: quality.duplicateSuspects.length,
+      isolatedRecordCount: quality.isolatedRecordIds.length,
+      completenessPercent: Math.round(completeness.treeAverage * 100),
     },
   };
 }
